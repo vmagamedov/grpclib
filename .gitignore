@@ -1,0 +1,11 @@
+build
+dist
+env
+*.egg-info
+*.pyc
+*.pyo
+.venv
+.tox
+.coverage
+.idea
+.cache
