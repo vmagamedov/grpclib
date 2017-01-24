@@ -1,9 +1,7 @@
 import asyncio
-
 from concurrent.futures import ThreadPoolExecutor
 
 import grpc
-
 from asyncgrpc.handler import implements, create_handler
 
 from helloworld_pb2 import HelloReply
