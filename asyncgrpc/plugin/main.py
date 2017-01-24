@@ -8,6 +8,7 @@ from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
 from .. import handler
+from ..handler import Method
 
 
 SUFFIX = handler.__name__.split('.')[0]
@@ -41,7 +42,7 @@ def render(proto_file, package, imports, services):
     buf.add('# source: {}', proto_file)
     buf.add('# plugin: {}', __name__)
     buf.add('')
-    buf.add('from {} import {}', handler.__name__, handler.Method.__name__)
+    buf.add('from {} import {}', handler.__name__, Method.__name__)
     buf.add('')
     for mod in imports:
         buf.add('import {}', mod)
@@ -64,13 +65,7 @@ def render(proto_file, package, imports, services):
     return buf.content()
 
 
-Method = namedtuple('Method', 'name input_type output_type')
-
 Service = namedtuple('Service', 'name methods')
-
-
-def pp(*args):
-    print(*args, file=sys.stderr)
 
 
 def _get_proto(request, name):
@@ -79,10 +74,6 @@ def _get_proto(request, name):
 
 def _proto2py(proto_name):
     return proto_name.replace('/', '.')[:-len('.proto')] + '_pb2'
-
-
-def _type2py(type_name):
-    return type_name.lstrip('.')
 
 
 def main():

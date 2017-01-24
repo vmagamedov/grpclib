@@ -7,7 +7,7 @@ from concurrent.futures import Future
 import grpc
 
 
-Method = namedtuple('Method', 'name, input, output')
+Method = namedtuple('Method', 'name input_type output_type')
 
 
 def reduce_arity(values, func):
@@ -70,14 +70,14 @@ def create_handler(service, dependencies, functions, *, loop):
         func.__implements__.name: grpc.unary_unary_rpc_method_handler(
             make_sync(reduce_arity(dependencies, func), loop=loop),
             request_deserializer=(
-                func.__implements__.input.FromString
+                func.__implements__.input_type.FromString
             ),
             response_serializer=(
-                func.__implements__.output.SerializeToString
+                func.__implements__.output_type.SerializeToString
             ),
         )
         for func in functions
-        }
+    }
 
     return grpc.method_handlers_generic_handler(
         service.__service__,
