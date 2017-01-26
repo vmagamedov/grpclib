@@ -21,8 +21,8 @@ class Buffer:
         self._indent = 0
 
     def add(self, string, *args, **kwargs):
-        self._lines.append(' ' * self._indent * 4 +
-                           string.format(*args, **kwargs))
+        line = ' ' * self._indent * 4 + string.format(*args, **kwargs)
+        self._lines.append(line.rstrip(' '))
 
     @contextmanager
     def indent(self):

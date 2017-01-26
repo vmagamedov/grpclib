@@ -10,7 +10,7 @@ import helloworld_pb2
 class Greeter:
     __service__ = 'helloworld.Greeter'
     __methods__ = set()
-    
+
     SayHello = \
         Method('SayHello',
                helloworld_pb2.HelloRequest,
