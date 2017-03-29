@@ -21,12 +21,13 @@ def main():
         )
     }
 
-    close = loop.run_until_complete(create_server(mapping, loop=loop))
+    server = loop.run_until_complete(create_server(mapping, loop=loop))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
-    loop.run_until_complete(close())
+    server.close()
+    loop.run_until_complete(server.wait_closed())
     loop.close()
 
 

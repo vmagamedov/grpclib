@@ -69,6 +69,21 @@ async def connection_handler(proto, mapping, *, loop):
             task.cancel()
 
 
+class _Server(asyncio.AbstractServer):
+
+    def __init__(self, server, protocols):
+        self._server = server
+        self._protocols = protocols
+
+    def close(self):
+        self._server.close()
+
+    async def wait_closed(self):
+        for proto in self._protocols:
+            await proto.shutdown()
+        await self._server.wait_closed()
+
+
 async def create_server(mapping, host='127.0.0.1', port=50051, *, loop):
     protocols = weakref.WeakSet()
 
@@ -78,11 +93,4 @@ async def create_server(mapping, host='127.0.0.1', port=50051, *, loop):
         return proto
 
     server = await loop.create_server(protocol_factory, host, port)
-
-    async def close():
-        for proto in protocols:
-            await proto.shutdown()
-        server.close()
-        await server.wait_closed()
-
-    return close
+    return _Server(server, protocols)
