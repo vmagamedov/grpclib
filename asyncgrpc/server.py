@@ -28,7 +28,7 @@ async def unary_unary(proto, stream_id, method):
         '{} != {}'.format(len(request_bin), request_len)
     request_msg = method.request_type.FromString(request_bin)
 
-    reply_msg = await method.func(request_msg)
+    reply_msg = await method.func(request_msg, None)  # FIXME: pass context
     assert isinstance(reply_msg, method.reply_type), type(reply_msg)
 
     reply_bin = reply_msg.SerializeToString()
@@ -84,7 +84,11 @@ class _Server(asyncio.AbstractServer):
         await self._server.wait_closed()
 
 
-async def create_server(mapping, host='127.0.0.1', port=50051, *, loop):
+async def create_server(handlers, host='127.0.0.1', port=50051, *, loop):
+    mapping = {}
+    for handler in handlers:
+        mapping.update(handler.__mapping__())
+
     protocols = weakref.WeakSet()
 
     def protocol_factory():

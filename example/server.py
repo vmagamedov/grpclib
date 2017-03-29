@@ -1,27 +1,23 @@
 import asyncio
 
-from asyncgrpc.server import Method, create_server
+from asyncgrpc.server import create_server
 
 import helloworld_pb2
+import helloworld_grpc_pb2
 
 
-async def say_hello(request):
-    await asyncio.sleep(1)
-    return helloworld_pb2.HelloReply(message='Hello, {}!'.format(request.name))
+class Greeter(helloworld_grpc_pb2.Greeter):
+
+    async def SayHello(self, request, context):
+        await asyncio.sleep(1)
+        message = 'Hello, {}!'.format(request.name)
+        return helloworld_pb2.HelloReply(message=message)
 
 
 def main():
     loop = asyncio.get_event_loop()
 
-    mapping = {
-        '/helloworld.Greeter/SayHello': Method(
-            say_hello,
-            helloworld_pb2.HelloRequest,
-            helloworld_pb2.HelloReply,
-        )
-    }
-
-    server = loop.run_until_complete(create_server(mapping, loop=loop))
+    server = loop.run_until_complete(create_server([Greeter()], loop=loop))
     try:
         loop.run_forever()
     except KeyboardInterrupt:

@@ -12,7 +12,7 @@ setup(
     install_requires=['grpcio'],
     entry_points={
         'console_scripts': [
-            'protoc-gen-python_asyncgrpc=asyncgrpc.plugin.main:main',
+            'protoc-gen-python-grpc=asyncgrpc.plugin.main:main',
         ],
     }
 )
