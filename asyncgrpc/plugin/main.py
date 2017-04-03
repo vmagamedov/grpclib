@@ -113,13 +113,19 @@ def _proto2py(proto_name):
     return proto_name.replace('/', '.')[:-len('.proto')] + '_pb2'
 
 
+def _type_name(proto_file, message_type):
+    if proto_file.package:
+        return '.{}.{}'.format(proto_file.package, message_type.name)
+    else:
+        return '.{}'.format(message_type.name)
+
+
 def main():
     with os.fdopen(sys.stdin.fileno(), 'rb') as inp:
         request = CodeGeneratorRequest.FromString(inp.read())
 
     types_map = {
-        '.{}.{}'.format(pf.package, mt.name): '.'.join((_proto2py(pf.name),
-                                                        mt.name))
+        _type_name(pf, mt): '.'.join((_proto2py(pf.name), mt.name))
         for pf in request.proto_file
         for mt in pf.message_type
     }
