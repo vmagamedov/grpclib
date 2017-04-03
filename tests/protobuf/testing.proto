@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service BombedService {
+  rpc Plaster (SavoysRequest) returns (SavoysReply) {}
+}
+
+message SavoysRequest {
+  string kyler = 1;
+}
+
+message SavoysReply {
+  string benito = 1;
+}
