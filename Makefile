@@ -5,4 +5,4 @@ server:
 	@PYTHONPATH=. python example/server.py
 
 client:
-	@python example/client.py
+	@PYTHONPATH=. python example/client.py

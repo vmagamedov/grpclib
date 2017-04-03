@@ -8,6 +8,7 @@ from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
 from .. import server
+from .. import client
 
 
 SUFFIX = '_grpc_pb2.py'
@@ -42,7 +43,8 @@ def render(proto_file, package, imports, services):
     buf.add('# plugin: {}', __name__)
     buf.add('from abc import ABCMeta, abstractmethod')
     buf.add('')
-    buf.add('from {} import {}', server.__name__, server.Method.__name__)
+    buf.add('import {}', server.__name__)
+    buf.add('import {}', client.__name__)
     buf.add('')
     for mod in imports:
         buf.add('import {}', mod)
@@ -68,13 +70,34 @@ def render(proto_file, package, imports, services):
                 with buf.indent():
                     for (name, request_type, reply_type) in service.methods:
                         full_name = '/{}/{}'.format(service_name, name)
-                        buf.add("'{}': {}(", full_name, server.Method.__name__)
+                        buf.add("'{}': {}.{}(", full_name,
+                                server.__name__, server.Method.__name__)
                         with buf.indent():
                             buf.add('self.{},', name)
                             buf.add('{},', request_type)
                             buf.add('{},', reply_type)
                         buf.add('),')
                 buf.add('}}')
+
+        buf.add('')
+        buf.add('')
+        buf.add('class {}Stub:', service.name)
+        with buf.indent():
+            buf.add('')
+            buf.add('def __init__(self, channel):')
+            with buf.indent():
+                buf.add('self.channel = channel')
+            for (name, request_type, reply_type) in service.methods:
+                full_name = '/{}/{}'.format(service_name, name)
+                buf.add('')
+                buf.add('{} = {}.{}({}.{}(', name,
+                        client.__name__, client.UnaryUnaryCall.__name__,
+                        client.__name__, client.Method.__name__)
+                with buf.indent():
+                    buf.add("'{}',", full_name)
+                    buf.add('{},', request_type)
+                    buf.add('{},', reply_type)
+                buf.add('))')
     buf.add('')
     return buf.content()
 

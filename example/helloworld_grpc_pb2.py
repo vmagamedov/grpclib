@@ -3,7 +3,8 @@
 # plugin: asyncgrpc.plugin.main
 from abc import ABCMeta, abstractmethod
 
-from asyncgrpc.server import Method
+import asyncgrpc.server
+import asyncgrpc.client
 
 import helloworld_pb2
 
@@ -16,9 +17,21 @@ class Greeter(metaclass=ABCMeta):
 
     def __mapping__(self):
         return {
-            '/helloworld.Greeter/SayHello': Method(
+            '/helloworld.Greeter/SayHello': asyncgrpc.server.Method(
                 self.SayHello,
                 helloworld_pb2.HelloRequest,
                 helloworld_pb2.HelloReply,
             ),
         }
+
+
+class GreeterStub:
+
+    def __init__(self, channel):
+        self.channel = channel
+
+    SayHello = asyncgrpc.client.UnaryUnaryCall(asyncgrpc.client.Method(
+        '/helloworld.Greeter/SayHello',
+        helloworld_pb2.HelloRequest,
+        helloworld_pb2.HelloReply,
+    ))
