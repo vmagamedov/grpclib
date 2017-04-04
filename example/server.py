@@ -3,10 +3,10 @@ import asyncio
 from asyncgrpc.server import create_server
 
 import helloworld_pb2
-import helloworld_grpc_pb2
+import helloworld_pb2_grpc
 
 
-class Greeter(helloworld_grpc_pb2.Greeter):
+class Greeter(helloworld_pb2_grpc.Greeter):
 
     async def SayHello(self, request, context):
         await asyncio.sleep(1)

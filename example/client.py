@@ -4,7 +4,7 @@ import asyncio
 from asyncgrpc.client import Channel
 
 from helloworld_pb2 import HelloRequest
-from helloworld_grpc_pb2 import GreeterStub
+from helloworld_pb2_grpc import GreeterStub
 
 
 async def main(*, loop):
