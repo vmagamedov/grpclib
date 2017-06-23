@@ -1,20 +1,21 @@
-import sys
+import time
 import asyncio
 
 from asyncgrpc.client import Channel
 
-from helloworld_pb2 import HelloRequest
-from helloworld_pb2_grpc import GreeterStub
+from .helloworld_pb2 import HelloRequest
+from .helloworld_grpc import GreeterStub
 
 
 async def main(*, loop):
-    name = sys.argv[1] if len(sys.argv) > 1 else 'World'
-
     channel = Channel(loop=loop)
     stub = GreeterStub(channel)
 
-    hello_reply = await stub.SayHello(HelloRequest(name=name))
-    print(hello_reply)
+    t1 = time.time()
+    for i in range(1000):
+        await stub.SayHello(HelloRequest(name='World'))
+    t2 = time.time()
+    print('{} rps'.format(int(1000 / (t2 - t1))))
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import helloworld_pb2_grpc
 class Greeter(helloworld_pb2_grpc.Greeter):
 
     async def SayHello(self, request, context):
-        await asyncio.sleep(1)
+        # await asyncio.sleep(1)
         message = 'Hello, {}!'.format(request.name)
         return helloworld_pb2.HelloReply(message=message)
 

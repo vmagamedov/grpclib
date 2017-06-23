@@ -11,7 +11,7 @@ from .. import server
 from .. import client
 
 
-SUFFIX = '_pb2_grpc.py'
+SUFFIX = '_grpc.py'
 
 
 class Buffer:

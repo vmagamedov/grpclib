@@ -10,6 +10,8 @@ from multidict import MultiDict
 
 Method = namedtuple('Method', 'name, request_type, reply_type')
 
+_CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
+
 
 class Channel:
 
@@ -30,7 +32,7 @@ class Channel:
                         + request_bin)
 
         proto = await aioh2.open_connection(self.host, self.port,
-                                            loop=self.loop)
+                                                 loop=self.loop)
 
         stream_id = await proto.start_request([
             (':scheme', 'http'),
@@ -38,13 +40,15 @@ class Channel:
             (':method', 'POST'),
             (':path', method.name),
             ('user-agent', 'grpc-python asyncgrpc'),
+            ('content-type', 'application/grpc+proto'),
+            ('te', 'trailers'),
         ])
 
         await proto.send_data(stream_id, request_data, end_stream=True)
 
         headers = MultiDict(await proto.recv_response(stream_id))
         assert headers[':status'] == '200', headers[':status']
-        assert headers['content-type'] == 'application/grpc+proto', \
+        assert headers['content-type'] in _CONTENT_TYPES, \
             headers['content-type']
 
         reply_data = await proto.read_stream(stream_id, -1)

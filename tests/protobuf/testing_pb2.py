@@ -21,7 +21,6 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_pb=_b('\n\x16protobuf/testing.proto\"\x1e\n\rSavoysRequest\x12\r\n\x05kyler\x18\x01 \x01(\t\"\x1d\n\x0bSavoysReply\x12\x0e\n\x06\x62\x65nito\x18\x01 \x01(\t2:\n\rBombedService\x12)\n\x07Plaster\x12\x0e.SavoysRequest\x1a\x0c.SavoysReply\"\x00\x62\x06proto3')
 )
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
@@ -89,6 +88,7 @@ _SAVOYSREPLY = _descriptor.Descriptor(
 
 DESCRIPTOR.message_types_by_name['SavoysRequest'] = _SAVOYSREQUEST
 DESCRIPTOR.message_types_by_name['SavoysReply'] = _SAVOYSREPLY
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 SavoysRequest = _reflection.GeneratedProtocolMessageType('SavoysRequest', (_message.Message,), dict(
   DESCRIPTOR = _SAVOYSREQUEST,
