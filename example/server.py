@@ -1,12 +1,12 @@
 import asyncio
 
-from asyncgrpc.server import create_server
+from asyncgrpc.server import Server
 
-import helloworld_pb2
-import helloworld_pb2_grpc
+from . import helloworld_pb2
+from . import helloworld_grpc
 
 
-class Greeter(helloworld_pb2_grpc.Greeter):
+class Greeter(helloworld_grpc.Greeter):
 
     async def SayHello(self, request, context):
         # await asyncio.sleep(1)
@@ -17,7 +17,11 @@ class Greeter(helloworld_pb2_grpc.Greeter):
 def main():
     loop = asyncio.get_event_loop()
 
-    server = loop.run_until_complete(create_server([Greeter()], loop=loop))
+    server = Server([Greeter()], loop=loop)
+
+    host, port = '127.0.0.1', 50051
+    loop.run_until_complete(server.start(host, port))
+    print('Serving on {}:{}'.format(host, port))
     try:
         loop.run_forever()
     except KeyboardInterrupt:

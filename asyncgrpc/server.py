@@ -1,10 +1,10 @@
 import struct
-import asyncio
-import weakref
+from asyncio import AbstractServer
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
-from multidict import MultiDict
+from h2.config import H2Configuration
+from multidict import CIMultiDict
 
 from .protocol import H2Protocol
 
@@ -12,10 +12,10 @@ from .protocol import H2Protocol
 Method = namedtuple('Method', 'func, request_type, reply_type')
 
 
-async def unary_unary(proto, stream_id, method):
+async def unary_unary(stream, method):
     # print(request_type, reply_type)
 
-    request_data = await proto.read_stream(stream_id, -1)
+    request_data = await stream.recv_data()
     # print('request_bin', request_data)
 
     compressed_flag = struct.unpack('?', request_data[0:1])[0]
@@ -35,66 +35,93 @@ async def unary_unary(proto, stream_id, method):
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))
                   + reply_bin)
-    await proto.send_data(stream_id, reply_data)
+    await stream.send_data(reply_data)
 
 
-async def request_handler(proto, stream_id, headers, mapping):
+async def request_handler(mapping, stream, headers):
+    headers = CIMultiDict(headers)
+
     h2_method = headers[':method']
     assert h2_method == 'POST', h2_method
 
     method = mapping.get(headers[':path'])
     assert method is not None, headers[':path']
 
-    await proto.send_headers(stream_id,
-                             {':status': '200',
-                              'content-type': 'application/grpc+proto'})
+    await stream.send_headers([(':status', '200'),
+                               ('content-type', 'application/grpc+proto')])
 
-    await unary_unary(proto, stream_id, method)
+    await unary_unary(stream, method)
 
-    await proto.send_headers(stream_id,
-                             {'grpc-status': '0'},
-                             end_stream=True)
+    await stream.send_headers([('grpc-status', '0')],
+                              end_stream=True)
 
 
-async def connection_handler(proto, mapping, *, loop):
-    tasks = {}
-    try:
+class ProtocolWrapper(H2Protocol):
+
+    def __init__(self, server, config, *, loop):
+        super().__init__(config, loop=loop)
+        self.server = server
+
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        self.server.__connection_made__(self)
+
+    def connection_lost(self, exc):
+        super().connection_lost(exc)
+        self.server.__connection_lost__(self)
+
+
+class Server(AbstractServer):
+
+    def __init__(self, handlers, *, loop):
+        mapping = {}
+        for handler in handlers:
+            mapping.update(handler.__mapping__())
+
+        self._mapping = mapping
+        self._loop = loop
+        self._config = H2Configuration(client_side=False,
+                                       header_encoding='utf-8')
+
+        self._connections = {}
+        self._streams = defaultdict(dict)
+        self._tcp_server = None
+
+    async def _stream_handler(self, stream, headers):
+        await request_handler(self._mapping, stream, headers)
+
+    async def _connection_handler(self, protocol):
         while True:
-            stream_id, headers = await proto.recv_request()
-            tasks[stream_id] = loop.create_task(
-                request_handler(proto, stream_id, MultiDict(headers), mapping)
+            request = await protocol.processor.requests.get()
+            stream_handler_task = self._loop.create_task(
+                self._stream_handler(request.stream, request.headers)
             )
-    except asyncio.CancelledError:
-        for task in tasks.values():
-            task.cancel()
+            self._streams[protocol][request.stream] = stream_handler_task
 
+    def __connection_made__(self, protocol):
+        self._connections[protocol] = \
+            self._loop.create_task(self._connection_handler(protocol))
 
-class _Server(asyncio.AbstractServer):
+    def __connection_lost__(self, protocol):
+        self._connections[protocol].cancel()  # TODO: teardown
 
-    def __init__(self, server, protocols):
-        self._server = server
-        self._protocols = protocols
+    def _protocol_factory(self):
+        return ProtocolWrapper(self, self._config, loop=self._loop)
+
+    async def start(self, *args, **kwargs):
+        if self._tcp_server is not None:
+            raise RuntimeError('Server is already started')
+
+        self._tcp_server = await self._loop.create_server(
+            self._protocol_factory, *args, **kwargs
+        )
 
     def close(self):
-        self._server.close()
+        if self._tcp_server is None:
+            raise RuntimeError('Server is not started')
+        self._tcp_server.close()
 
     async def wait_closed(self):
-        for proto in self._protocols:
-            await proto.shutdown()
-        await self._server.wait_closed()
-
-
-async def create_server(handlers, host='127.0.0.1', port=50051, *, loop):
-    mapping = {}
-    for handler in handlers:
-        mapping.update(handler.__mapping__())
-
-    protocols = weakref.WeakSet()
-
-    def protocol_factory():
-        proto = H2Protocol(connection_handler, mapping, False, loop=loop)
-        protocols.add(proto)
-        return proto
-
-    server = await loop.create_server(protocol_factory, host, port)
-    return _Server(server, protocols)
+        if self._tcp_server is None:
+            raise RuntimeError('Server is not started')
+        await self._tcp_server.wait_closed()

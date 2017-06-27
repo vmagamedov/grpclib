@@ -3,9 +3,10 @@ import struct
 from functools import partial
 from collections import namedtuple
 
-import aioh2
-
+from h2.config import H2Configuration
 from multidict import MultiDict
+
+from .protocol import H2Protocol
 
 
 Method = namedtuple('Method', 'name, request_type, reply_type')
@@ -13,13 +14,48 @@ Method = namedtuple('Method', 'name, request_type, reply_type')
 _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
 
 
+class ProtocolWrapper(H2Protocol):
+
+    def __init__(self, channel, config, *, loop):
+        super().__init__(config, loop=loop)
+        self.channel = channel
+
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        self.channel.__connection_made__(self)
+
+    def connection_lost(self, exc):
+        super().connection_lost(exc)
+        self.channel.__connection_lost__(self)
+
+
 class Channel:
 
     def __init__(self, host='127.0.0.1', port=50051, *, loop):
-        self.host = host
-        self.port = port
-        self.loop = loop
-        self._authority = '{}:{}'.format(self.host, self.port)
+        self._host = host
+        self._port = port
+        self._loop = loop
+
+        self._config = H2Configuration(client_side=True,
+                                       header_encoding='utf-8')
+        self._authority = '{}:{}'.format(self._host, self._port)
+        self._protocol = None
+
+    def _protocol_factory(self):
+        return ProtocolWrapper(self, self._config, loop=self._loop)
+
+    async def _ensure_connected(self):
+        if self._protocol is None:
+            _, self._protocol = await self._loop.create_connection(
+                self._protocol_factory, self._host, self._port
+            )
+        return self._protocol
+
+    def __connection_made__(self, transport):
+        pass
+
+    def __connection_lost__(self, exc):
+        self._protocol = None
 
     async def unary_unary(self, method, request, timeout=None, metadata=None,
                           credentials=None):
@@ -31,27 +67,27 @@ class Channel:
                         + struct.pack('>I', len(request_bin))
                         + request_bin)
 
-        proto = await aioh2.open_connection(self.host, self.port,
-                                                 loop=self.loop)
+        protocol = await self._ensure_connected()
+        stream = await protocol.processor.create_stream()
 
-        stream_id = await proto.start_request([
+        await stream.send_headers([
             (':scheme', 'http'),
             (':authority', self._authority),
             (':method', 'POST'),
             (':path', method.name),
-            ('user-agent', 'grpc-python asyncgrpc'),
+            ('user-agent', 'grpc-python'),
             ('content-type', 'application/grpc+proto'),
             ('te', 'trailers'),
         ])
 
-        await proto.send_data(stream_id, request_data, end_stream=True)
+        await stream.send_data(request_data, end_stream=True)
 
-        headers = MultiDict(await proto.recv_response(stream_id))
+        headers = MultiDict(await stream.recv_headers())
         assert headers[':status'] == '200', headers[':status']
         assert headers['content-type'] in _CONTENT_TYPES, \
             headers['content-type']
 
-        reply_data = await proto.read_stream(stream_id, -1)
+        reply_data = await stream.recv_data()
         compressed_flag = struct.unpack('?', reply_data[0:1])[0]
         if compressed_flag:
             raise NotImplementedError('Compression not implemented')
@@ -63,10 +99,11 @@ class Channel:
 
         reply_msg = method.reply_type.FromString(reply_bin)
 
-        # TODO: proper resources management
-        proto._conn.close_connection()
-
+        # TODO: handle trailers
         return reply_msg
+
+    def close(self):
+        self._protocol.processor.close()
 
 
 class CallDescriptor:

@@ -3,10 +3,16 @@ proto: clean
 	python3 -m grpc_tools.protoc -Itests --python_out=tests --python_grpc_out=tests tests/protobuf/testing.proto
 
 server:
-	@PYTHONPATH=. python example/server.py
+	@PYTHONPATH=. python -m example.server
+
+_server:
+	@PYTHONPATH=. python -m example._reference.server
 
 client:
-	@PYTHONPATH=. python example/client.py
+	@PYTHONPATH=. python -m example.client
+
+_client:
+	@PYTHONPATH=. python -m example._reference.client
 
 clean:
 	rm -f ./example/*_pb2.py
