@@ -6,7 +6,7 @@ from collections import namedtuple, defaultdict
 from h2.config import H2Configuration
 from multidict import CIMultiDict
 
-from .protocol import H2Protocol
+from .protocol import H2Protocol, WrapProtocolMixin
 
 
 Method = namedtuple('Method', 'func, request_type, reply_type')
@@ -56,19 +56,8 @@ async def request_handler(mapping, stream, headers):
                               end_stream=True)
 
 
-class ProtocolWrapper(H2Protocol):
-
-    def __init__(self, server, config, *, loop):
-        super().__init__(config, loop=loop)
-        self.server = server
-
-    def connection_made(self, transport):
-        super().connection_made(transport)
-        self.server.__connection_made__(self)
-
-    def connection_lost(self, exc):
-        super().connection_lost(exc)
-        self.server.__connection_lost__(self)
+class _Protocol(WrapProtocolMixin, H2Protocol):
+    pass
 
 
 class Server(AbstractServer):
@@ -106,7 +95,7 @@ class Server(AbstractServer):
         self._connections[protocol].cancel()  # TODO: teardown
 
     def _protocol_factory(self):
-        return ProtocolWrapper(self, self._config, loop=self._loop)
+        return _Protocol(self, self._config, loop=self._loop)
 
     async def start(self, *args, **kwargs):
         if self._tcp_server is not None:

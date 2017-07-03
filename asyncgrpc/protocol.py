@@ -246,3 +246,18 @@ class H2Protocol(Protocol):
 
     def connection_lost(self, exc):
         self.processor.close()
+
+
+class WrapProtocolMixin:
+
+    def __init__(self, __obj, *args, **kwargs):
+        self.__obj = __obj
+        super().__init__(*args, **kwargs)
+
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        self.__obj.__connection_made__(self)
+
+    def connection_lost(self, exc):
+        super().connection_lost(exc)
+        self.__obj.__connection_lost__(self)

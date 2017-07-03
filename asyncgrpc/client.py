@@ -6,7 +6,7 @@ from collections import namedtuple
 from h2.config import H2Configuration
 from multidict import MultiDict
 
-from .protocol import H2Protocol
+from .protocol import H2Protocol, WrapProtocolMixin
 
 
 Method = namedtuple('Method', 'name, request_type, reply_type')
@@ -14,19 +14,8 @@ Method = namedtuple('Method', 'name, request_type, reply_type')
 _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
 
 
-class ProtocolWrapper(H2Protocol):
-
-    def __init__(self, channel, config, *, loop):
-        super().__init__(config, loop=loop)
-        self.channel = channel
-
-    def connection_made(self, transport):
-        super().connection_made(transport)
-        self.channel.__connection_made__(self)
-
-    def connection_lost(self, exc):
-        super().connection_lost(exc)
-        self.channel.__connection_lost__(self)
+class _Protocol(WrapProtocolMixin, H2Protocol):
+    pass
 
 
 class Channel:
@@ -42,7 +31,7 @@ class Channel:
         self._protocol = None
 
     def _protocol_factory(self):
-        return ProtocolWrapper(self, self._config, loop=self._loop)
+        return _Protocol(self, self._config, loop=self._loop)
 
     async def _ensure_connected(self):
         if self._protocol is None:
