@@ -5,6 +5,7 @@ from h2.config import H2Configuration
 from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
 from h2.events import ConnectionTerminated, RemoteSettingsChanged
 from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
+from h2.events import StreamReset, PriorityUpdated
 from h2.connection import H2Connection
 from h2.exceptions import ProtocolError
 
@@ -141,6 +142,8 @@ class EventsProcessor:
             WindowUpdated: self.handle_window_updated,
             TrailersReceived: self.handle_trailers_received,
             StreamEnded: self.handle_stream_ended,
+            StreamReset: self.handle_stream_reset,
+            PriorityUpdated: self.handle_priority_updated,
             ConnectionTerminated: self.handle_connection_terminated,
         }
 
@@ -210,6 +213,13 @@ class EventsProcessor:
 
     def handle_stream_ended(self, event: StreamEnded):
         self.streams[event.stream_id].__buffer__.eof()
+
+    def handle_stream_reset(self, event: StreamReset):
+        # TODO: cancel stream handling task
+        pass
+
+    def handle_priority_updated(self, event: PriorityUpdated):
+        pass
 
     def handle_connection_terminated(self, event: ConnectionTerminated):
         self.close()

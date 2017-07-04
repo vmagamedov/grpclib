@@ -1,3 +1,4 @@
+import os
 import time
 
 import grpc
@@ -6,14 +7,14 @@ from .. import helloworld_pb2
 from .. import helloworld_pb2_grpc
 
 
-def main1():
+def main():
     channel = grpc.insecure_channel('127.0.0.1:50051')
     stub = helloworld_pb2_grpc.GreeterStub(channel)
 
     print(stub.SayHello(helloworld_pb2.HelloRequest(name='World')))
 
 
-def main2():
+def bench():
     channel = grpc.insecure_channel('127.0.0.1:50051')
     stub = helloworld_pb2_grpc.GreeterStub(channel)
 
@@ -25,4 +26,7 @@ def main2():
 
 
 if __name__ == '__main__':
-    main1()
+    if 'BENCH' not in os.environ:
+        main()
+    else:
+        bench()
