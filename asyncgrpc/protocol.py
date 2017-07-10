@@ -67,6 +67,7 @@ class Buffer:
 class Connection:
 
     def __init__(self, *, loop):
+        self.loop = loop
         self.write_ready = Event(loop=loop)
         self.write_ready.set()
 
@@ -75,6 +76,9 @@ class Connection:
 
     def resume_writing(self):
         self.write_ready.set()
+
+    def create_stream(self, conn, h2_conn, transport, stream_id):
+        return Stream(conn, h2_conn, transport, stream_id, loop=self.loop)
 
 
 class Stream:
@@ -142,12 +146,11 @@ class Request:
 
 class EventsProcessor:
 
-    def __init__(self, handler, conn, h2_conn, transport, *, loop):
+    def __init__(self, handler, conn, h2_conn, transport):
         self.handler = handler
         self.conn = conn
         self.h2_conn = h2_conn
         self.transport = transport
-        self.loop = loop
 
         self.processors = {
             RequestReceived: self.process_request_received,
@@ -166,19 +169,19 @@ class EventsProcessor:
         self.streams = {}  # TODO: streams cleanup
 
     @classmethod
-    def init(cls, handler, conn, config, transport, *, loop):
+    def init(cls, handler, conn, config, transport):
         h2_conn = H2Connection(config=config)
         h2_conn.initiate_connection()
 
-        processor = cls(handler, conn, h2_conn, transport, loop=loop)
+        processor = cls(handler, conn, h2_conn, transport)
         processor.flush()
         return processor
 
     async def create_stream(self):
         # TODO: check concurrent streams count and maybe wait
         stream_id = self.h2_conn.get_next_available_stream_id()
-        stream = Stream(self.conn, self.h2_conn, self.transport,
-                        stream_id, loop=self.loop)
+        stream = self.conn.create_stream(self.conn, self.h2_conn,
+                                         self.transport, stream_id)
         self.streams[stream_id] = stream
         return stream
 
@@ -201,8 +204,8 @@ class EventsProcessor:
             proc(event)
 
     def process_request_received(self, event: RequestReceived):
-        stream = Stream(self.conn, self.h2_conn, self.transport,
-                        event.stream_id, loop=self.loop)
+        stream = self.conn.create_stream(self.conn, self.h2_conn,
+                                         self.transport, event.stream_id)
         self.streams[event.stream_id] = stream
         self.handler.accept(stream, event.headers)
         # TODO: check EOF
@@ -251,8 +254,7 @@ class H2Protocol(Protocol):
     def connection_made(self, transport: Transport):
         self.conn = Connection(loop=self.loop)
         self.processor = EventsProcessor.init(self.handler, self.conn,
-                                              self.config, transport,
-                                              loop=self.loop)
+                                              self.config, transport)
 
     def data_received(self, data: bytes):
         try:
