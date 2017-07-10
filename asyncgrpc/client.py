@@ -6,7 +6,7 @@ from collections import namedtuple
 from h2.config import H2Configuration
 from multidict import MultiDict
 
-from .protocol import H2Protocol, WrapProtocolMixin
+from .protocol import H2Protocol, WrapProtocolMixin, NoHandler
 
 
 Method = namedtuple('Method', 'name, request_type, reply_type')
@@ -31,7 +31,7 @@ class Channel:
         self._protocol = None
 
     def _protocol_factory(self):
-        return _Protocol(self, self._config, loop=self._loop)
+        return _Protocol(self, NoHandler(), self._config, loop=self._loop)
 
     async def _ensure_connected(self):
         if self._protocol is None:

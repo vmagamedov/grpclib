@@ -1,4 +1,5 @@
 import struct
+
 from asyncio import AbstractServer, wait
 
 from collections import namedtuple, defaultdict
@@ -6,8 +7,7 @@ from collections import namedtuple, defaultdict
 from h2.config import H2Configuration
 from multidict import CIMultiDict
 
-from .protocol import H2Protocol, WrapProtocolMixin
-
+from .protocol import H2Protocol, AbstractHandler
 
 Method = namedtuple('Method', 'func, request_type, reply_type')
 
@@ -56,8 +56,32 @@ async def request_handler(mapping, stream, headers):
                               end_stream=True)
 
 
-class _Protocol(WrapProtocolMixin, H2Protocol):
-    pass
+class Handler(AbstractHandler):
+
+    def __init__(self, mapping, *, loop):
+        self.mapping = mapping
+        self.loop = loop
+        self.tasks = {}
+        self._cancelled = set()
+
+    def accept(self, stream, headers):
+        self.tasks[stream] = self.loop.create_task(
+            request_handler(self.mapping, stream, headers)
+        )
+
+    def cancel(self, stream):
+        task = self.tasks.pop(stream)
+        task.cancel()
+        self._cancelled.add(task)
+
+    def close(self):
+        for task in self.tasks.values():
+            task.cancel()
+        self._cancelled.update(self.tasks.values())
+
+    async def wait_closed(self):
+        if self._cancelled:
+            await wait(self._cancelled, loop=self.loop)
 
 
 class Server(AbstractServer):
@@ -75,38 +99,15 @@ class Server(AbstractServer):
         self._tasks = defaultdict(set)
         self._cancelled = set()
         self._tcp_server = None
+        self._handlers = set()  # TODO: cleanup
 
     async def _stream_handler(self, stream, headers):
         await request_handler(self._mapping, stream, headers)
 
-    async def _connection_handler(self, protocol):
-        tasks = self._tasks[protocol]
-        while True:
-            request = await protocol.processor.requests.get()
-
-            # cleanup done tasks, TODO: do not perform too frequently
-            tasks = {t for t in tasks if not t.done()}
-
-            tasks.add(self._loop.create_task(
-                self._stream_handler(request.stream, request.headers)
-            ))
-
-    def __connection_made__(self, protocol):
-        self._tasks[protocol].add(self._loop.create_task(
-            self._connection_handler(protocol)
-        ))
-
-    def __connection_lost__(self, protocol):
-        tasks = self._tasks.pop(protocol)
-        for task in tasks:
-            task.cancel()
-
-        # cleanup cancelled tasks, TODO: do not perform too frequently
-        self._cancelled = {t for t in self._cancelled if not t.done()}
-        self._cancelled.update(tasks)
-
     def _protocol_factory(self):
-        return _Protocol(self, self._config, loop=self._loop)
+        handler = Handler(self._mapping, loop=self._loop)
+        self._handlers.add(handler)
+        return H2Protocol(handler, self._config, loop=self._loop)
 
     async def start(self, *args, **kwargs):
         if self._tcp_server is not None:
@@ -120,11 +121,14 @@ class Server(AbstractServer):
         if self._tcp_server is None:
             raise RuntimeError('Server is not started')
         self._tcp_server.close()
-        # TODO: cancel all tasks here or rely on `connection_lost`?
+        for handler in self._handlers:
+            handler.close()
 
     async def wait_closed(self):
         if self._tcp_server is None:
             raise RuntimeError('Server is not started')
         await self._tcp_server.wait_closed()
-        await wait(self._cancelled, loop=self._loop)
+        if self._handlers:
+            await wait({h.wait_closed() for h in self._handlers},
+                       loop=self._loop)
         assert not self._tasks

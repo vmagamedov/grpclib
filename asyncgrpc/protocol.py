@@ -1,4 +1,5 @@
 from io import BytesIO
+from abc import ABCMeta, abstractmethod
 from asyncio import Transport, Protocol, Event, Queue
 
 from h2.config import H2Configuration
@@ -128,7 +129,8 @@ class Request:
 
 class EventsProcessor:
 
-    def __init__(self, connection, transport, *, loop):
+    def __init__(self, handler, connection, transport, *, loop):
+        self.handler = handler
         self.connection = connection
         self.transport = transport
         self.loop = loop
@@ -147,16 +149,15 @@ class EventsProcessor:
             ConnectionTerminated: self.handle_connection_terminated,
         }
 
-        self.streams = {}
-        self.requests = Queue(loop=self.loop)
+        self.streams = {}  # TODO: streams cleanup
         self.write_ready = Event(loop=loop)
 
     @classmethod
-    def init(cls, config, transport, *, loop):
+    def init(cls, handler, config, transport, *, loop):
         connection = H2Connection(config=config)
         connection.initiate_connection()
 
-        handler = cls(connection, transport, loop=loop)
+        handler = cls(handler, connection, transport, loop=loop)
         handler.flush()
         return handler
 
@@ -176,6 +177,7 @@ class EventsProcessor:
 
     def close(self):
         self.transport.close()
+        self.handler.close()
 
     def handle(self, event):
         try:
@@ -189,7 +191,7 @@ class EventsProcessor:
         stream = Stream(self.write_ready, self.connection, self.transport,
                         event.stream_id, loop=self.loop)
         self.streams[event.stream_id] = stream
-        self.requests.put_nowait(Request(stream, event.headers))
+        self.handler.accept(stream, event.headers)
         # TODO: check EOF
 
     def handle_response_received(self, event: ResponseReceived):
@@ -215,8 +217,7 @@ class EventsProcessor:
         self.streams[event.stream_id].__buffer__.eof()
 
     def handle_stream_reset(self, event: StreamReset):
-        # TODO: cancel stream handling task
-        pass
+        self.handler.cancel(self.streams[event.stream_id])
 
     def handle_priority_updated(self, event: PriorityUpdated):
         pass
@@ -228,13 +229,14 @@ class EventsProcessor:
 class H2Protocol(Protocol):
     processor = None
 
-    def __init__(self, config: H2Configuration, *, loop):
+    def __init__(self, handler, config: H2Configuration, *, loop):
+        self.handler = handler
         self.config = config
         self.loop = loop
 
     def connection_made(self, transport: Transport):
-        self.processor = EventsProcessor.init(self.config, transport,
-                                              loop=self.loop)
+        self.processor = EventsProcessor.init(self.handler, self.config,
+                                              transport, loop=self.loop)
         self.resume_writing()
 
     def data_received(self, data: bytes):
@@ -256,6 +258,33 @@ class H2Protocol(Protocol):
 
     def connection_lost(self, exc):
         self.processor.close()
+
+
+class AbstractHandler(metaclass=ABCMeta):
+
+    @abstractmethod
+    def accept(self, stream, headers):
+        pass
+
+    @abstractmethod
+    def cancel(self, stream):
+        pass
+
+    @abstractmethod
+    def close(self):
+        pass
+
+
+class NoHandler(AbstractHandler):
+
+    def accept(self, stream, headers):
+        raise NotImplementedError('Request handling is not implemented')
+
+    def cancel(self, stream):
+        pass
+
+    def close(self):
+        pass
 
 
 class WrapProtocolMixin:
