@@ -135,18 +135,18 @@ class EventsProcessor:
         self.transport = transport
         self.loop = loop
 
-        self.handlers = {
-            RequestReceived: self.handle_request_received,
-            ResponseReceived: self.handle_response_received,
-            RemoteSettingsChanged: self.handle_remote_settings_changed,
-            SettingsAcknowledged: self.handle_settings_acknowledged,
-            DataReceived: self.handle_data_received,
-            WindowUpdated: self.handle_window_updated,
-            TrailersReceived: self.handle_trailers_received,
-            StreamEnded: self.handle_stream_ended,
-            StreamReset: self.handle_stream_reset,
-            PriorityUpdated: self.handle_priority_updated,
-            ConnectionTerminated: self.handle_connection_terminated,
+        self.processors = {
+            RequestReceived: self.process_request_received,
+            ResponseReceived: self.process_response_received,
+            RemoteSettingsChanged: self.process_remote_settings_changed,
+            SettingsAcknowledged: self.process_settings_acknowledged,
+            DataReceived: self.process_data_received,
+            WindowUpdated: self.process_window_updated,
+            TrailersReceived: self.process_trailers_received,
+            StreamEnded: self.process_stream_ended,
+            StreamReset: self.process_stream_reset,
+            PriorityUpdated: self.process_priority_updated,
+            ConnectionTerminated: self.process_connection_terminated,
         }
 
         self.streams = {}  # TODO: streams cleanup
@@ -157,9 +157,9 @@ class EventsProcessor:
         connection = H2Connection(config=config)
         connection.initiate_connection()
 
-        handler = cls(handler, connection, transport, loop=loop)
-        handler.flush()
-        return handler
+        processor = cls(handler, connection, transport, loop=loop)
+        processor.flush()
+        return processor
 
     async def create_stream(self):
         # TODO: check concurrent streams count and maybe wait
@@ -179,50 +179,50 @@ class EventsProcessor:
         self.transport.close()
         self.handler.close()
 
-    def handle(self, event):
+    def process(self, event):
         try:
-            handler = self.handlers[event.__class__]
+            proc = self.processors[event.__class__]
         except KeyError:
             raise NotImplementedError(event)
         else:
-            handler(event)
+            proc(event)
 
-    def handle_request_received(self, event: RequestReceived):
+    def process_request_received(self, event: RequestReceived):
         stream = Stream(self.write_ready, self.connection, self.transport,
                         event.stream_id, loop=self.loop)
         self.streams[event.stream_id] = stream
         self.handler.accept(stream, event.headers)
         # TODO: check EOF
 
-    def handle_response_received(self, event: ResponseReceived):
+    def process_response_received(self, event: ResponseReceived):
         self.streams[event.stream_id].__headers__.put_nowait(event.headers)
 
-    def handle_remote_settings_changed(self, event: RemoteSettingsChanged):
+    def process_remote_settings_changed(self, event: RemoteSettingsChanged):
         pass
 
-    def handle_settings_acknowledged(self, event: SettingsAcknowledged):
+    def process_settings_acknowledged(self, event: SettingsAcknowledged):
         pass
 
-    def handle_data_received(self, event: DataReceived):
+    def process_data_received(self, event: DataReceived):
         self.streams[event.stream_id].__buffer__.append(event.data)
 
-    def handle_window_updated(self, event: WindowUpdated):
+    def process_window_updated(self, event: WindowUpdated):
         if event.stream_id > 0:
             self.streams[event.stream_id].__window_updated__.set()
 
-    def handle_trailers_received(self, event: TrailersReceived):
+    def process_trailers_received(self, event: TrailersReceived):
         self.streams[event.stream_id].__headers__.put_nowait(event.headers)
 
-    def handle_stream_ended(self, event: StreamEnded):
+    def process_stream_ended(self, event: StreamEnded):
         self.streams[event.stream_id].__buffer__.eof()
 
-    def handle_stream_reset(self, event: StreamReset):
+    def process_stream_reset(self, event: StreamReset):
         self.handler.cancel(self.streams[event.stream_id])
 
-    def handle_priority_updated(self, event: PriorityUpdated):
+    def process_priority_updated(self, event: PriorityUpdated):
         pass
 
-    def handle_connection_terminated(self, event: ConnectionTerminated):
+    def process_connection_terminated(self, event: ConnectionTerminated):
         self.close()
 
 
@@ -247,7 +247,7 @@ class H2Protocol(Protocol):
         else:
             self.processor.flush()
             for event in events:
-                self.processor.handle(event)
+                self.processor.process(event)
             self.processor.flush()
 
     def pause_writing(self):
@@ -285,18 +285,3 @@ class NoHandler(AbstractHandler):
 
     def close(self):
         pass
-
-
-class WrapProtocolMixin:
-
-    def __init__(self, __obj, *args, **kwargs):
-        self.__obj = __obj
-        super().__init__(*args, **kwargs)
-
-    def connection_made(self, transport):
-        super().connection_made(transport)
-        self.__obj.__connection_made__(self)
-
-    def connection_lost(self, exc):
-        super().connection_lost(exc)
-        self.__obj.__connection_lost__(self)
