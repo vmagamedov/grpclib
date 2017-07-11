@@ -77,18 +77,26 @@ class Connection:
         self.write_ready = Event(loop=self._loop)
         self.write_ready.set()
 
+    def feed(self, data):
+        return self._connection.receive_data(data)
+
     def pause_writing(self):
         self.write_ready.clear()
 
     def resume_writing(self):
         self.write_ready.set()
 
-    def create_stream(self, stream_id):
+    def create_stream(self, stream_id=None):
+        if stream_id is None:
+            stream_id = self._connection.get_next_available_stream_id()
         return Stream(self, self._connection, self._transport, stream_id,
                       loop=self._loop)
 
     def flush(self):
         self._transport.write(self._connection.data_to_send())
+
+    def close(self):
+        self._transport.close()
 
 
 class Stream:
@@ -153,11 +161,9 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
-    def __init__(self, handler, conn, h2_conn, transport):
+    def __init__(self, handler, conn):
         self.handler = handler
         self.conn = conn
-        self.h2_conn = h2_conn
-        self.transport = transport
 
         self.processors = {
             RequestReceived: self.process_request_received,
@@ -177,16 +183,12 @@ class EventsProcessor:
 
     async def create_stream(self):
         # TODO: check concurrent streams count and maybe wait
-        stream_id = self.h2_conn.get_next_available_stream_id()
-        stream = self.conn.create_stream(stream_id)
-        self.streams[stream_id] = stream
+        stream = self.conn.create_stream()
+        self.streams[stream.id] = stream
         return stream
 
-    def feed(self, data):
-        return self.h2_conn.receive_data(data)
-
     def close(self):
-        self.transport.close()
+        self.conn.close()
         self.handler.close()
 
     def process(self, event):
@@ -251,12 +253,11 @@ class H2Protocol(Protocol):
         self.conn = Connection(h2_conn, transport, loop=self.loop)
         self.conn.flush()
 
-        self.processor = EventsProcessor(self.handler, self.conn, h2_conn,
-                                         transport)
+        self.processor = EventsProcessor(self.handler, self.conn)
 
     def data_received(self, data: bytes):
         try:
-            events = self.processor.feed(data)
+            events = self.conn.feed(data)
         except ProtocolError:
             self.processor.close()
         else:
