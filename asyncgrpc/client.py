@@ -63,7 +63,7 @@ class Channel:
                         + request_bin)
 
         protocol = await self._ensure_connected()
-        stream = await protocol.processor.create_stream()
+        stream = protocol.processor.create_stream()
 
         await stream.send_headers([
             (':scheme', 'http'),

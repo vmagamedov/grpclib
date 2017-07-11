@@ -1,6 +1,6 @@
 from io import BytesIO
 from abc import ABCMeta, abstractmethod
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict  # noqa
 from asyncio import Transport, Protocol, Event, Queue, AbstractEventLoop
 
 from h2.config import H2Configuration
@@ -160,6 +160,15 @@ class Stream:
                 self._h2_connection.send_data(self.id, f_chunk)
                 self._transport.write(self._h2_connection.data_to_send())
 
+    async def end(self):
+        if not self._connection.write_ready.is_set():
+            await self._connection.write_ready.wait()
+        self._h2_connection.end_stream(self.id)
+        self._transport.write(self._h2_connection.data_to_send())
+
+    def __ended__(self):
+        self.__buffer__.eof()
+
 
 class AbstractHandler(metaclass=ABCMeta):
 
@@ -199,9 +208,9 @@ class EventsProcessor:
             ConnectionTerminated: self.process_connection_terminated,
         }
 
-        self.streams: Dict[int, Stream] = {}  # TODO: streams cleanup
+        self.streams: Dict[int, Stream] = {}
 
-    async def create_stream(self):
+    def create_stream(self):
         # TODO: check concurrent streams count and maybe wait
         stream = self.connection.create_stream()
         self.streams[stream.id] = stream
@@ -245,10 +254,11 @@ class EventsProcessor:
         self.streams[event.stream_id].__headers__.put_nowait(event.headers)
 
     def process_stream_ended(self, event: StreamEnded):
-        self.streams[event.stream_id].__buffer__.eof()
+        self.streams.pop(event.stream_id).__ended__()
 
     def process_stream_reset(self, event: StreamReset):
-        self.handler.cancel(self.streams[event.stream_id])
+        stream = self.streams.pop(event.stream_id)
+        self.handler.cancel(stream)
 
     def process_priority_updated(self, event: PriorityUpdated):
         pass
