@@ -17,9 +17,6 @@ _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
 class Handler(AbstractHandler):
     connection_lost = False
 
-    def __init__(self, channel):
-        self.channel = channel
-
     def accept(self, stream, headers):
         raise NotImplementedError('Client connection can not accept requests')
 
@@ -43,7 +40,7 @@ class Channel:
         self._authority = '{}:{}'.format(self._host, self._port)
 
     def _protocol_factory(self):
-        return H2Protocol(Handler(self), self._config, loop=self._loop)
+        return H2Protocol(Handler(), self._config, loop=self._loop)
 
     async def _ensure_connected(self):
         if self._protocol is None or self._protocol.handler.connection_lost:
@@ -63,6 +60,8 @@ class Channel:
                         + request_bin)
 
         protocol = await self._ensure_connected()
+
+        # TODO: check concurrent streams count and maybe wait
         stream = protocol.processor.create_stream()
 
         await stream.send_headers([

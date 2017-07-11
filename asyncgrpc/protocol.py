@@ -211,7 +211,6 @@ class EventsProcessor:
         self.streams: Dict[int, Stream] = {}
 
     def create_stream(self):
-        # TODO: check concurrent streams count and maybe wait
         stream = self.connection.create_stream()
         self.streams[stream.id] = stream
         return stream

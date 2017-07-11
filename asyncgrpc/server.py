@@ -1,8 +1,7 @@
 import struct
 
 from asyncio import AbstractServer, wait
-
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 
 from h2.config import H2Configuration
 from multidict import CIMultiDict
@@ -96,8 +95,6 @@ class Server(AbstractServer):
         self._config = H2Configuration(client_side=False,
                                        header_encoding='utf-8')
 
-        self._tasks = defaultdict(set)
-        self._cancelled = set()
         self._tcp_server = None
         self._handlers = set()  # TODO: cleanup
 
@@ -131,4 +128,3 @@ class Server(AbstractServer):
         if self._handlers:
             await wait({h.wait_closed() for h in self._handlers},
                        loop=self._loop)
-        assert not self._tasks
