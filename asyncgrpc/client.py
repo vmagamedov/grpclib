@@ -6,7 +6,7 @@ from collections import namedtuple
 from h2.config import H2Configuration
 from multidict import MultiDict
 
-from .protocol import H2Protocol, NoHandler
+from .protocol import H2Protocol, AbstractHandler
 
 
 Method = namedtuple('Method', 'name, request_type, reply_type')
@@ -14,16 +14,24 @@ Method = namedtuple('Method', 'name, request_type, reply_type')
 _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
 
 
-class Handler(NoHandler):
+class Handler(AbstractHandler):
+    connection_lost = False
 
     def __init__(self, channel):
         self.channel = channel
 
+    def accept(self, stream, headers):
+        raise NotImplementedError('Client connection can not accept requests')
+
+    def cancel(self, stream):
+        pass
+
     def close(self):
-        self.channel.__connection_lost__()
+        self.connection_lost = True
 
 
 class Channel:
+    _protocol = None
 
     def __init__(self, host='127.0.0.1', port=50051, *, loop):
         self._host = host
@@ -33,20 +41,16 @@ class Channel:
         self._config = H2Configuration(client_side=True,
                                        header_encoding='utf-8')
         self._authority = '{}:{}'.format(self._host, self._port)
-        self._protocol = None
 
     def _protocol_factory(self):
         return H2Protocol(Handler(self), self._config, loop=self._loop)
 
     async def _ensure_connected(self):
-        if self._protocol is None:
+        if self._protocol is None or self._protocol.handler.connection_lost:
             _, self._protocol = await self._loop.create_connection(
                 self._protocol_factory, self._host, self._port
             )
         return self._protocol
-
-    def __connection_lost__(self, exc):
-        self._protocol = None
 
     async def unary_unary(self, method, request, timeout=None, metadata=None,
                           credentials=None):

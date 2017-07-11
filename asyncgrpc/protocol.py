@@ -1,6 +1,7 @@
 from io import BytesIO
 from abc import ABCMeta, abstractmethod
-from asyncio import Transport, Protocol, Event, Queue
+from typing import Optional, List, Tuple, Dict
+from asyncio import Transport, Protocol, Event, Queue, AbstractEventLoop
 
 from h2.config import H2Configuration
 from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
@@ -11,7 +12,7 @@ from h2.connection import H2Connection
 from h2.exceptions import ProtocolError
 
 
-def _slice(chunks, size):
+def _slice(chunks: List[bytes], size: int):
     first, first_size, second = [], 0, []
     for chunk in chunks:
         if first_size < size:
@@ -28,8 +29,8 @@ def _slice(chunks, size):
 
 class Buffer:
 
-    def __init__(self, *, loop):
-        self._chunks = []
+    def __init__(self, *, loop: AbstractEventLoop) -> None:
+        self._chunks: List[bytes] = []
         self._length = 0
         self._complete_size = -1
         self._complete_event = Event(loop=loop)
@@ -69,7 +70,8 @@ class Connection:
     Holds connection state (write_ready), and manages
     H2Connection <-> Transport communication
     """
-    def __init__(self, connection: H2Connection, transport, *, loop):
+    def __init__(self, connection: H2Connection, transport: Transport,
+                 *, loop: AbstractEventLoop) -> None:
         self._connection = connection
         self._transport = transport
         self._loop = loop
@@ -103,16 +105,17 @@ class Stream:
     """
     API for working with streams, used by clients and request handlers
     """
-    def __init__(self, conn, h2_conn, transport, stream_id,
-                 *, loop):
-        self._conn = conn
-        self._h2_conn = h2_conn
+    def __init__(self, connection: Connection, h2_connection: H2Connection,
+                 transport: Transport, stream_id: int,
+                 *, loop: AbstractEventLoop) -> None:
+        self._connection = connection
+        self._h2_connection = h2_connection
         self._transport = transport
 
         self.id = stream_id
 
         self.__buffer__ = Buffer(loop=loop)
-        self.__headers__ = Queue(loop=loop)
+        self.__headers__: 'Queue[List[Tuple[str, str]]]' = Queue(loop=loop)
         self.__window_updated__ = Event(loop=loop)
 
     async def recv_headers(self):
@@ -120,50 +123,67 @@ class Stream:
 
     async def recv_data(self, size=None):
         data = await self.__buffer__.read(size)
-        self._h2_conn.acknowledge_received_data(len(data), self.id)
+        self._h2_connection.acknowledge_received_data(len(data), self.id)
         return data
 
     async def send_headers(self, headers, end_stream=False):
-        if not self._conn.write_ready.is_set():
-            await self._conn.write_ready.wait()
+        if not self._connection.write_ready.is_set():
+            await self._connection.write_ready.wait()
 
-        self._h2_conn.send_headers(self.id, headers, end_stream=end_stream)
-        self._transport.write(self._h2_conn.data_to_send())
+        self._h2_connection.send_headers(self.id, headers,
+                                         end_stream=end_stream)
+        self._transport.write(self._h2_connection.data_to_send())
 
     async def send_data(self, data, end_stream=False):
         f = BytesIO(data)
         f_pos, f_last = 0, len(data)
 
         while True:
-            if not self._conn.write_ready.is_set():
-                await self._conn.write_ready.wait()
+            if not self._connection.write_ready.is_set():
+                await self._connection.write_ready.wait()
 
-            window = self._h2_conn.local_flow_control_window(self.id)
+            window = self._h2_connection.local_flow_control_window(self.id)
             if not window:
                 self.__window_updated__.clear()
                 await self.__window_updated__.wait()
-                window = self._h2_conn.local_flow_control_window(self.id)
+                window = self._h2_connection.local_flow_control_window(self.id)
 
             f_chunk = f.read(min(window, f_last - f_pos))
             f_pos = f.tell()
 
             if f_pos == f_last:
-                self._h2_conn.send_data(self.id, f_chunk,
-                                        end_stream=end_stream)
-                self._transport.write(self._h2_conn.data_to_send())
+                self._h2_connection.send_data(self.id, f_chunk,
+                                              end_stream=end_stream)
+                self._transport.write(self._h2_connection.data_to_send())
                 break
             else:
-                self._h2_conn.send_data(self.id, f_chunk)
-                self._transport.write(self._h2_conn.data_to_send())
+                self._h2_connection.send_data(self.id, f_chunk)
+                self._transport.write(self._h2_connection.data_to_send())
+
+
+class AbstractHandler(metaclass=ABCMeta):
+
+    @abstractmethod
+    def accept(self, stream, headers):
+        pass
+
+    @abstractmethod
+    def cancel(self, stream):
+        pass
+
+    @abstractmethod
+    def close(self):
+        pass
 
 
 class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
-    def __init__(self, handler, conn):
+    def __init__(self, handler: AbstractHandler,
+                 connection: Connection) -> None:
         self.handler = handler
-        self.conn = conn
+        self.connection = connection
 
         self.processors = {
             RequestReceived: self.process_request_received,
@@ -179,16 +199,16 @@ class EventsProcessor:
             ConnectionTerminated: self.process_connection_terminated,
         }
 
-        self.streams = {}  # TODO: streams cleanup
+        self.streams: Dict[int, Stream] = {}  # TODO: streams cleanup
 
     async def create_stream(self):
         # TODO: check concurrent streams count and maybe wait
-        stream = self.conn.create_stream()
+        stream = self.connection.create_stream()
         self.streams[stream.id] = stream
         return stream
 
     def close(self):
-        self.conn.close()
+        self.connection.close()
         self.handler.close()
 
     def process(self, event):
@@ -200,7 +220,7 @@ class EventsProcessor:
             proc(event)
 
     def process_request_received(self, event: RequestReceived):
-        stream = self.conn.create_stream(event.stream_id)
+        stream = self.connection.create_stream(event.stream_id)
         self.streams[event.stream_id] = stream
         self.handler.accept(stream, event.headers)
         # TODO: check EOF
@@ -238,66 +258,40 @@ class EventsProcessor:
 
 
 class H2Protocol(Protocol):
-    conn: Connection = None
-    processor = None
+    connection: Optional[Connection] = None
+    processor: Optional[EventsProcessor] = None
 
-    def __init__(self, handler, config: H2Configuration, *, loop):
+    def __init__(self, handler: AbstractHandler, config: H2Configuration,
+                 *, loop) -> None:
         self.handler = handler
         self.config = config
         self.loop = loop
 
-    def connection_made(self, transport: Transport):
+    def connection_made(self, transport: Transport):  # type: ignore
         h2_conn = H2Connection(config=self.config)
         h2_conn.initiate_connection()
 
-        self.conn = Connection(h2_conn, transport, loop=self.loop)
-        self.conn.flush()
+        self.connection = Connection(h2_conn, transport, loop=self.loop)
+        self.connection.flush()
 
-        self.processor = EventsProcessor(self.handler, self.conn)
+        self.processor = EventsProcessor(self.handler, self.connection)
 
     def data_received(self, data: bytes):
         try:
-            events = self.conn.feed(data)
+            events = self.connection.feed(data)
         except ProtocolError:
             self.processor.close()
         else:
-            self.conn.flush()
+            self.connection.flush()
             for event in events:
                 self.processor.process(event)
-            self.conn.flush()
+            self.connection.flush()
 
     def pause_writing(self):
-        self.conn.pause_writing()
+        self.connection.pause_writing()
 
     def resume_writing(self):
-        self.conn.resume_writing()
+        self.connection.resume_writing()
 
     def connection_lost(self, exc):
         self.processor.close()
-
-
-class AbstractHandler(metaclass=ABCMeta):
-
-    @abstractmethod
-    def accept(self, stream, headers):
-        pass
-
-    @abstractmethod
-    def cancel(self, stream):
-        pass
-
-    @abstractmethod
-    def close(self):
-        pass
-
-
-class NoHandler(AbstractHandler):
-
-    def accept(self, stream, headers):
-        raise NotImplementedError('Request handling is not implemented')
-
-    def cancel(self, stream):
-        pass
-
-    def close(self):
-        pass
