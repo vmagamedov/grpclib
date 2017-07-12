@@ -3,7 +3,7 @@ import time
 import asyncio
 import traceback
 
-from asyncgrpc.client import Channel
+from grpclib.client import Channel
 
 from .helloworld_pb2 import HelloRequest
 from .helloworld_grpc import GreeterStub

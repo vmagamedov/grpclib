@@ -19,7 +19,7 @@ files.
 Plugin, which implements ``--python_grpc_out`` option is available for
 ``protoc`` compiler as ``protoc-gen-python_grpc`` executable, which will be
 installed by ``setuptools`` into your ``PATH`` during installation of the
-``asyncgrpc`` library.
+``grpclib`` library.
 
 Example
 ~~~~~~~
@@ -28,8 +28,8 @@ Example
 
     import asyncio
 
-    from asyncgrpc.server import Server
-    from asyncgrpc.client import Channel
+    from grpclib.server import Server
+    from grpclib.client import Channel
 
     import helloworld_pb2
     import helloworld_grpc

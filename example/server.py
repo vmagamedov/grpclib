@@ -1,6 +1,6 @@
 import asyncio
 
-from asyncgrpc.server import Server
+from grpclib.server import Server
 
 from . import helloworld_pb2
 from . import helloworld_grpc

@@ -2,11 +2,11 @@ import socket
 
 import pytest
 
-from asyncgrpc.client import Channel
-from asyncgrpc.server import create_server
+from grpclib.client import Channel
+from grpclib.server import Server
 
 from protobuf.testing_pb2 import SavoysRequest, SavoysReply
-from protobuf.testing_pb2_grpc import BombedService, BombedServiceStub
+from protobuf.testing_grpc import BombedService, BombedServiceStub
 
 
 class Bombed(BombedService):
@@ -27,8 +27,9 @@ async def test_unary_unary(event_loop):
         _, port = s.getsockname()
 
     bombed = Bombed()
-    server = await create_server([bombed], host=host, port=port,
-                                 loop=event_loop)
+
+    server = Server([bombed], loop=event_loop)
+    await server.start(host, port)
     try:
         channel = Channel(host=host, port=port, loop=event_loop)
         stub = BombedServiceStub(channel)
