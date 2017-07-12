@@ -1,89 +1,92 @@
-This library is a **temporary workaround** to add support for `async/await`
-syntax (`asyncio`) into current `GRPC`_ implementation from `Google`, in order
-to start implementing services using asynchronous style and then switch to
-proper async `GRPC`_ implementation when it will be available, without totally
-rewriting your code.
+**WARNING**: this library is a prototype, under active development, please read
+changelog carefully to upgrade between versions.
 
-**WARNING**: by using this library you are still will be using regular threads
-for accepting incoming requests and sending replies, despite the fact that all
-the work will be performed in the main thread in asyncio's event-loop. This,
-obviously, will limit you in ability to handle concurrent requests. You will be
-able to handle so many concurrent requests as how many threads you will setup
-in your ``ThreadPoolExecutor``.
+This project is a pure-python `gRPC`_ implementation, based on hyper-h2 project.
 
 Protoc plugin
 ~~~~~~~~~~~~~
 
 In order to use this library you will have to generate special stub files using
-provided plugin, which can be used like this:
+plugin provided, which can be used like this:
 
 .. code-block:: shell
 
-    $ python -m grpc_tools.protoc -I. --python_asyncgrpc_out=. helloworld.proto
+    $ python -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld.proto
 
-This command will generate ``helloworld_pb2_asyncgrpc.py`` file.
+This command will generate ``helloworld_pb2.py`` and ``helloworld_grpc.py``
+files.
 
-This plugin is available for ``protoc`` compiler as
-``protoc-gen-python_asyncgrpc`` executable, which would be installed by
-`setuptools` into your ``PATH`` during installation of the `asyncgrpc`_
-library.
+Plugin, which implements ``--python_grpc_out`` option is available for
+``protoc`` compiler as ``protoc-gen-python_grpc`` executable, which will be
+installed by ``setuptools`` into your ``PATH`` during installation of the
+``asyncgrpc`` library.
 
 Example
 ~~~~~~~
 
-Working server implementation example you can see in ``example`` directory.
-
-Here is how RPC method implementation looks like:
-
 .. code-block:: python
 
-    from asyncgrpc.handler import implements
+    import asyncio
 
-    from helloworld_pb2 import HelloReply
-    from helloworld_pb2_asyncgrpc import Greeter
+    from asyncgrpc.server import Server
+    from asyncgrpc.client import Channel
 
-
-    @implements(Greeter.SayHello)
-    async def hello(message, context, *, loop):
-        await asyncio.sleep(1, loop=loop)  # simulates async operation
-        return HelloReply(message='Hello, {}!'.format(message.name))
-
-Design
-~~~~~~
-
-This library also tries to help write simple services. That's why you don't
-have to inherit stub classes to implement all RPC methods. You can implement
-them as simple async functions.
-
-This library also gives ability to setup service environments using simple
-dependency-injection mechanism, inspired by `pytest`_ fixtures:
-
-.. code-block:: python
-
-    from asyncgrpc.handler import create_handler
+    import helloworld_pb2
+    import helloworld_grpc
 
     loop = asyncio.get_event_loop()
 
-    functions = [hello]
-    dependencies = {'loop': loop}
+    # Server
+    class Greeter(helloworld_grpc.Greeter):
 
-    create_handler(Greeter, dependencies, functions, loop=loop)
+        async def SayHello(self, request, context):
+            message = 'Hello, {}!'.format(request.name)
+            return helloworld_pb2.HelloReply(message=message)
 
-This code is from the same example. You setup environment, specify dependencies
-as ``dict``, and using them just by adding "keyword-only" arguments to you
-handler when it needs something from environment.
+    server = Server([Greeter()], loop=loop)
+    loop.run_until_complete(server.start('127.0.0.1', 50051))
 
-In our example above, we configured only one dependency – ``{'loop': loop}``,
-and specified this dependency in our ``hello`` function as keyword-only argument
-``loop``. That's simple. Imagine how this simplicity will help you test your
-handlers – you just need to call simple functions and implicitly pass all their
-dependencies as arguments. No need for mocking.
+    # Client
+    channel = Channel(loop=loop)
+    stub = helloworld_grpc.GreeterStub(channel)
 
-Status/changelog
-~~~~~~~~~~~~~~~~
+    async def make_request():
+        response = await stub.SayHello(helloworld_pb2.HelloRequest(name='World'))
+        assert response.message == 'Hello, World!'
 
-- ``0.1.0`` – only server implementation available and only for unary calls
+    # Test request
+    loop.run_until_complete(make_request())
 
-.. _GRPC: http://www.grpc.io
-.. _asyncgrpc: https://github.com/vmagamedov/asyncgrpc
-.. _pytest: http://pytest.org/
+    # Shutdown
+    server.close()
+    loop.run_until_complete(server.wait_closed())
+    loop.close()
+
+Where ``helloworld.proto`` contains:
+
+.. code-block:: protobuf
+
+    syntax = "proto3";
+
+    package helloworld;
+
+    service Greeter {
+      rpc SayHello (HelloRequest) returns (HelloReply) {}
+    }
+
+    message HelloRequest {
+      string name = 1;
+    }
+
+    message HelloReply {
+      string message = 1;
+    }
+
+Changelog
+~~~~~~~~~
+
+* ``0.2.0`` - total rewrite, now pure-python, based on hyper-h2
+* ``0.1.0`` – workaround implemented, only server implementation available and
+  only for unary calls
+
+.. _gRPC: http://www.grpc.io
