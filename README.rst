@@ -1,7 +1,8 @@
 **WARNING**: this library is a prototype, under active development, please read
 changelog carefully to upgrade between versions.
 
-This project is a pure-python `gRPC`_ implementation, based on hyper-h2 project.
+This project is a pure-Python `gRPC`_ implementation, based on `hyper-h2`_
+project.
 
 Protoc plugin
 ~~~~~~~~~~~~~
@@ -37,6 +38,7 @@ Example
     loop = asyncio.get_event_loop()
 
     # Server
+
     class Greeter(helloworld_grpc.Greeter):
 
         async def SayHello(self, request, context):
@@ -47,6 +49,7 @@ Example
     loop.run_until_complete(server.start('127.0.0.1', 50051))
 
     # Client
+
     channel = Channel(loop=loop)
     stub = helloworld_grpc.GreeterStub(channel)
 
@@ -55,9 +58,11 @@ Example
         assert response.message == 'Hello, World!'
 
     # Test request
+
     loop.run_until_complete(make_request())
 
     # Shutdown
+
     server.close()
     loop.run_until_complete(server.wait_closed())
     loop.close()
@@ -85,8 +90,9 @@ Where ``helloworld.proto`` contains:
 Changelog
 ~~~~~~~~~
 
-* ``0.2.0`` - total rewrite, now pure-python, based on hyper-h2
+* ``0.2.0`` - complete rewrite, pure-Python, based on `hyper-h2`_
 * ``0.1.0`` – workaround implemented, only server implementation available and
   only for unary calls
 
 .. _gRPC: http://www.grpc.io
+.. _hyper-h2: https://github.com/python-hyper/hyper-h2
