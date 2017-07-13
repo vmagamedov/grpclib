@@ -7,33 +7,59 @@ from h2.config import H2Configuration
 
 from .protocol import H2Protocol, AbstractHandler
 
-Method = namedtuple('Method', 'func, request_type, reply_type')
+
+Method = namedtuple('Method', 'func, cardinality, request_type, reply_type')
 
 
-async def unary_unary(stream, method):
-    # print(request_type, reply_type)
+async def _recv_gen(stream, method):
+    while True:
+        meta = await stream.recv_data(5)
+        if not meta:
+            break
 
-    request_data = await stream.recv_data()
-    # print('request_bin', request_data)
+        compressed_flag = struct.unpack('?', meta[:1])[0]
+        if compressed_flag:
+            raise NotImplementedError('Compression not implemented')
 
-    compressed_flag = struct.unpack('?', request_data[0:1])[0]
-    if compressed_flag:
-        raise NotImplementedError('Compression not implemented')
+        request_len = struct.unpack('>I', meta[1:])[0]
+        request_bin = await stream.recv_data(request_len)
+        assert len(request_bin) == request_len, \
+            '{} != {}'.format(len(request_bin), request_len)
+        request_msg = method.request_type.FromString(request_bin)
+        yield request_msg
 
-    request_len = struct.unpack('>I', request_data[1:5])[0]
-    request_bin = request_data[5:]
-    assert len(request_bin) == request_len, \
-        '{} != {}'.format(len(request_bin), request_len)
-    request_msg = method.request_type.FromString(request_bin)
 
-    reply_msg = await method.func(request_msg, None)  # FIXME: pass context
-    assert isinstance(reply_msg, method.reply_type), type(reply_msg)
-
-    reply_bin = reply_msg.SerializeToString()
+async def _send(stream, method, message):
+    assert isinstance(message, method.reply_type), type(message)
+    reply_bin = message.SerializeToString()
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))
                   + reply_bin)
     await stream.send_data(reply_data)
+
+
+async def unary_unary(stream, method):
+    request_msg, = [r async for r in _recv_gen(stream, method)]
+    reply_msg = await method.func(request_msg, None)
+    await _send(stream, method, reply_msg)
+
+
+async def unary_stream(stream, method):
+    request_msg, = [r async for r in _recv_gen(stream, method)]
+    async for reply_msg in method.func(request_msg, None):
+        await _send(stream, method, reply_msg)
+
+
+async def stream_unary(stream, method):
+    request_stream = _recv_gen(stream, method)
+    reply_msg = await method.func(request_stream, None)
+    await _send(stream, method, reply_msg)
+
+
+async def stream_stream(stream, method):
+    request_stream = _recv_gen(stream, method)
+    async for reply_msg in method.func(request_stream, None):
+        await _send(stream, method, reply_msg)
 
 
 async def request_handler(mapping, stream, headers):

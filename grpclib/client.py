@@ -48,8 +48,7 @@ class Channel:
             )
         return self._protocol
 
-    async def unary_unary(self, method, request, timeout=None, metadata=None,
-                          credentials=None):
+    async def unary_unary(self, method, request):
         assert isinstance(request, method.request_type), \
             '{!r} is not {!r}'.format(type(request), method.request_type)
 
@@ -95,6 +94,15 @@ class Channel:
         # TODO: handle trailers
         return reply_msg
 
+    async def stream_unary(self, method, request):
+        raise NotImplementedError
+
+    async def unary_stream(self, method, request):
+        raise NotImplementedError
+
+    async def stream_stream(self, method, request):
+        raise NotImplementedError
+
     def close(self):
         self._protocol.processor.close()
 
@@ -120,3 +128,21 @@ class UnaryUnaryCall(CallDescriptor):
 
     def __bind__(self, channel, method):
         return partial(channel.unary_unary, method)
+
+
+class StreamUnaryCall(CallDescriptor):
+
+    def __bind__(self, channel, method):
+        return partial(channel.stream_unary, method)
+
+
+class UnaryStreamCall(CallDescriptor):
+
+    def __bind__(self, channel, method):
+        return partial(channel.unary_stream, method)
+
+
+class StreamStreamCall(CallDescriptor):
+
+    def __bind__(self, channel, method):
+        return partial(channel.stream_stream, method)

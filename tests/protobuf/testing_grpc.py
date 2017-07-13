@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import grpclib.server
 import grpclib.client
+import grpclib.__public__
 
 import tests.protobuf.testing_pb2
 
@@ -19,6 +20,7 @@ class BombedService(metaclass=ABCMeta):
         return {
             '/BombedService/Plaster': grpclib.server.Method(
                 self.Plaster,
+                grpclib.__public__.Cardinality.UNARY_UNARY,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.SavoysReply,
             ),

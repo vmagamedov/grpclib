@@ -9,9 +9,24 @@ from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
 from .. import server
 from .. import client
+from .. import __public__
 
 
 SUFFIX = '_grpc.py'
+
+_CARDINALITY = {
+    (False, False): __public__.Cardinality.UNARY_UNARY,
+    (True, False): __public__.Cardinality.STREAM_UNARY,
+    (False, True): __public__.Cardinality.UNARY_STREAM,
+    (True, True): __public__.Cardinality.STREAM_STREAM,
+}
+
+_DESCRIPTORS = {
+    __public__.Cardinality.UNARY_UNARY: client.UnaryUnaryCall,
+    __public__.Cardinality.STREAM_UNARY: client.StreamUnaryCall,
+    __public__.Cardinality.UNARY_STREAM: client.UnaryStreamCall,
+    __public__.Cardinality.STREAM_STREAM: client.StreamStreamCall,
+}
 
 
 class Buffer:
@@ -45,6 +60,7 @@ def render(proto_file, package, imports, services):
     buf.add('')
     buf.add('import {}', server.__name__)
     buf.add('import {}', client.__name__)
+    buf.add('import {}', __public__.__name__)
     buf.add('')
     for mod in imports:
         buf.add('import {}', mod)
@@ -57,7 +73,7 @@ def render(proto_file, package, imports, services):
         buf.add('')
         buf.add('class {}(metaclass=ABCMeta):', service.name)
         with buf.indent():
-            for (name, _, _) in service.methods:
+            for (name, _, _, _) in service.methods:
                 buf.add('')
                 buf.add('@abstractmethod')
                 buf.add('async def {}(self, request, context):', name)
@@ -68,12 +84,16 @@ def render(proto_file, package, imports, services):
             with buf.indent():
                 buf.add('return {{')
                 with buf.indent():
-                    for (name, request_type, reply_type) in service.methods:
+                    for method in service.methods:
+                        name, cardinality, request_type, reply_type = method
                         full_name = '/{}/{}'.format(service_name, name)
                         buf.add("'{}': {}.{}(", full_name,
                                 server.__name__, server.Method.__name__)
                         with buf.indent():
                             buf.add('self.{},', name)
+                            buf.add('{}.{}.{},', __public__.__name__,
+                                    __public__.Cardinality.__name__,
+                                    cardinality.name)
                             buf.add('{},', request_type)
                             buf.add('{},', reply_type)
                         buf.add('),')
@@ -87,11 +107,13 @@ def render(proto_file, package, imports, services):
             buf.add('def __init__(self, channel):')
             with buf.indent():
                 buf.add('self.channel = channel')
-            for (name, request_type, reply_type) in service.methods:
+            for method in service.methods:
+                name, cardinality, request_type, reply_type = method
                 full_name = '/{}/{}'.format(service_name, name)
                 buf.add('')
+                descriptor = _DESCRIPTORS[cardinality]
                 buf.add('{} = {}.{}({}.{}(', name,
-                        client.__name__, client.UnaryUnaryCall.__name__,
+                        client.__name__, descriptor.__name__,
                         client.__name__, client.Method.__name__)
                 with buf.indent():
                     buf.add("'{}',", full_name)
@@ -141,8 +163,11 @@ def main():
         for service in proto_file.service:
             methods = []
             for method in service.method:
+                cardinality = _CARDINALITY[(method.client_streaming,
+                                            method.server_streaming)]
                 methods.append((
                     method.name,
+                    cardinality,
                     types_map[method.input_type],
                     types_map[method.output_type],
                 ))
