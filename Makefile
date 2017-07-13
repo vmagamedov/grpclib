@@ -1,6 +1,6 @@
 proto: clean
 	python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --python_grpc_out=. example/helloworld.proto
-	python3 -m grpc_tools.protoc -Itests --python_out=tests --python_grpc_out=tests tests/protobuf/testing.proto
+	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. tests/protobuf/testing.proto
 
 server:
 	@PYTHONPATH=. python -m example.server
