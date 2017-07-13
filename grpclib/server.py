@@ -4,7 +4,6 @@ from asyncio import AbstractServer, wait
 from collections import namedtuple
 
 from h2.config import H2Configuration
-from multidict import CIMultiDict
 
 from .protocol import H2Protocol, AbstractHandler
 
@@ -38,7 +37,7 @@ async def unary_unary(stream, method):
 
 
 async def request_handler(mapping, stream, headers):
-    headers = CIMultiDict(headers)
+    headers = dict(headers)
 
     h2_method = headers[':method']
     assert h2_method == 'POST', h2_method

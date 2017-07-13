@@ -4,7 +4,6 @@ from functools import partial
 from collections import namedtuple
 
 from h2.config import H2Configuration
-from multidict import MultiDict
 
 from .protocol import H2Protocol, AbstractHandler
 
@@ -76,7 +75,7 @@ class Channel:
 
         await stream.send_data(request_data, end_stream=True)
 
-        headers = MultiDict(await stream.recv_headers())
+        headers = dict(await stream.recv_headers())
         assert headers[':status'] == '200', headers[':status']
         assert headers['content-type'] in _CONTENT_TYPES, \
             headers['content-type']
