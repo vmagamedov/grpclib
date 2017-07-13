@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='tests/protobuf/testing.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\x1ctests/protobuf/testing.proto\"\x1e\n\rSavoysRequest\x12\r\n\x05kyler\x18\x01 \x01(\t\"\x1d\n\x0bSavoysReply\x12\x0e\n\x06\x62\x65nito\x18\x01 \x01(\t2:\n\rBombedService\x12)\n\x07Plaster\x12\x0e.SavoysRequest\x1a\x0c.SavoysReply\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1ctests/protobuf/testing.proto\"\x1e\n\rSavoysRequest\x12\r\n\x05kyler\x18\x01 \x01(\t\"\x1d\n\x0bSavoysReply\x12\x0e\n\x06\x62\x65nito\x18\x01 \x01(\t\"\x1d\n\x0cUnyoungChunk\x12\r\n\x05whome\x18\x01 \x01(\t\"\x1c\n\nGoowyChunk\x12\x0e\n\x06\x62iomes\x18\x01 \x01(\t2\xbf\x01\n\rBombedService\x12)\n\x07Plaster\x12\x0e.SavoysRequest\x1a\x0c.SavoysReply\"\x00\x12*\n\x07\x41nginal\x12\r.UnyoungChunk\x1a\x0c.SavoysReply\"\x00(\x01\x12*\n\x07\x42\x65nzine\x12\x0e.SavoysRequest\x1a\x0b.GoowyChunk\"\x00\x30\x01\x12+\n\x07\x44\x65vilry\x12\r.UnyoungChunk\x1a\x0b.GoowyChunk\"\x00(\x01\x30\x01\x62\x06proto3')
 )
 
 
@@ -86,8 +86,72 @@ _SAVOYSREPLY = _descriptor.Descriptor(
   serialized_end=93,
 )
 
+
+_UNYOUNGCHUNK = _descriptor.Descriptor(
+  name='UnyoungChunk',
+  full_name='UnyoungChunk',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='whome', full_name='UnyoungChunk.whome', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=95,
+  serialized_end=124,
+)
+
+
+_GOOWYCHUNK = _descriptor.Descriptor(
+  name='GoowyChunk',
+  full_name='GoowyChunk',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='biomes', full_name='GoowyChunk.biomes', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=126,
+  serialized_end=154,
+)
+
 DESCRIPTOR.message_types_by_name['SavoysRequest'] = _SAVOYSREQUEST
 DESCRIPTOR.message_types_by_name['SavoysReply'] = _SAVOYSREPLY
+DESCRIPTOR.message_types_by_name['UnyoungChunk'] = _UNYOUNGCHUNK
+DESCRIPTOR.message_types_by_name['GoowyChunk'] = _GOOWYCHUNK
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 SavoysRequest = _reflection.GeneratedProtocolMessageType('SavoysRequest', (_message.Message,), dict(
@@ -103,6 +167,20 @@ SavoysReply = _reflection.GeneratedProtocolMessageType('SavoysReply', (_message.
   # @@protoc_insertion_point(class_scope:SavoysReply)
   ))
 _sym_db.RegisterMessage(SavoysReply)
+
+UnyoungChunk = _reflection.GeneratedProtocolMessageType('UnyoungChunk', (_message.Message,), dict(
+  DESCRIPTOR = _UNYOUNGCHUNK,
+  __module__ = 'tests.protobuf.testing_pb2'
+  # @@protoc_insertion_point(class_scope:UnyoungChunk)
+  ))
+_sym_db.RegisterMessage(UnyoungChunk)
+
+GoowyChunk = _reflection.GeneratedProtocolMessageType('GoowyChunk', (_message.Message,), dict(
+  DESCRIPTOR = _GOOWYCHUNK,
+  __module__ = 'tests.protobuf.testing_pb2'
+  # @@protoc_insertion_point(class_scope:GoowyChunk)
+  ))
+_sym_db.RegisterMessage(GoowyChunk)
 
 
 # @@protoc_insertion_point(module_scope)

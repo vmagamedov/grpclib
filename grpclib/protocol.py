@@ -13,18 +13,20 @@ from h2.exceptions import ProtocolError
 
 
 def _slice(chunks: List[bytes], size: int):
-    first, first_size, second = [], 0, []
+    data, data_size, tail = [], 0, []
     for chunk in chunks:
-        if first_size < size:
-            if first_size + len(chunk) <= size:
-                first.append(chunk)
+        if data_size < size:
+            if data_size + len(chunk) <= size:
+                data.append(chunk)
+                data_size += len(chunk)
             else:
-                slice_size = size - first_size
-                first.append(chunk[:slice_size])
-                second.append(chunk[slice_size:])
+                slice_size = size - data_size
+                data.append(chunk[:slice_size])
+                tail.append(chunk[slice_size:])
+                data_size += slice_size
         else:
-            second.append(chunk)
-    return first, second
+            tail.append(chunk)
+    return data, tail
 
 
 class Buffer:
@@ -62,7 +64,12 @@ class Buffer:
                     self._complete_size = -1
                     self._complete_event.clear()
                 data, self._chunks = _slice(self._chunks, size)
-                return b''.join(data)
+                data_bytes = b''.join(data)
+                if data_bytes and len(data_bytes) < size:
+                    # TODO: proper exception
+                    raise Exception('Incomplete data, {} instead of {}'
+                                    .format(len(data_bytes), size))
+                return data_bytes
 
 
 class Connection:

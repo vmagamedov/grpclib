@@ -3,8 +3,6 @@
 # plugin: grpclib.plugin.main
 from abc import ABCMeta, abstractmethod
 
-import grpclib.server
-import grpclib.client
 import grpclib.__public__
 
 import tests.protobuf.testing_pb2
@@ -16,13 +14,43 @@ class BombedService(metaclass=ABCMeta):
     async def Plaster(self, request, context):
         pass
 
+    @abstractmethod
+    async def Anginal(self, request, context):
+        pass
+
+    @abstractmethod
+    async def Benzine(self, request, context):
+        pass
+
+    @abstractmethod
+    async def Devilry(self, request, context):
+        pass
+
     def __mapping__(self):
         return {
-            '/BombedService/Plaster': grpclib.server.Method(
+            '/BombedService/Plaster': grpclib.__public__.Handler(
                 self.Plaster,
                 grpclib.__public__.Cardinality.UNARY_UNARY,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.SavoysReply,
+            ),
+            '/BombedService/Anginal': grpclib.__public__.Handler(
+                self.Anginal,
+                grpclib.__public__.Cardinality.STREAM_UNARY,
+                tests.protobuf.testing_pb2.UnyoungChunk,
+                tests.protobuf.testing_pb2.SavoysReply,
+            ),
+            '/BombedService/Benzine': grpclib.__public__.Handler(
+                self.Benzine,
+                grpclib.__public__.Cardinality.UNARY_STREAM,
+                tests.protobuf.testing_pb2.SavoysRequest,
+                tests.protobuf.testing_pb2.GoowyChunk,
+            ),
+            '/BombedService/Devilry': grpclib.__public__.Handler(
+                self.Devilry,
+                grpclib.__public__.Cardinality.STREAM_STREAM,
+                tests.protobuf.testing_pb2.UnyoungChunk,
+                tests.protobuf.testing_pb2.GoowyChunk,
             ),
         }
 
@@ -32,8 +60,30 @@ class BombedServiceStub:
     def __init__(self, channel):
         self.channel = channel
 
-    Plaster = grpclib.client.UnaryUnaryCall(grpclib.client.Method(
+    Plaster = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
         '/BombedService/Plaster',
+        grpclib.__public__.Cardinality.UNARY_UNARY,
         tests.protobuf.testing_pb2.SavoysRequest,
         tests.protobuf.testing_pb2.SavoysReply,
+    ))
+
+    Anginal = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
+        '/BombedService/Anginal',
+        grpclib.__public__.Cardinality.STREAM_UNARY,
+        tests.protobuf.testing_pb2.UnyoungChunk,
+        tests.protobuf.testing_pb2.SavoysReply,
+    ))
+
+    Benzine = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
+        '/BombedService/Benzine',
+        grpclib.__public__.Cardinality.UNARY_STREAM,
+        tests.protobuf.testing_pb2.SavoysRequest,
+        tests.protobuf.testing_pb2.GoowyChunk,
+    ))
+
+    Devilry = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
+        '/BombedService/Devilry',
+        grpclib.__public__.Cardinality.STREAM_STREAM,
+        tests.protobuf.testing_pb2.UnyoungChunk,
+        tests.protobuf.testing_pb2.GoowyChunk,
     ))

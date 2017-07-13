@@ -1,13 +1,24 @@
 syntax = "proto3";
 
-service BombedService {
-  rpc Plaster (SavoysRequest) returns (SavoysReply) {}
-}
-
 message SavoysRequest {
   string kyler = 1;
 }
 
 message SavoysReply {
   string benito = 1;
+}
+
+message UnyoungChunk {
+  string whome = 1;
+}
+
+message GoowyChunk {
+  string biomes = 1;
+}
+
+service BombedService {
+  rpc Plaster (SavoysRequest) returns (SavoysReply) {}
+  rpc Anginal (stream UnyoungChunk) returns (SavoysReply) {}
+  rpc Benzine (SavoysRequest) returns (stream GoowyChunk) {}
+  rpc Devilry (stream UnyoungChunk) returns (stream GoowyChunk) {}
 }

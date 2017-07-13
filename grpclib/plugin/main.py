@@ -7,8 +7,6 @@ from collections import namedtuple
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
-from .. import server
-from .. import client
 from .. import __public__
 
 
@@ -19,13 +17,6 @@ _CARDINALITY = {
     (True, False): __public__.Cardinality.STREAM_UNARY,
     (False, True): __public__.Cardinality.UNARY_STREAM,
     (True, True): __public__.Cardinality.STREAM_STREAM,
-}
-
-_DESCRIPTORS = {
-    __public__.Cardinality.UNARY_UNARY: client.UnaryUnaryCall,
-    __public__.Cardinality.STREAM_UNARY: client.StreamUnaryCall,
-    __public__.Cardinality.UNARY_STREAM: client.UnaryStreamCall,
-    __public__.Cardinality.STREAM_STREAM: client.StreamStreamCall,
 }
 
 
@@ -58,8 +49,6 @@ def render(proto_file, package, imports, services):
     buf.add('# plugin: {}', __name__)
     buf.add('from abc import ABCMeta, abstractmethod')
     buf.add('')
-    buf.add('import {}', server.__name__)
-    buf.add('import {}', client.__name__)
     buf.add('import {}', __public__.__name__)
     buf.add('')
     for mod in imports:
@@ -88,7 +77,7 @@ def render(proto_file, package, imports, services):
                         name, cardinality, request_type, reply_type = method
                         full_name = '/{}/{}'.format(service_name, name)
                         buf.add("'{}': {}.{}(", full_name,
-                                server.__name__, server.Method.__name__)
+                                __public__.__name__, __public__.Handler.__name__)
                         with buf.indent():
                             buf.add('self.{},', name)
                             buf.add('{}.{}.{},', __public__.__name__,
@@ -111,12 +100,14 @@ def render(proto_file, package, imports, services):
                 name, cardinality, request_type, reply_type = method
                 full_name = '/{}/{}'.format(service_name, name)
                 buf.add('')
-                descriptor = _DESCRIPTORS[cardinality]
                 buf.add('{} = {}.{}({}.{}(', name,
-                        client.__name__, descriptor.__name__,
-                        client.__name__, client.Method.__name__)
+                        __public__.__name__, __public__.CallDescriptor.__name__,
+                        __public__.__name__, __public__.Method.__name__)
                 with buf.indent():
                     buf.add("'{}',", full_name)
+                    buf.add('{}.{}.{},', __public__.__name__,
+                            __public__.Cardinality.__name__,
+                            cardinality.name)
                     buf.add('{},', request_type)
                     buf.add('{},', reply_type)
                 buf.add('))')

@@ -1,14 +1,8 @@
-import struct
-
-from functools import partial
-from collections import namedtuple
-
 from h2.config import H2Configuration
 
+from .common import recv_gen, send
 from .protocol import H2Protocol, AbstractHandler
 
-
-Method = namedtuple('Method', 'name, request_type, reply_type')
 
 _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
 
@@ -48,15 +42,7 @@ class Channel:
             )
         return self._protocol
 
-    async def unary_unary(self, method, request):
-        assert isinstance(request, method.request_type), \
-            '{!r} is not {!r}'.format(type(request), method.request_type)
-
-        request_bin = request.SerializeToString()
-        request_data = (struct.pack('?', False)
-                        + struct.pack('>I', len(request_bin))
-                        + request_bin)
-
+    async def request(self, method, request):
         protocol = await self._ensure_connected()
 
         # TODO: check concurrent streams count and maybe wait
@@ -72,77 +58,39 @@ class Channel:
             ('te', 'trailers'),
         ])
 
-        await stream.send_data(request_data, end_stream=True)
+        if method.cardinality.value.client_streaming:
+            async for msg in request:
+                assert isinstance(msg, method.request_type), type(msg)
+                await send(stream, msg)
+            await stream.end()
+        else:
+            assert isinstance(request, method.request_type), type(request)
+            await send(stream, request, end_stream=True)
 
         headers = dict(await stream.recv_headers())
         assert headers[':status'] == '200', headers[':status']
         assert headers['content-type'] in _CONTENT_TYPES, \
             headers['content-type']
 
-        reply_data = await stream.recv_data()
-        compressed_flag = struct.unpack('?', reply_data[0:1])[0]
-        if compressed_flag:
-            raise NotImplementedError('Compression not implemented')
+        if method.cardinality.server_streaming:
+            return self._stream_result(stream, method)
+        else:
+            return await self._unary_result(stream, method)
 
-        reply_len = struct.unpack('>I', reply_data[1:5])[0]
-        reply_bin = reply_data[5:]
-        assert len(reply_bin) == reply_len, \
-            '{} != {}'.format(len(reply_bin), reply_len)
+    async def _stream_result(self, stream, method):
+        async for reply in recv_gen(stream, method.reply_type):
+            yield reply
+        trailers = dict(await stream.recv_headers())
+        if trailers.get('grpc-status') != '0':
+            raise Exception(trailers)  # TODO: proper exception type
 
-        reply_msg = method.reply_type.FromString(reply_bin)
-
-        # TODO: handle trailers
-        return reply_msg
-
-    async def stream_unary(self, method, request):
-        raise NotImplementedError
-
-    async def unary_stream(self, method, request):
-        raise NotImplementedError
-
-    async def stream_stream(self, method, request):
-        raise NotImplementedError
+    async def _unary_result(self, stream, method):
+        reply = [r async for r in recv_gen(stream, method.reply_type)]
+        trailers = dict(await stream.recv_headers())
+        if trailers.get('grpc-status') != '0':
+            raise Exception(trailers)  # TODO: proper exception type
+        assert len(reply) == 1, len(reply)
+        return reply[0]
 
     def close(self):
         self._protocol.processor.close()
-
-
-class CallDescriptor:
-
-    def __init__(self, method):
-        self.method = method
-        _, _, self.method_name = method.name.split('/')
-
-    def __bind__(self, channel, method):
-        raise NotImplementedError
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        method = self.__bind__(instance.channel, self.method)
-        instance.__dict__[self.method_name] = method
-        return method
-
-
-class UnaryUnaryCall(CallDescriptor):
-
-    def __bind__(self, channel, method):
-        return partial(channel.unary_unary, method)
-
-
-class StreamUnaryCall(CallDescriptor):
-
-    def __bind__(self, channel, method):
-        return partial(channel.stream_unary, method)
-
-
-class UnaryStreamCall(CallDescriptor):
-
-    def __bind__(self, channel, method):
-        return partial(channel.unary_stream, method)
-
-
-class StreamStreamCall(CallDescriptor):
-
-    def __bind__(self, channel, method):
-        return partial(channel.stream_stream, method)
