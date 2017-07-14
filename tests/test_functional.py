@@ -1,4 +1,5 @@
 import socket
+import asyncio
 
 import pytest
 
@@ -36,42 +37,43 @@ class Bombed(BombedService):
             yield GoowyChunk(biomes=request.whome)
 
 
+class ClientServer:
+    server = None
+
+    def __init__(self, *, loop):
+        self.loop = loop
+
+    async def __aenter__(self):
+        host = '127.0.0.1'
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('127.0.0.1', 0))
+            _, port = s.getsockname()
+
+        bombed = Bombed()
+
+        self.server = Server([bombed], loop=self.loop)
+        await self.server.start(host, port)
+
+        channel = Channel(host=host, port=port, loop=self.loop)
+        stub = BombedServiceStub(channel)
+        return bombed, stub
+
+    async def __aexit__(self, *exc_info):
+        self.server.close()
+        await self.server.wait_closed()
+
+
 @pytest.mark.asyncio
 async def test_unary_unary(event_loop):
-    host = '127.0.0.1'
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        _, port = s.getsockname()
-
-    bombed = Bombed()
-
-    server = Server([bombed], loop=event_loop)
-    await server.start(host, port)
-    try:
-        channel = Channel(host=host, port=port, loop=event_loop)
-        stub = BombedServiceStub(channel)
+    async with ClientServer(loop=event_loop) as (bombed, stub):
         reply = await stub.Plaster(SavoysRequest(kyler='huizhou'))
         assert reply == SavoysReply(benito='bebops')
         assert bombed.log == [SavoysRequest(kyler='huizhou')]
-    finally:
-        server.close()
-        await server.wait_closed()
 
 
 @pytest.mark.asyncio
 async def test_stream_unary(event_loop):
-    host = '127.0.0.1'
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        _, port = s.getsockname()
-
-    bombed = Bombed()
-
-    server = Server([bombed], loop=event_loop)
-    await server.start(host, port)
-    try:
-        channel = Channel(host=host, port=port, loop=event_loop)
-        stub = BombedServiceStub(channel)
+    async with ClientServer(loop=event_loop) as (bombed, stub):
 
         async def upload_gen():
             yield UnyoungChunk(whome='canopy')
@@ -83,6 +85,59 @@ async def test_stream_unary(event_loop):
         assert bombed.log == [UnyoungChunk(whome='canopy'),
                               UnyoungChunk(whome='iver'),
                               UnyoungChunk(whome='part')]
-    finally:
-        server.close()
-        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_unary_stream(event_loop):
+    async with ClientServer(loop=event_loop) as (bombed, stub):
+        reply_stream = await stub.Benzine(SavoysRequest(kyler='eediot'))
+        assert bombed.log == [SavoysRequest(kyler='eediot')]
+        reply = [r async for r in reply_stream]
+        assert reply == [GoowyChunk(biomes='papists'),
+                         GoowyChunk(biomes='tip'),
+                         GoowyChunk(biomes='off')]
+
+
+class Upstream:
+
+    def __init__(self, *, loop):
+        self._queue = asyncio.Queue(loop=loop)
+
+    async def send(self, item):
+        await self._queue.put(item)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        await self._queue.put(None)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        item = await self._queue.get()
+        if item is None:
+            raise StopAsyncIteration()
+        else:
+            return item
+
+
+@pytest.mark.skip
+@pytest.mark.asyncio
+async def test_stream_stream(event_loop):
+    async with ClientServer(loop=event_loop) as (bombed, stub):
+        async with Upstream(loop=event_loop) as upstream:
+            downstream = (await stub.Devilry(upstream)).__aiter__()
+
+            await upstream.send(UnyoungChunk(whome='guv'))
+            assert await downstream.__anext__() == GoowyChunk(biomes='guv')
+
+            await upstream.send(UnyoungChunk(whome='lactic'))
+            assert await downstream.__anext__() == GoowyChunk(biomes='lactic')
+
+            await upstream.send(UnyoungChunk(whome='scrawn'))
+            assert await downstream.__anext__() == GoowyChunk(biomes='scrawn')
+
+        with pytest.raises(StopAsyncIteration):
+            await downstream.__anext__()
