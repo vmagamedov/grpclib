@@ -36,6 +36,7 @@ class Buffer:
         self._length = 0
         self._complete_size = -1
         self._complete_event = Event(loop=loop)
+        self._eof = False
 
     def append(self, data):
         self._chunks.append(data)
@@ -46,11 +47,13 @@ class Buffer:
                 self._complete_event.set()
 
     def eof(self):
+        self._eof = True
         self._complete_event.set()
 
     async def read(self, size=None):
         if size is None:
-            await self._complete_event.wait()
+            if not self._eof:
+                await self._complete_event.wait()
             return b''.join(self._chunks)
         else:
             if size < 0:
@@ -58,12 +61,13 @@ class Buffer:
             elif size == 0:
                 return b''
             else:
-                if size > self._length:
+                if size > self._length and not self._eof:
                     self._complete_size = size
                     await self._complete_event.wait()
                     self._complete_size = -1
                     self._complete_event.clear()
                 data, self._chunks = _slice(self._chunks, size)
+                self._length -= size
                 data_bytes = b''.join(data)
                 if data_bytes and len(data_bytes) < size:
                     # TODO: proper exception
