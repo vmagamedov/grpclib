@@ -1,7 +1,8 @@
 from h2.config import H2Configuration
 
-from .common import recv_gen, send
+from .stream import recv, send
 from .protocol import H2Protocol, AbstractHandler
+from .__public__ import Cardinality
 
 
 _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
@@ -20,6 +21,70 @@ class Handler(AbstractHandler):
         self.connection_lost = True
 
 
+class Stream:
+    _stream = None
+    _reply_headers = None
+    _ended = False
+
+    def __init__(self, channel, request_headers, request_type, reply_type):
+        self._channel = channel
+        self._request_headers = request_headers
+        self._request_type = request_type
+        self._reply_type = reply_type
+
+    async def __aenter__(self):
+        protocol = await self._channel.__connect__()
+
+        # TODO: check concurrent streams count and maybe wait
+        self._stream = protocol.processor.create_stream()
+
+        await self._stream.send_headers(self._request_headers)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._ended:
+            return
+
+        if exc_type or exc_val or exc_tb:
+            await self.reset()
+        else:
+            await self.end()
+            trailers = dict(await self._stream.recv_headers())
+            if trailers.get('grpc-status') != '0':
+                raise Exception(trailers)  # TODO: proper exception type
+
+    async def send(self, message, end=False):
+        await send(self._stream, message, end_stream=end)
+        if end:
+            self._ended = True
+
+    async def end(self):
+        await self._stream.end()
+
+    async def reset(self):
+        await self._stream.reset()  # TODO: specify error code
+
+    async def recv(self):
+        if self._reply_headers is None:
+            self._reply_headers = dict(await self._stream.recv_headers())
+            assert self._reply_headers[':status'] == '200', \
+                self._reply_headers[':status']
+            assert self._reply_headers['content-type'] in _CONTENT_TYPES, \
+                self._reply_headers['content-type']
+
+        return await recv(self._stream, self._reply_type)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        message = await self.recv()
+        if message is None:
+            raise StopAsyncIteration()
+        else:
+            return message
+
+
 class Channel:
     _protocol = None
 
@@ -35,20 +100,20 @@ class Channel:
     def _protocol_factory(self):
         return H2Protocol(Handler(), self._config, loop=self._loop)
 
-    async def _ensure_connected(self):
+    async def __connect__(self):
         if self._protocol is None or self._protocol.handler.connection_lost:
             _, self._protocol = await self._loop.create_connection(
                 self._protocol_factory, self._host, self._port
             )
         return self._protocol
 
-    async def request(self, method, request):
-        protocol = await self._ensure_connected()
+    async def _request_simple(self, stream, message):
+        async with stream:
+            await stream.send(message, end=True)
+            return await stream.recv()
 
-        # TODO: check concurrent streams count and maybe wait
-        stream = protocol.processor.create_stream()
-
-        await stream.send_headers([
+    def request(self, method, message=None):
+        headers = [
             (':scheme', 'http'),
             (':authority', self._authority),
             (':method', 'POST'),
@@ -56,41 +121,15 @@ class Channel:
             ('user-agent', 'grpc-python'),
             ('content-type', 'application/grpc+proto'),
             ('te', 'trailers'),
-        ])
+        ]
 
-        if method.cardinality.value.client_streaming:
-            async for msg in request:
-                assert isinstance(msg, method.request_type), type(msg)
-                await send(stream, msg)
-            await stream.end()
+        stream = Stream(self, headers, method.request_type, method.reply_type)
+        if method.cardinality is Cardinality.UNARY_UNARY:
+            assert message is not None
+            return self._request_simple(stream, message)
         else:
-            assert isinstance(request, method.request_type), type(request)
-            await send(stream, request, end_stream=True)
-
-        headers = dict(await stream.recv_headers())
-        assert headers[':status'] == '200', headers[':status']
-        assert headers['content-type'] in _CONTENT_TYPES, \
-            headers['content-type']
-
-        if method.cardinality.server_streaming:
-            return self._stream_result(stream, method)
-        else:
-            return await self._unary_result(stream, method)
-
-    async def _stream_result(self, stream, method):
-        async for reply in recv_gen(stream, method.reply_type):
-            yield reply
-        trailers = dict(await stream.recv_headers())
-        if trailers.get('grpc-status') != '0':
-            raise Exception(trailers)  # TODO: proper exception type
-
-    async def _unary_result(self, stream, method):
-        reply = [r async for r in recv_gen(stream, method.reply_type)]
-        trailers = dict(await stream.recv_headers())
-        if trailers.get('grpc-status') != '0':
-            raise Exception(trailers)  # TODO: proper exception type
-        assert len(reply) == 1, len(reply)
-        return reply[0]
+            assert message is None, message
+            return stream
 
     def close(self):
         self._protocol.processor.close()

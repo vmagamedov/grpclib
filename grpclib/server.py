@@ -4,7 +4,7 @@ from asyncio import AbstractServer, wait
 
 from h2.config import H2Configuration
 
-from .common import recv_gen, send
+from .stream import recv_gen, send
 from .protocol import H2Protocol, AbstractHandler
 
 

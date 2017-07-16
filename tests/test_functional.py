@@ -74,13 +74,11 @@ async def test_unary_unary(event_loop):
 @pytest.mark.asyncio
 async def test_stream_unary(event_loop):
     async with ClientServer(loop=event_loop) as (bombed, stub):
-
-        async def upload_gen():
-            yield UnyoungChunk(whome='canopy')
-            yield UnyoungChunk(whome='iver')
-            yield UnyoungChunk(whome='part')
-
-        reply = await stub.Anginal(upload_gen())
+        async with stub.Anginal() as stream:
+            await stream.send(UnyoungChunk(whome='canopy'))
+            await stream.send(UnyoungChunk(whome='iver'))
+            await stream.send(UnyoungChunk(whome='part'), end=True)
+            reply = await stream.recv()
         assert reply == SavoysReply(benito='anagogy')
         assert bombed.log == [UnyoungChunk(whome='canopy'),
                               UnyoungChunk(whome='iver'),
@@ -90,54 +88,25 @@ async def test_stream_unary(event_loop):
 @pytest.mark.asyncio
 async def test_unary_stream(event_loop):
     async with ClientServer(loop=event_loop) as (bombed, stub):
-        reply_stream = await stub.Benzine(SavoysRequest(kyler='eediot'))
-        assert bombed.log == [SavoysRequest(kyler='eediot')]
-        reply = [r async for r in reply_stream]
-        assert reply == [GoowyChunk(biomes='papists'),
-                         GoowyChunk(biomes='tip'),
-                         GoowyChunk(biomes='off')]
+        async with stub.Benzine() as stream:
+            await stream.send(SavoysRequest(kyler='eediot'), end=True)
+            replies = [r async for r in stream]
+        assert replies == [GoowyChunk(biomes='papists'),
+                           GoowyChunk(biomes='tip'),
+                           GoowyChunk(biomes='off')]
 
 
-class Upstream:
-
-    def __init__(self, *, loop):
-        self._queue = asyncio.Queue(loop=loop)
-
-    async def send(self, item):
-        await self._queue.put(item)
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc_info):
-        await self._queue.put(None)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        item = await self._queue.get()
-        if item is None:
-            raise StopAsyncIteration()
-        else:
-            return item
-
-
-@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_stream_stream(event_loop):
     async with ClientServer(loop=event_loop) as (bombed, stub):
-        async with Upstream(loop=event_loop) as upstream:
-            downstream = (await stub.Devilry(upstream)).__aiter__()
+        async with stub.Devilry() as stream:
+            await stream.send(UnyoungChunk(whome='guv'))
+            assert await stream.recv() == GoowyChunk(biomes='guv')
 
-            await upstream.send(UnyoungChunk(whome='guv'))
-            assert await downstream.__anext__() == GoowyChunk(biomes='guv')
+            await stream.send(UnyoungChunk(whome='lactic'))
+            assert await stream.recv() == GoowyChunk(biomes='lactic')
 
-            await upstream.send(UnyoungChunk(whome='lactic'))
-            assert await downstream.__anext__() == GoowyChunk(biomes='lactic')
+            await stream.send(UnyoungChunk(whome='scrawn'), end=True)
+            assert await stream.recv() == GoowyChunk(biomes='scrawn')
 
-            await upstream.send(UnyoungChunk(whome='scrawn'))
-            assert await downstream.__anext__() == GoowyChunk(biomes='scrawn')
-
-        with pytest.raises(StopAsyncIteration):
-            await downstream.__anext__()
+            assert await stream.recv() is None
