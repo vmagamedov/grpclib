@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional, List, Tuple, Dict  # noqa
 from asyncio import Transport, Protocol, Event, Queue, AbstractEventLoop
 
+from h2.errors import ErrorCodes
 from h2.config import H2Configuration
 from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
 from h2.events import ConnectionTerminated, RemoteSettingsChanged
@@ -175,6 +176,12 @@ class Stream:
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
         self._h2_connection.end_stream(self.id)
+        self._transport.write(self._h2_connection.data_to_send())
+
+    async def reset(self, error_code=ErrorCodes.NO_ERROR):
+        if not self._connection.write_ready.is_set():
+            await self._connection.write_ready.wait()
+        self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
 
     def __ended__(self):
