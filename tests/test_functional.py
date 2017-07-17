@@ -1,5 +1,4 @@
 import socket
-import asyncio
 
 import pytest
 
@@ -20,16 +19,16 @@ class Bombed(BombedService):
         self.log.append(request)
         return SavoysReply(benito='bebops')
 
-    async def Anginal(self, request_stream, context):
-        async for request in request_stream:
-            self.log.append(request)
-        return SavoysReply(benito='anagogy')
-
     async def Benzine(self, request, context):
         self.log.append(request)
         yield GoowyChunk(biomes='papists')
         yield GoowyChunk(biomes='tip')
         yield GoowyChunk(biomes='off')
+
+    async def Anginal(self, request_stream, context):
+        async for request in request_stream:
+            self.log.append(request)
+        return SavoysReply(benito='anagogy')
 
     async def Devilry(self, request_stream, context):
         async for request in request_stream:
@@ -72,6 +71,17 @@ async def test_unary_unary(event_loop):
 
 
 @pytest.mark.asyncio
+async def test_unary_stream(event_loop):
+    async with ClientServer(loop=event_loop) as (bombed, stub):
+        async with stub.Benzine() as stream:
+            await stream.send(SavoysRequest(kyler='eediot'), end=True)
+            replies = [r async for r in stream]
+        assert replies == [GoowyChunk(biomes='papists'),
+                           GoowyChunk(biomes='tip'),
+                           GoowyChunk(biomes='off')]
+
+
+@pytest.mark.asyncio
 async def test_stream_unary(event_loop):
     async with ClientServer(loop=event_loop) as (bombed, stub):
         async with stub.Anginal() as stream:
@@ -83,17 +93,6 @@ async def test_stream_unary(event_loop):
         assert bombed.log == [UnyoungChunk(whome='canopy'),
                               UnyoungChunk(whome='iver'),
                               UnyoungChunk(whome='part')]
-
-
-@pytest.mark.asyncio
-async def test_unary_stream(event_loop):
-    async with ClientServer(loop=event_loop) as (bombed, stub):
-        async with stub.Benzine() as stream:
-            await stream.send(SavoysRequest(kyler='eediot'), end=True)
-            replies = [r async for r in stream]
-        assert replies == [GoowyChunk(biomes='papists'),
-                           GoowyChunk(biomes='tip'),
-                           GoowyChunk(biomes='off')]
 
 
 @pytest.mark.asyncio

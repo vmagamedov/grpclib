@@ -3,6 +3,7 @@
 # plugin: grpclib.plugin.main
 from abc import ABCMeta, abstractmethod
 
+import grpclib.client
 import grpclib.__public__
 
 import example.helloworld_pb2
@@ -27,12 +28,13 @@ class Greeter(metaclass=ABCMeta):
 
 class GreeterStub:
 
-    def __init__(self, channel):
+    def __init__(self, channel: grpclib.client.Channel) -> None:
         self.channel = channel
 
-    SayHello = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
-        '/helloworld.Greeter/SayHello',
-        grpclib.__public__.Cardinality.UNARY_UNARY,
-        example.helloworld_pb2.HelloRequest,
-        example.helloworld_pb2.HelloReply,
-    ))
+    async def SayHello(self, message: example.helloworld_pb2.HelloRequest) -> example.helloworld_pb2.HelloReply:
+        return await self.channel.unary_unary(
+            '/helloworld.Greeter/SayHello',
+            example.helloworld_pb2.HelloRequest,
+            example.helloworld_pb2.HelloReply,
+            message,
+        )

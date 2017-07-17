@@ -2,7 +2,6 @@ from h2.config import H2Configuration
 
 from .stream import recv, send
 from .protocol import H2Protocol, AbstractHandler
-from .__public__ import Cardinality
 
 
 _CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
@@ -107,29 +106,32 @@ class Channel:
             )
         return self._protocol
 
-    async def _request_simple(self, stream, message):
-        async with stream:
-            await stream.send(message, end=True)
-            return await stream.recv()
-
-    def request(self, method, message=None):
+    def _request(self, name, request_type, reply_type):
         headers = [
             (':scheme', 'http'),
             (':authority', self._authority),
             (':method', 'POST'),
-            (':path', method.name),
+            (':path', name),
             ('user-agent', 'grpc-python'),
             ('content-type', 'application/grpc+proto'),
             ('te', 'trailers'),
         ]
+        return Stream(self, headers, request_type, reply_type)
 
-        stream = Stream(self, headers, method.request_type, method.reply_type)
-        if method.cardinality is Cardinality.UNARY_UNARY:
-            assert message is not None
-            return self._request_simple(stream, message)
-        else:
-            assert message is None, message
-            return stream
+    async def unary_unary(self, name, request_type, reply_type, message):
+        stream = self._request(name, request_type, reply_type)
+        async with stream:
+            await stream.send(message, end=True)
+            return await stream.recv()
+
+    def unary_stream(self, name, request_type, reply_type):
+        return self._request(name, request_type, reply_type)
+
+    def stream_unary(self, name, request_type, reply_type):
+        return self._request(name, request_type, reply_type)
+
+    def stream_stream(self, name, request_type, reply_type):
+        return self._request(name, request_type, reply_type)
 
     def close(self):
         self._protocol.processor.close()

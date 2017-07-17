@@ -3,6 +3,7 @@
 # plugin: grpclib.plugin.main
 from abc import ABCMeta, abstractmethod
 
+import grpclib.client
 import grpclib.__public__
 
 import tests.protobuf.testing_pb2
@@ -15,11 +16,11 @@ class BombedService(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    async def Anginal(self, request, context):
+    async def Benzine(self, request, context):
         pass
 
     @abstractmethod
-    async def Benzine(self, request, context):
+    async def Anginal(self, request, context):
         pass
 
     @abstractmethod
@@ -34,17 +35,17 @@ class BombedService(metaclass=ABCMeta):
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.SavoysReply,
             ),
-            '/BombedService/Anginal': grpclib.__public__.Handler(
-                self.Anginal,
-                grpclib.__public__.Cardinality.STREAM_UNARY,
-                tests.protobuf.testing_pb2.UnyoungChunk,
-                tests.protobuf.testing_pb2.SavoysReply,
-            ),
             '/BombedService/Benzine': grpclib.__public__.Handler(
                 self.Benzine,
                 grpclib.__public__.Cardinality.UNARY_STREAM,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.GoowyChunk,
+            ),
+            '/BombedService/Anginal': grpclib.__public__.Handler(
+                self.Anginal,
+                grpclib.__public__.Cardinality.STREAM_UNARY,
+                tests.protobuf.testing_pb2.UnyoungChunk,
+                tests.protobuf.testing_pb2.SavoysReply,
             ),
             '/BombedService/Devilry': grpclib.__public__.Handler(
                 self.Devilry,
@@ -57,33 +58,34 @@ class BombedService(metaclass=ABCMeta):
 
 class BombedServiceStub:
 
-    def __init__(self, channel):
+    def __init__(self, channel: grpclib.client.Channel) -> None:
         self.channel = channel
 
-    Plaster = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
-        '/BombedService/Plaster',
-        grpclib.__public__.Cardinality.UNARY_UNARY,
-        tests.protobuf.testing_pb2.SavoysRequest,
-        tests.protobuf.testing_pb2.SavoysReply,
-    ))
+    async def Plaster(self, message: tests.protobuf.testing_pb2.SavoysRequest) -> tests.protobuf.testing_pb2.SavoysReply:
+        return await self.channel.unary_unary(
+            '/BombedService/Plaster',
+            tests.protobuf.testing_pb2.SavoysRequest,
+            tests.protobuf.testing_pb2.SavoysReply,
+            message,
+        )
 
-    Anginal = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
-        '/BombedService/Anginal',
-        grpclib.__public__.Cardinality.STREAM_UNARY,
-        tests.protobuf.testing_pb2.UnyoungChunk,
-        tests.protobuf.testing_pb2.SavoysReply,
-    ))
+    def Benzine(self) -> grpclib.client.Stream:
+        return self.channel.unary_stream(
+            '/BombedService/Benzine',
+            tests.protobuf.testing_pb2.SavoysRequest,
+            tests.protobuf.testing_pb2.GoowyChunk,
+        )
 
-    Benzine = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
-        '/BombedService/Benzine',
-        grpclib.__public__.Cardinality.UNARY_STREAM,
-        tests.protobuf.testing_pb2.SavoysRequest,
-        tests.protobuf.testing_pb2.GoowyChunk,
-    ))
+    def Anginal(self) -> grpclib.client.Stream:
+        return self.channel.stream_unary(
+            '/BombedService/Anginal',
+            tests.protobuf.testing_pb2.UnyoungChunk,
+            tests.protobuf.testing_pb2.SavoysReply,
+        )
 
-    Devilry = grpclib.__public__.CallDescriptor(grpclib.__public__.Method(
-        '/BombedService/Devilry',
-        grpclib.__public__.Cardinality.STREAM_STREAM,
-        tests.protobuf.testing_pb2.UnyoungChunk,
-        tests.protobuf.testing_pb2.GoowyChunk,
-    ))
+    def Devilry(self) -> grpclib.client.Stream:
+        return self.channel.stream_stream(
+            '/BombedService/Devilry',
+            tests.protobuf.testing_pb2.UnyoungChunk,
+            tests.protobuf.testing_pb2.GoowyChunk,
+        )

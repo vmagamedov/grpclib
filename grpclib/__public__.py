@@ -1,6 +1,5 @@
 import enum
 
-from functools import partial
 from collections import namedtuple
 
 
@@ -16,18 +15,3 @@ class Cardinality(_Cardinality, enum.Enum):
 
 
 Handler = namedtuple('Handler', 'func, cardinality, request_type, reply_type')
-Method = namedtuple('Method', 'name, cardinality, request_type, reply_type')
-
-
-class CallDescriptor:
-
-    def __init__(self, method):
-        self.method = method
-        _, _, self.method_name = method.name.split('/')
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        method = partial(instance.channel.request, self.method)
-        instance.__dict__[self.method_name] = method
-        return method

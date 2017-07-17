@@ -7,6 +7,7 @@ from collections import namedtuple
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
+from .. import client
 from .. import __public__
 
 
@@ -49,6 +50,7 @@ def render(proto_file, package, imports, services):
     buf.add('# plugin: {}', __name__)
     buf.add('from abc import ABCMeta, abstractmethod')
     buf.add('')
+    buf.add('import {}', client.__name__)
     buf.add('import {}', __public__.__name__)
     buf.add('')
     for mod in imports:
@@ -76,8 +78,8 @@ def render(proto_file, package, imports, services):
                     for method in service.methods:
                         name, cardinality, request_type, reply_type = method
                         full_name = '/{}/{}'.format(service_name, name)
-                        buf.add("'{}': {}.{}(", full_name,
-                                __public__.__name__, __public__.Handler.__name__)
+                        buf.add("'{}': {}.{}(", full_name, __public__.__name__,
+                                __public__.Handler.__name__)
                         with buf.indent():
                             buf.add('self.{},', name)
                             buf.add('{}.{}.{},', __public__.__name__,
@@ -93,24 +95,43 @@ def render(proto_file, package, imports, services):
         buf.add('class {}Stub:', service.name)
         with buf.indent():
             buf.add('')
-            buf.add('def __init__(self, channel):')
+            buf.add('def __init__(self, channel: {}.{}) -> None:'
+                    .format(client.__name__, client.Channel.__name__))
             with buf.indent():
                 buf.add('self.channel = channel')
             for method in service.methods:
                 name, cardinality, request_type, reply_type = method
                 full_name = '/{}/{}'.format(service_name, name)
                 buf.add('')
-                buf.add('{} = {}.{}({}.{}(', name,
-                        __public__.__name__, __public__.CallDescriptor.__name__,
-                        __public__.__name__, __public__.Method.__name__)
+                if cardinality is __public__.Cardinality.UNARY_UNARY:
+                    buf.add('async def {}(self, message: {}) -> {}:'
+                            .format(name, request_type, reply_type))
+                else:
+                    buf.add('def {}(self) -> {}.{}:'
+                            .format(name, client.__name__,
+                                    client.Stream.__name__))
                 with buf.indent():
-                    buf.add("'{}',", full_name)
-                    buf.add('{}.{}.{},', __public__.__name__,
-                            __public__.Cardinality.__name__,
-                            cardinality.name)
-                    buf.add('{},', request_type)
-                    buf.add('{},', reply_type)
-                buf.add('))')
+                    if cardinality is __public__.Cardinality.UNARY_UNARY:
+                        buf.add('return await self.channel.{}('
+                                .format(client.Channel.unary_unary.__name__))
+                    elif cardinality is __public__.Cardinality.UNARY_STREAM:
+                        buf.add('return self.channel.{}('
+                                .format(client.Channel.unary_stream.__name__))
+                    elif cardinality is __public__.Cardinality.STREAM_UNARY:
+                        buf.add('return self.channel.{}('
+                                .format(client.Channel.stream_unary.__name__))
+                    elif cardinality is __public__.Cardinality.STREAM_STREAM:
+                        buf.add('return self.channel.{}('
+                                .format(client.Channel.stream_stream.__name__))
+                    else:
+                        raise TypeError(cardinality)
+                    with buf.indent():
+                        buf.add('\'{}\',', full_name)
+                        buf.add('{},', request_type)
+                        buf.add('{},', reply_type)
+                        if cardinality is __public__.Cardinality.UNARY_UNARY:
+                            buf.add('message,', reply_type)
+                    buf.add(')')
     buf.add('')
     return buf.content()
 
