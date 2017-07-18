@@ -1,5 +1,5 @@
+import abc
 import struct
-
 
 CONTENT_TYPE = 'application/grpc+proto'
 CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
@@ -28,3 +28,20 @@ async def send(stream, message, end_stream=False):
                   + struct.pack('>I', len(reply_bin))
                   + reply_bin)
     await stream.send_data(reply_data, end_stream=end_stream)
+
+
+class Stream(abc.ABC):
+
+    @abc.abstractmethod
+    async def recv(self):
+        pass
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        message = await self.recv()
+        if message is None:
+            raise StopAsyncIteration()
+        else:
+            return message

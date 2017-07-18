@@ -1,6 +1,6 @@
 from h2.config import H2Configuration
 
-from .stream import recv, send, CONTENT_TYPES, CONTENT_TYPE
+from .stream import recv, send, CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
 
@@ -17,24 +17,18 @@ class Handler(AbstractHandler):
         self.connection_lost = True
 
 
-class Stream:
+class Stream(_Stream):
     _stream = None
     _reply_headers = None
     _ended = False
 
-    def __init__(self, channel, request_headers, request_type, reply_type):
+    def __init__(self, channel, request_headers, send_type, recv_type):
         self._channel = channel
         self._request_headers = request_headers
-        self._request_type = request_type
-        self._reply_type = reply_type
+        self._send_type = send_type
+        self._recv_type = recv_type
 
     async def __aenter__(self):
-        protocol = await self._channel.__connect__()
-
-        # TODO: check concurrent streams count and maybe wait
-        self._stream = protocol.processor.create_stream()
-
-        await self._stream.send_headers(self._request_headers)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -50,8 +44,17 @@ class Stream:
                 raise Exception(trailers)  # TODO: proper exception type
 
     async def send(self, message, end=False):
+        if self._stream is None:
+            protocol = await self._channel.__connect__()
+            # TODO: check concurrent streams count and maybe wait
+            self._stream = protocol.processor.create_stream()
+
+            await self._stream.send_headers(self._request_headers)
+
+        assert isinstance(message, self._send_type)
         await send(self._stream, message, end_stream=end)
         if end:
+            assert not self._ended
             self._ended = True
 
     async def end(self):
@@ -68,17 +71,7 @@ class Stream:
             assert self._reply_headers['content-type'] in CONTENT_TYPES, \
                 self._reply_headers['content-type']
 
-        return await recv(self._stream, self._reply_type)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        message = await self.recv()
-        if message is None:
-            raise StopAsyncIteration()
-        else:
-            return message
+        return await recv(self._stream, self._recv_type)
 
 
 class Channel:

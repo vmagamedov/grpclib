@@ -4,59 +4,58 @@ from asyncio import AbstractServer, wait
 
 from h2.config import H2Configuration
 
-from .stream import send, recv, CONTENT_TYPE, CONTENT_TYPES
+from .stream import send, recv, CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
 
 log = logging.getLogger(__name__)
 
 
-class Stream:
+class Stream(_Stream):
     _headers_sent = False
     _ended = False
 
-    def __init__(self, stream, recv_type, send_type, headers, trailers):
+    def __init__(self, stream, recv_type, send_type):
         self._stream = stream
         self._recv_type = recv_type
         self._send_type = send_type
-        self._headers = headers
-        self._trailers = trailers
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._ended:
+            return
+
+        if exc_type or exc_val or exc_tb:
+            await self._stream.send_headers([('grpc-status', '2')],
+                                            end_stream=True)
+        else:
+            await self._stream.send_headers([('grpc-status', '0')],
+                                            end_stream=True)
 
     async def send(self, message, end=False):
         if not self._headers_sent:
-            await self._stream.send_headers(self._headers)
+            await self._stream.send_headers([(':status', '200'),
+                                             ('content-type', CONTENT_TYPE)])
             self._headers_sent = True
 
         assert isinstance(message, self._send_type)
         await send(self._stream, message)
         if end:
+            assert not self._ended
             await self.end()
 
-    async def end(self, trailers=None):
-        if trailers is None:
-            trailers = self._trailers
+    async def end(self):
         assert not self._ended
-        await self._stream.send_headers(trailers, end_stream=True)
-
-    async def maybe_end(self, trailers=None):
-        if not self._ended:
-            await self.end(trailers=trailers)
+        await self._stream.send_headers([('grpc-status', '0')],
+                                        end_stream=True)
 
     async def reset(self):
         await self._stream.reset()  # TODO: specify error code
 
     async def recv(self):
         return await recv(self._stream, self._recv_type)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        message = await self.recv()
-        if message is None:
-            raise StopAsyncIteration()
-        else:
-            return message
 
 
 async def request_handler(mapping, _stream, headers):
@@ -71,16 +70,13 @@ async def request_handler(mapping, _stream, headers):
     assert method is not None, h2_path
     assert h2_content_type in CONTENT_TYPES, h2_content_type
 
-    stream = Stream(_stream, method.request_type, method.reply_type,
-                    [(':status', '200'), ('content-type', CONTENT_TYPE)],
-                    [('grpc-status', '0')])
-    try:
-        await method.func(stream)
-    except Exception:
-        log.exception('Server error')
-        await stream.maybe_end([('grpc-status', '2')])
-    else:
-        await stream.maybe_end()
+    async with Stream(_stream, method.request_type,
+                      method.reply_type) as stream:
+        try:
+            await method.func(stream)
+        except Exception:
+            log.exception('Server error')
+            raise
 
 
 class Handler(AbstractHandler):
