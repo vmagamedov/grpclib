@@ -1,6 +1,10 @@
 import struct
 
 
+CONTENT_TYPE = 'application/grpc+proto'
+CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
+
+
 async def recv(stream, message_type):
     meta = await stream.recv_data(5)
     if not meta:
@@ -16,15 +20,6 @@ async def recv(stream, message_type):
         '{} != {}'.format(len(message_bin), message_len)
     message = message_type.FromString(message_bin)
     return message
-
-
-async def recv_gen(stream, message_type):
-    while True:
-        message = await recv(stream, message_type)
-        if message is None:
-            break
-        else:
-            yield message
 
 
 async def send(stream, message, end_stream=False):

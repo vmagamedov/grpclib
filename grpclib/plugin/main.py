@@ -67,7 +67,7 @@ def render(proto_file, package, imports, services):
             for (name, _, _, _) in service.methods:
                 buf.add('')
                 buf.add('@abstractmethod')
-                buf.add('async def {}(self, request, context):', name)
+                buf.add('async def {}(self, stream):', name)
                 with buf.indent():
                     buf.add('pass')
             buf.add('')

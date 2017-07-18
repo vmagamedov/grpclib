@@ -8,10 +8,10 @@ from . import helloworld_grpc
 
 class Greeter(helloworld_grpc.Greeter):
 
-    async def SayHello(self, request, context):
-        # await asyncio.sleep(1)
+    async def SayHello(self, stream):
+        request = await stream.recv()
         message = 'Hello, {}!'.format(request.name)
-        return helloworld_pb2.HelloReply(message=message)
+        await stream.send(helloworld_pb2.HelloReply(message=message))
 
 
 def main():

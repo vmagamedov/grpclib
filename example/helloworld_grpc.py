@@ -12,7 +12,7 @@ import example.helloworld_pb2
 class Greeter(metaclass=ABCMeta):
 
     @abstractmethod
-    async def SayHello(self, request, context):
+    async def SayHello(self, stream):
         pass
 
     def __mapping__(self):

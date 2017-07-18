@@ -1,10 +1,7 @@
 from h2.config import H2Configuration
 
-from .stream import recv, send
+from .stream import recv, send, CONTENT_TYPES, CONTENT_TYPE
 from .protocol import H2Protocol, AbstractHandler
-
-
-_CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
 
 
 class Handler(AbstractHandler):
@@ -68,7 +65,7 @@ class Stream:
             self._reply_headers = dict(await self._stream.recv_headers())
             assert self._reply_headers[':status'] == '200', \
                 self._reply_headers[':status']
-            assert self._reply_headers['content-type'] in _CONTENT_TYPES, \
+            assert self._reply_headers['content-type'] in CONTENT_TYPES, \
                 self._reply_headers['content-type']
 
         return await recv(self._stream, self._reply_type)
@@ -113,7 +110,7 @@ class Channel:
             (':method', 'POST'),
             (':path', name),
             ('user-agent', 'grpc-python'),
-            ('content-type', 'application/grpc+proto'),
+            ('content-type', CONTENT_TYPE),
             ('te', 'trailers'),
         ]
         return Stream(self, headers, request_type, reply_type)

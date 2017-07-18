@@ -12,19 +12,19 @@ import tests.protobuf.testing_pb2
 class BombedService(metaclass=ABCMeta):
 
     @abstractmethod
-    async def Plaster(self, request, context):
+    async def Plaster(self, stream):
         pass
 
     @abstractmethod
-    async def Benzine(self, request, context):
+    async def Benzine(self, stream):
         pass
 
     @abstractmethod
-    async def Anginal(self, request, context):
+    async def Anginal(self, stream):
         pass
 
     @abstractmethod
-    async def Devilry(self, request, context):
+    async def Devilry(self, stream):
         pass
 
     def __mapping__(self):
