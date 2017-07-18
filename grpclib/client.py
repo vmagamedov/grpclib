@@ -1,6 +1,6 @@
 from h2.config import H2Configuration
 
-from .stream import recv, send, CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
+from .stream import CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
 
@@ -18,7 +18,6 @@ class Handler(AbstractHandler):
 
 
 class Stream(_Stream):
-    _stream = None
     _reply_headers = None
     _ended = False
 
@@ -27,9 +26,6 @@ class Stream(_Stream):
         self._request_headers = request_headers
         self._send_type = send_type
         self._recv_type = recv_type
-
-    async def __aenter__(self):
-        return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._ended:
@@ -51,17 +47,13 @@ class Stream(_Stream):
 
             await self._stream.send_headers(self._request_headers)
 
-        assert isinstance(message, self._send_type)
-        await send(self._stream, message, end_stream=end)
+        await super().send(message, end=end)
         if end:
             assert not self._ended
             self._ended = True
 
     async def end(self):
         await self._stream.end()
-
-    async def reset(self):
-        await self._stream.reset()  # TODO: specify error code
 
     async def recv(self):
         if self._reply_headers is None:
@@ -71,7 +63,7 @@ class Stream(_Stream):
             assert self._reply_headers['content-type'] in CONTENT_TYPES, \
                 self._reply_headers['content-type']
 
-        return await recv(self._stream, self._recv_type)
+        return await super().recv()
 
 
 class Channel:

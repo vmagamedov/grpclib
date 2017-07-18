@@ -4,7 +4,7 @@ from asyncio import AbstractServer, wait
 
 from h2.config import H2Configuration
 
-from .stream import send, recv, CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
+from .stream import CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
 
@@ -19,9 +19,6 @@ class Stream(_Stream):
         self._stream = stream
         self._recv_type = recv_type
         self._send_type = send_type
-
-    async def __aenter__(self):
-        return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._ended:
@@ -40,8 +37,7 @@ class Stream(_Stream):
                                              ('content-type', CONTENT_TYPE)])
             self._headers_sent = True
 
-        assert isinstance(message, self._send_type)
-        await send(self._stream, message)
+        await super().send(message)
         if end:
             assert not self._ended
             await self.end()
@@ -50,12 +46,6 @@ class Stream(_Stream):
         assert not self._ended
         await self._stream.send_headers([('grpc-status', '0')],
                                         end_stream=True)
-
-    async def reset(self):
-        await self._stream.reset()  # TODO: specify error code
-
-    async def recv(self):
-        return await recv(self._stream, self._recv_type)
 
 
 async def request_handler(mapping, _stream, headers):
