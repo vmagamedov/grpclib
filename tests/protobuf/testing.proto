@@ -16,7 +16,7 @@ message GoowyChunk {
   string biomes = 1;
 }
 
-service BombedService {
+service Bombed {
   rpc Plaster (SavoysRequest) returns (SavoysReply) {}
   rpc Benzine (SavoysRequest) returns (stream GoowyChunk) {}
   rpc Anginal (stream UnyoungChunk) returns (SavoysReply) {}

@@ -32,18 +32,19 @@ Example
     from grpclib.server import Server
     from grpclib.client import Channel
 
-    import helloworld_pb2
-    import helloworld_grpc
+    from helloworld_pb2 import HelloRequest, HelloReply
+    from helloworld_grpc import GreeterBase, GreeterStub
 
     loop = asyncio.get_event_loop()
 
     # Server
 
-    class Greeter(helloworld_grpc.Greeter):
+    class Greeter(GreeterBase):
 
-        async def SayHello(self, request, context):
+        async def SayHello(self, stream):
+            request = await stream.recv()
             message = 'Hello, {}!'.format(request.name)
-            return helloworld_pb2.HelloReply(message=message)
+            await stream.send(HelloReply(message=message))
 
     server = Server([Greeter()], loop=loop)
     loop.run_until_complete(server.start('127.0.0.1', 50051))
@@ -51,10 +52,10 @@ Example
     # Client
 
     channel = Channel(loop=loop)
-    stub = helloworld_grpc.GreeterStub(channel)
+    stub = GreeterStub(channel)
 
     async def make_request():
-        response = await stub.SayHello(helloworld_pb2.HelloRequest(name='World'))
+        response = await stub.SayHello(HelloRequest(name='World'))
         assert response.message == 'Hello, World!'
 
     # Test request

@@ -9,7 +9,7 @@ import grpclib.__public__
 import tests.protobuf.testing_pb2
 
 
-class BombedService(metaclass=ABCMeta):
+class BombedBase(metaclass=ABCMeta):
 
     @abstractmethod
     async def Plaster(self, stream):
@@ -29,25 +29,25 @@ class BombedService(metaclass=ABCMeta):
 
     def __mapping__(self):
         return {
-            '/BombedService/Plaster': grpclib.__public__.Handler(
+            '/Bombed/Plaster': grpclib.__public__.Handler(
                 self.Plaster,
                 grpclib.__public__.Cardinality.UNARY_UNARY,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.SavoysReply,
             ),
-            '/BombedService/Benzine': grpclib.__public__.Handler(
+            '/Bombed/Benzine': grpclib.__public__.Handler(
                 self.Benzine,
                 grpclib.__public__.Cardinality.UNARY_STREAM,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.GoowyChunk,
             ),
-            '/BombedService/Anginal': grpclib.__public__.Handler(
+            '/Bombed/Anginal': grpclib.__public__.Handler(
                 self.Anginal,
                 grpclib.__public__.Cardinality.STREAM_UNARY,
                 tests.protobuf.testing_pb2.UnyoungChunk,
                 tests.protobuf.testing_pb2.SavoysReply,
             ),
-            '/BombedService/Devilry': grpclib.__public__.Handler(
+            '/Bombed/Devilry': grpclib.__public__.Handler(
                 self.Devilry,
                 grpclib.__public__.Cardinality.STREAM_STREAM,
                 tests.protobuf.testing_pb2.UnyoungChunk,
@@ -56,30 +56,30 @@ class BombedService(metaclass=ABCMeta):
         }
 
 
-class BombedServiceStub:
+class BombedStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
         self.Plaster = grpclib.client.UnaryUnaryMethod(
             channel,
-            '/BombedService/Plaster',
+            '/Bombed/Plaster',
             tests.protobuf.testing_pb2.SavoysRequest,
             tests.protobuf.testing_pb2.SavoysReply,
         )
         self.Benzine = grpclib.client.UnaryStreamMethod(
             channel,
-            '/BombedService/Benzine',
+            '/Bombed/Benzine',
             tests.protobuf.testing_pb2.SavoysRequest,
             tests.protobuf.testing_pb2.GoowyChunk,
         )
         self.Anginal = grpclib.client.StreamUnaryMethod(
             channel,
-            '/BombedService/Anginal',
+            '/Bombed/Anginal',
             tests.protobuf.testing_pb2.UnyoungChunk,
             tests.protobuf.testing_pb2.SavoysReply,
         )
         self.Devilry = grpclib.client.StreamStreamMethod(
             channel,
-            '/BombedService/Devilry',
+            '/Bombed/Devilry',
             tests.protobuf.testing_pb2.UnyoungChunk,
             tests.protobuf.testing_pb2.GoowyChunk,
         )

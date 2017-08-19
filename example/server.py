@@ -2,16 +2,16 @@ import asyncio
 
 from grpclib.server import Server
 
-from . import helloworld_pb2
-from . import helloworld_grpc
+from .helloworld_pb2 import HelloReply
+from .helloworld_grpc import GreeterBase
 
 
-class Greeter(helloworld_grpc.Greeter):
+class Greeter(GreeterBase):
 
     async def SayHello(self, stream):
         request = await stream.recv()
         message = 'Hello, {}!'.format(request.name)
-        await stream.send(helloworld_pb2.HelloReply(message=message))
+        await stream.send(HelloReply(message=message))
 
 
 def main():

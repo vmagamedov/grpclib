@@ -7,10 +7,10 @@ from grpclib.server import Server
 
 from .protobuf.testing_pb2 import SavoysRequest, SavoysReply
 from .protobuf.testing_pb2 import UnyoungChunk, GoowyChunk
-from .protobuf.testing_grpc import BombedService, BombedServiceStub
+from .protobuf.testing_grpc import BombedBase, BombedStub
 
 
-class Bombed(BombedService):
+class Bombed(BombedBase):
 
     def __init__(self):
         self.log = []
@@ -57,7 +57,7 @@ class ClientServer:
         await self.server.start(host, port)
 
         channel = Channel(host=host, port=port, loop=self.loop)
-        stub = BombedServiceStub(channel)
+        stub = BombedStub(channel)
         return bombed, stub
 
     async def __aexit__(self, *exc_info):

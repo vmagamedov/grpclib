@@ -62,7 +62,7 @@ def render(proto_file, package, imports, services):
             service_name = service.name
         buf.add('')
         buf.add('')
-        buf.add('class {}(metaclass=ABCMeta):', service.name)
+        buf.add('class {}Base(metaclass=ABCMeta):', service.name)
         with buf.indent():
             for (name, _, _, _) in service.methods:
                 buf.add('')

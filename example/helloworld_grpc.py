@@ -9,7 +9,7 @@ import grpclib.__public__
 import example.helloworld_pb2
 
 
-class Greeter(metaclass=ABCMeta):
+class GreeterBase(metaclass=ABCMeta):
 
     @abstractmethod
     async def SayHello(self, stream):
