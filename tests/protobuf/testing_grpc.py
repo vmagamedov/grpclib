@@ -59,32 +59,26 @@ class BombedService(metaclass=ABCMeta):
 class BombedServiceStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
-        self.channel = channel
-
-    async def Plaster(self, message: tests.protobuf.testing_pb2.SavoysRequest) -> tests.protobuf.testing_pb2.SavoysReply:
-        return await self.channel.unary_unary(
+        self.Plaster = grpclib.client.UnaryUnaryMethod(
+            channel,
             '/BombedService/Plaster',
             tests.protobuf.testing_pb2.SavoysRequest,
             tests.protobuf.testing_pb2.SavoysReply,
-            message,
         )
-
-    def Benzine(self) -> grpclib.client.Stream:
-        return self.channel.unary_stream(
+        self.Benzine = grpclib.client.UnaryStreamMethod(
+            channel,
             '/BombedService/Benzine',
             tests.protobuf.testing_pb2.SavoysRequest,
             tests.protobuf.testing_pb2.GoowyChunk,
         )
-
-    def Anginal(self) -> grpclib.client.Stream:
-        return self.channel.stream_unary(
+        self.Anginal = grpclib.client.StreamUnaryMethod(
+            channel,
             '/BombedService/Anginal',
             tests.protobuf.testing_pb2.UnyoungChunk,
             tests.protobuf.testing_pb2.SavoysReply,
         )
-
-    def Devilry(self) -> grpclib.client.Stream:
-        return self.channel.stream_stream(
+        self.Devilry = grpclib.client.StreamStreamMethod(
+            channel,
             '/BombedService/Devilry',
             tests.protobuf.testing_pb2.UnyoungChunk,
             tests.protobuf.testing_pb2.GoowyChunk,

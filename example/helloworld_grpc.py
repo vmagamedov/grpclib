@@ -29,12 +29,9 @@ class Greeter(metaclass=ABCMeta):
 class GreeterStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
-        self.channel = channel
-
-    async def SayHello(self, message: example.helloworld_pb2.HelloRequest) -> example.helloworld_pb2.HelloReply:
-        return await self.channel.unary_unary(
+        self.SayHello = grpclib.client.UnaryUnaryMethod(
+            channel,
             '/helloworld.Greeter/SayHello',
             example.helloworld_pb2.HelloRequest,
             example.helloworld_pb2.HelloReply,
-            message,
         )

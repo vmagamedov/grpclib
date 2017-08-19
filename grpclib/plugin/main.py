@@ -98,39 +98,26 @@ def render(proto_file, package, imports, services):
             buf.add('def __init__(self, channel: {}.{}) -> None:'
                     .format(client.__name__, client.Channel.__name__))
             with buf.indent():
-                buf.add('self.channel = channel')
-            for method in service.methods:
-                name, cardinality, request_type, reply_type = method
-                full_name = '/{}/{}'.format(service_name, name)
-                buf.add('')
-                if cardinality is __public__.Cardinality.UNARY_UNARY:
-                    buf.add('async def {}(self, message: {}) -> {}:'
-                            .format(name, request_type, reply_type))
-                else:
-                    buf.add('def {}(self) -> {}.{}:'
-                            .format(name, client.__name__,
-                                    client.Stream.__name__))
-                with buf.indent():
+                for method in service.methods:
+                    name, cardinality, request_type, reply_type = method
+                    full_name = '/{}/{}'.format(service_name, name)
                     if cardinality is __public__.Cardinality.UNARY_UNARY:
-                        buf.add('return await self.channel.{}('
-                                .format(client.Channel.unary_unary.__name__))
+                        method_cls = client.UnaryUnaryMethod
                     elif cardinality is __public__.Cardinality.UNARY_STREAM:
-                        buf.add('return self.channel.{}('
-                                .format(client.Channel.unary_stream.__name__))
+                        method_cls = client.UnaryStreamMethod
                     elif cardinality is __public__.Cardinality.STREAM_UNARY:
-                        buf.add('return self.channel.{}('
-                                .format(client.Channel.stream_unary.__name__))
+                        method_cls = client.StreamUnaryMethod
                     elif cardinality is __public__.Cardinality.STREAM_STREAM:
-                        buf.add('return self.channel.{}('
-                                .format(client.Channel.stream_stream.__name__))
+                        method_cls = client.StreamStreamMethod
                     else:
                         raise TypeError(cardinality)
+                    buf.add('self.{} = {}.{}('.format(name, client.__name__,
+                                                      method_cls.__name__))
                     with buf.indent():
-                        buf.add('\'{}\',', full_name)
+                        buf.add('channel,')
+                        buf.add('{!r},'.format(full_name))
                         buf.add('{},', request_type)
                         buf.add('{},', reply_type)
-                        if cardinality is __public__.Cardinality.UNARY_UNARY:
-                            buf.add('message,', reply_type)
                     buf.add(')')
     buf.add('')
     return buf.content()

@@ -88,7 +88,7 @@ class Channel:
             )
         return self._protocol
 
-    def _request(self, name, request_type, reply_type):
+    def request(self, name, request_type, reply_type):
         headers = [
             (':scheme', 'http'),
             (':authority', self._authority),
@@ -101,19 +101,74 @@ class Channel:
         return Stream(self, headers, request_type, reply_type)
 
     async def unary_unary(self, name, request_type, reply_type, message):
-        stream = self._request(name, request_type, reply_type)
+        stream = self.request(name, request_type, reply_type)
         async with stream:
             await stream.send(message, end=True)
             return await stream.recv()
 
     def unary_stream(self, name, request_type, reply_type):
-        return self._request(name, request_type, reply_type)
+        return self.request(name, request_type, reply_type)
 
     def stream_unary(self, name, request_type, reply_type):
-        return self._request(name, request_type, reply_type)
+        return self.request(name, request_type, reply_type)
 
     def stream_stream(self, name, request_type, reply_type):
-        return self._request(name, request_type, reply_type)
+        return self.request(name, request_type, reply_type)
 
     def close(self):
         self._protocol.processor.close()
+
+
+class ServiceMethod:
+
+    def __init__(self, channel, name, request_type, reply_type):
+        self.channel = channel
+        self.name = name
+        self.request_type = request_type
+        self.reply_type = reply_type
+
+    def open(self) -> Stream:
+        return self.channel.request(self.name, self.request_type,
+                                    self.reply_type)
+
+
+class UnaryUnaryMethod(ServiceMethod):
+
+    async def __call__(self, message):
+        async with self.open() as stream:
+            await stream.send(message, end=True)
+            return await stream.recv()
+
+
+class UnaryStreamMethod(ServiceMethod):
+
+    async def __call__(self, message):
+        async with self.open() as stream:
+            await stream.send(message, end=True)
+            return [message async for message in stream]
+
+
+class StreamUnaryMethod(ServiceMethod):
+
+    async def __call__(self, messages):
+        async with self.open() as stream:
+            for message in messages[:-1]:
+                await stream.send(message)
+            if messages:
+                await stream.send(messages[-1], end=True)
+            else:
+                await stream.end()
+            return await stream.recv()
+
+
+class StreamStreamMethod(ServiceMethod):
+
+    async def __call__(self, messages):
+        async with self.open() as stream:
+            for message in messages[:-1]:
+                await stream.send(message)
+            if messages:
+                await stream.send(messages[-1], end=True)
+            else:
+                await stream.end()
+            return [message async for message in stream]
