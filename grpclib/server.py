@@ -2,13 +2,23 @@ import logging
 import asyncio
 
 import h2.config
+import async_timeout
 
 from .enum import Status
+from .utils import decode_timeout
 from .stream import CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
 
 log = logging.getLogger(__name__)
+
+
+class GRPCError(Exception):
+
+    def __init__(self, status, message=None):
+        super().__init__(message)
+        self.status = status
+        self.message = message
 
 
 class Stream(_Stream):
@@ -35,13 +45,21 @@ class Stream(_Stream):
             return
 
         if exc_type or exc_val or exc_tb:
-            headers = [('grpc-status', str(Status.UNKNOWN.value)),
-                       ('grpc-message', 'Internal Server Error')]
+            if isinstance(exc_val, GRPCError):
+                status, message = exc_val.status, exc_val.message
+            else:
+                status, message = Status.UNKNOWN, 'Internal Server Error'
+            headers = [('grpc-status', str(status.value))]
+            if message is not None:
+                headers.append(('grpc-message', message))
+
         elif not self._data_sent:
             headers = [('grpc-status', str(Status.UNKNOWN.value)),
                        ('grpc-message', 'Empty reply')]
+
         else:
             headers = [('grpc-status', str(Status.OK.value))]
+
         await self._send_trailers(headers)
         # to suppress exception propagation
         return True
@@ -69,6 +87,12 @@ async def request_handler(mapping, _stream, headers):
     h2_method = headers[':method']
     h2_path = headers[':path']
     h2_content_type = headers['content-type']
+    h2_grpc_timeout = headers.get('grpc-timeout')
+
+    if h2_grpc_timeout is not None:
+        grpc_timeout = decode_timeout(h2_grpc_timeout)
+    else:
+        grpc_timeout = None
 
     method = mapping.get(h2_path)
 
@@ -78,8 +102,16 @@ async def request_handler(mapping, _stream, headers):
 
     async with Stream(_stream, method.request_type,
                       method.reply_type) as stream:
+        timeout_cm = None
         try:
-            await method.func(stream)
+            with async_timeout.timeout(grpc_timeout) as timeout_cm:
+                await method.func(stream)
+        except asyncio.TimeoutError:
+            if timeout_cm and timeout_cm.expired:
+                raise GRPCError(Status.DEADLINE_EXCEEDED)
+            else:
+                log.exception('Server error')
+                raise
         except Exception:
             log.exception('Server error')
             raise

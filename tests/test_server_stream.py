@@ -6,7 +6,7 @@ import pytest
 from h2.errors import ErrorCodes
 
 from grpclib.enum import Status
-from grpclib.server import Stream
+from grpclib.server import Stream, GRPCError
 
 from .protobuf.testing_pb2 import SavoysRequest, SavoysReply
 
@@ -70,5 +70,20 @@ async def test_exception():
         SendHeaders(headers=[(':status', '200'),
                              ('grpc-status', str(Status.UNKNOWN.value)),
                              ('grpc-message', 'Internal Server Error')],
+                    end_stream=True),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_deadline():
+    stub = H2StreamStub()
+
+    async with Stream(stub, SavoysRequest, SavoysReply):
+        raise GRPCError(Status.DEADLINE_EXCEEDED)
+
+    assert stub.__events__ == [
+        SendHeaders(headers=[(':status', '200'),
+                             ('grpc-status',
+                              str(Status.DEADLINE_EXCEEDED.value))],
                     end_stream=True),
     ]
