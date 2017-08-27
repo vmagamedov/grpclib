@@ -1,9 +1,9 @@
 import logging
+import asyncio
 
-from asyncio import AbstractServer, wait
+import h2.config
 
-from h2.config import H2Configuration
-
+from .enum import Status
 from .stream import CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
@@ -13,6 +13,8 @@ log = logging.getLogger(__name__)
 
 class Stream(_Stream):
     _headers_sent = False
+    _trailers_sent = False
+    _data_sent = False
     _ended = False
 
     def __init__(self, stream, recv_type, send_type):
@@ -20,16 +22,29 @@ class Stream(_Stream):
         self._recv_type = recv_type
         self._send_type = send_type
 
+    async def _send_trailers(self, trailers):
+        assert not self._trailers_sent
+        if not self._headers_sent:
+            trailers = [(':status', '200')] + trailers
+        await self._stream.send_headers(trailers, end_stream=True)
+        self._headers_sent = True
+        self._trailers_sent = True
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._ended:
             return
 
         if exc_type or exc_val or exc_tb:
-            await self._stream.send_headers([('grpc-status', '2')],
-                                            end_stream=True)
+            headers = [('grpc-status', str(Status.UNKNOWN.value)),
+                       ('grpc-message', 'Internal Server Error')]
+        elif not self._data_sent:
+            headers = [('grpc-status', str(Status.UNKNOWN.value)),
+                       ('grpc-message', 'Empty reply')]
         else:
-            await self._stream.send_headers([('grpc-status', '0')],
-                                            end_stream=True)
+            headers = [('grpc-status', str(Status.OK.value))]
+        await self._send_trailers(headers)
+        # to suppress exception propagation
+        return True
 
     async def send(self, message, end=False):
         if not self._headers_sent:
@@ -38,14 +53,15 @@ class Stream(_Stream):
             self._headers_sent = True
 
         await super().send(message)
+        self._data_sent = True
+
         if end:
-            assert not self._ended
             await self.end()
 
     async def end(self):
         assert not self._ended
-        await self._stream.send_headers([('grpc-status', '0')],
-                                        end_stream=True)
+        await self._send_trailers([('grpc-status', str(Status.OK.value))])
+        self._ended = True
 
 
 async def request_handler(mapping, _stream, headers):
@@ -94,10 +110,10 @@ class Handler(AbstractHandler):
 
     async def wait_closed(self):
         if self._cancelled:
-            await wait(self._cancelled, loop=self.loop)
+            await asyncio.wait(self._cancelled, loop=self.loop)
 
 
-class Server(AbstractServer):
+class Server(asyncio.AbstractServer):
 
     def __init__(self, handlers, *, loop):
         mapping = {}
@@ -106,8 +122,10 @@ class Server(AbstractServer):
 
         self._mapping = mapping
         self._loop = loop
-        self._config = H2Configuration(client_side=False,
-                                       header_encoding='utf-8')
+        self._config = h2.config.H2Configuration(
+            client_side=False,
+            header_encoding='utf-8',
+        )
 
         self._tcp_server = None
         self._handlers = set()  # TODO: cleanup
@@ -137,5 +155,5 @@ class Server(AbstractServer):
             raise RuntimeError('Server is not started')
         await self._tcp_server.wait_closed()
         if self._handlers:
-            await wait({h.wait_closed() for h in self._handlers},
-                       loop=self._loop)
+            await asyncio.wait({h.wait_closed() for h in self._handlers},
+                               loop=self._loop)
