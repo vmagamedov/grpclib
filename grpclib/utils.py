@@ -22,4 +22,11 @@ def decode_timeout(value):
 
 
 def encode_timeout(timeout):
-    raise NotImplementedError
+    if timeout > 10:
+        return '{}S'.format(int(timeout))
+    elif timeout > 0.01:
+        return '{}m'.format(int(timeout * 10 ** 3))
+    elif timeout > 0.00001:
+        return '{}u'.format(int(timeout * 10 ** 6))
+    else:
+        return '{}n'.format(int(timeout * 10 ** 9))
