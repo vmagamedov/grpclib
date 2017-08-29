@@ -1,5 +1,6 @@
 from h2.config import H2Configuration
 
+from .utils import decode_timeout, encode_timeout
 from .stream import CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
 
@@ -66,6 +67,15 @@ class Stream(_Stream):
         return await super().recv()
 
 
+def _apply_timeout(metadata, timeout):
+    for key, value in metadata:
+        if key == 'grpc-timeout':
+            timeout = min(timeout, decode_timeout(value))
+        else:
+            yield key, value
+    yield 'grpc-timeout', encode_timeout(timeout)
+
+
 class Channel:
     _protocol = None
 
@@ -88,7 +98,8 @@ class Channel:
             )
         return self._protocol
 
-    def request(self, name, request_type, reply_type):
+    def request(self, name, request_type, reply_type, *, timeout=None,
+                metadata=None):
         headers = [
             (':scheme', 'http'),
             (':authority', self._authority),
@@ -98,22 +109,13 @@ class Channel:
             ('content-type', CONTENT_TYPE),
             ('te', 'trailers'),
         ]
+        if metadata is None:
+            metadata = []
+        if timeout is not None:
+            headers.extend(_apply_timeout(metadata, timeout))
+        else:
+            headers.extend(metadata)
         return Stream(self, headers, request_type, reply_type)
-
-    async def unary_unary(self, name, request_type, reply_type, message):
-        stream = self.request(name, request_type, reply_type)
-        async with stream:
-            await stream.send(message, end=True)
-            return await stream.recv()
-
-    def unary_stream(self, name, request_type, reply_type):
-        return self.request(name, request_type, reply_type)
-
-    def stream_unary(self, name, request_type, reply_type):
-        return self.request(name, request_type, reply_type)
-
-    def stream_stream(self, name, request_type, reply_type):
-        return self.request(name, request_type, reply_type)
 
     def close(self):
         self._protocol.processor.close()
@@ -127,31 +129,32 @@ class ServiceMethod:
         self.request_type = request_type
         self.reply_type = reply_type
 
-    def open(self) -> Stream:
+    def open(self, *, timeout=None, metadata=None) -> Stream:
         return self.channel.request(self.name, self.request_type,
-                                    self.reply_type)
+                                    self.reply_type, timeout=timeout,
+                                    metadata=metadata)
 
 
 class UnaryUnaryMethod(ServiceMethod):
 
-    async def __call__(self, message):
-        async with self.open() as stream:
+    async def __call__(self, message, *, timeout=None, metadata=None):
+        async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send(message, end=True)
             return await stream.recv()
 
 
 class UnaryStreamMethod(ServiceMethod):
 
-    async def __call__(self, message):
-        async with self.open() as stream:
+    async def __call__(self, message, *, timeout=None, metadata=None):
+        async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send(message, end=True)
             return [message async for message in stream]
 
 
 class StreamUnaryMethod(ServiceMethod):
 
-    async def __call__(self, messages):
-        async with self.open() as stream:
+    async def __call__(self, messages, *, timeout=None, metadata=None):
+        async with self.open(timeout=timeout, metadata=metadata) as stream:
             for message in messages[:-1]:
                 await stream.send(message)
             if messages:
@@ -163,8 +166,8 @@ class StreamUnaryMethod(ServiceMethod):
 
 class StreamStreamMethod(ServiceMethod):
 
-    async def __call__(self, messages):
-        async with self.open() as stream:
+    async def __call__(self, messages, *, timeout=None, metadata=None):
+        async with self.open(timeout=timeout, metadata=metadata) as stream:
             for message in messages[:-1]:
                 await stream.send(message)
             if messages:
