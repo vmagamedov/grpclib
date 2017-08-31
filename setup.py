@@ -12,7 +12,7 @@ setup(
     url='https://github.com/vmagamedov/grpclib',
     packages=find_packages(),
     license='BSD',
-    install_requires=['h2', 'async-timeout>=1.3.0'],
+    install_requires=['h2', 'async-timeout>=1.3.0', 'multidict'],
     entry_points={
         'console_scripts': [
             'protoc-gen-python_grpc=grpclib.plugin.main:main',

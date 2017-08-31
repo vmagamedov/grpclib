@@ -5,8 +5,8 @@ import h2.config
 import async_timeout
 
 from .enum import Status
-from .utils import decode_timeout
 from .stream import CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
+from .metadata import Metadata
 from .protocol import H2Protocol, AbstractHandler
 
 
@@ -27,7 +27,8 @@ class Stream(_Stream):
     _data_sent = False
     _ended = False
 
-    def __init__(self, stream, recv_type, send_type):
+    def __init__(self, metadata, stream, recv_type, send_type):
+        self.metadata = metadata
         self._stream = stream
         self._recv_type = recv_type
         self._send_type = send_type
@@ -83,16 +84,16 @@ class Stream(_Stream):
 
 
 async def request_handler(mapping, _stream, headers):
-    headers = dict(headers)
-    h2_method = headers[':method']
-    h2_path = headers[':path']
-    h2_content_type = headers['content-type']
-    h2_grpc_timeout = headers.get('grpc-timeout')
+    headers_map = dict(headers)
+    h2_method = headers_map[':method']
+    h2_path = headers_map[':path']
+    h2_content_type = headers_map['content-type']
 
-    if h2_grpc_timeout is not None:
-        grpc_timeout = decode_timeout(h2_grpc_timeout)
+    metadata = Metadata.from_headers(headers)
+    if metadata.deadline is not None:
+        request_timeout = metadata.deadline.time_remaining()
     else:
-        grpc_timeout = None
+        request_timeout = None
 
     method = mapping.get(h2_path)
 
@@ -100,11 +101,11 @@ async def request_handler(mapping, _stream, headers):
     assert method is not None, h2_path
     assert h2_content_type in CONTENT_TYPES, h2_content_type
 
-    async with Stream(_stream, method.request_type,
+    async with Stream(metadata, _stream, method.request_type,
                       method.reply_type) as stream:
         timeout_cm = None
         try:
-            with async_timeout.timeout(grpc_timeout) as timeout_cm:
+            with async_timeout.timeout(request_timeout) as timeout_cm:
                 await method.func(stream)
         except asyncio.TimeoutError:
             if timeout_cm and timeout_cm.expired:

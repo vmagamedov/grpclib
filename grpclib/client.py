@@ -1,8 +1,11 @@
-from h2.config import H2Configuration
+import asyncio
 
-from .utils import decode_timeout, encode_timeout
+import h2.config
+import async_timeout
+
 from .stream import CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
+from .metadata import Metadata
 
 
 class Handler(AbstractHandler):
@@ -22,11 +25,21 @@ class Stream(_Stream):
     _reply_headers = None
     _ended = False
 
-    def __init__(self, channel, request_headers, send_type, recv_type):
+    def __init__(self, channel, headers, metadata, send_type, recv_type):
         self._channel = channel
-        self._request_headers = request_headers
+        self._headers = headers
+        self._metadata = metadata
         self._send_type = send_type
         self._recv_type = recv_type
+
+    def _with_deadline(self):
+        if self._metadata.deadline is not None:
+            timeout = self._metadata.deadline.time_remaining()
+            if not timeout:
+                raise asyncio.TimeoutError('Deadline exceeded')
+        else:
+            timeout = None
+        return async_timeout.timeout(timeout)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._ended:
@@ -36,17 +49,18 @@ class Stream(_Stream):
             await self.reset()
         else:
             await self.end()
-            trailers = dict(await self._stream.recv_headers())
-            if trailers.get('grpc-status') != '0':
-                raise Exception(trailers)  # TODO: proper exception type
+            async with self._with_deadline():
+                trailers = dict(await self._stream.recv_headers())
+                if trailers.get('grpc-status') != '0':
+                    raise Exception(trailers)  # TODO: proper exception type
 
     async def send(self, message, end=False):
         if self._stream is None:
             protocol = await self._channel.__connect__()
             # TODO: check concurrent streams count and maybe wait
             self._stream = protocol.processor.create_stream()
-
-            await self._stream.send_headers(self._request_headers)
+            headers = self._metadata.with_headers(self._headers)
+            await self._stream.send_headers(headers)
 
         await super().send(message, end=end)
         if end:
@@ -57,23 +71,15 @@ class Stream(_Stream):
         await self._stream.end()
 
     async def recv(self):
-        if self._reply_headers is None:
-            self._reply_headers = dict(await self._stream.recv_headers())
-            assert self._reply_headers[':status'] == '200', \
-                self._reply_headers[':status']
-            assert self._reply_headers['content-type'] in CONTENT_TYPES, \
-                self._reply_headers['content-type']
+        async with self._with_deadline():
+            if self._reply_headers is None:
+                self._reply_headers = dict(await self._stream.recv_headers())
+                assert self._reply_headers[':status'] == '200', \
+                    self._reply_headers[':status']
+                assert self._reply_headers['content-type'] in CONTENT_TYPES, \
+                    self._reply_headers['content-type']
 
-        return await super().recv()
-
-
-def _apply_timeout(metadata, timeout):
-    for key, value in metadata:
-        if key == 'grpc-timeout':
-            timeout = min(timeout, decode_timeout(value))
-        else:
-            yield key, value
-    yield 'grpc-timeout', encode_timeout(timeout)
+            return await super().recv()
 
 
 class Channel:
@@ -84,8 +90,8 @@ class Channel:
         self._port = port
         self._loop = loop
 
-        self._config = H2Configuration(client_side=True,
-                                       header_encoding='utf-8')
+        self._config = h2.config.H2Configuration(client_side=True,
+                                                 header_encoding='utf-8')
         self._authority = '{}:{}'.format(self._host, self._port)
 
     def _protocol_factory(self):
@@ -100,22 +106,25 @@ class Channel:
 
     def request(self, name, request_type, reply_type, *, timeout=None,
                 metadata=None):
+        if metadata is None:
+            metadata = Metadata([])
+        else:
+            if not isinstance(metadata, Metadata):
+                raise TypeError('"metadata" should be of {!r} type'
+                                .format(Metadata))
+        if timeout is not None:
+            metadata = metadata.apply_timeout(timeout)
         headers = [
             (':scheme', 'http'),
             (':authority', self._authority),
             (':method', 'POST'),
             (':path', name),
-            ('user-agent', 'grpc-python'),
+            # TODO: specify versions
+            ('user-agent', 'grpc-python-grpclib (asyncio; h2)'),
             ('content-type', CONTENT_TYPE),
             ('te', 'trailers'),
         ]
-        if metadata is None:
-            metadata = []
-        if timeout is not None:
-            headers.extend(_apply_timeout(metadata, timeout))
-        else:
-            headers.extend(metadata)
-        return Stream(self, headers, request_type, reply_type)
+        return Stream(self, headers, metadata, request_type, reply_type)
 
     def close(self):
         self._protocol.processor.close()
