@@ -4,7 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from grpclib.metadata import encode_timeout, decode_timeout, Metadata, Deadline
+from grpclib.metadata import encode_timeout, decode_timeout
+from grpclib.metadata import Metadata, Deadline, RequestHeaders
 
 
 @pytest.mark.parametrize('value, expected', [
@@ -46,21 +47,72 @@ def test_apply_timeout(before, timeout, after):
         pytest.approx(after, abs=0.01)
 
 
-def test_with_headers_with_deadline():
+def test_headers_with_deadline():
     deadline = Mock()
     deadline.time_remaining.return_value = 0.1
 
     metadata = Metadata([('dominic', 'lovech')], deadline)
-    assert metadata.with_headers([('bossing', 'fayres')]) == [
-        ('bossing', 'fayres'),
-        ('dominic', 'lovech'),
+
+    assert RequestHeaders(
+        'briana', 'dismal', 'dost', content_type='gazebos',
+    ).to_list(metadata) == [
+        (':method', 'briana'),
+        (':scheme', 'dismal'),
+        (':path', 'dost'),
         ('grpc-timeout', '100m'),
+        ('te', 'trailers'),
+        ('content-type', 'gazebos'),
+        ('dominic', 'lovech'),
+    ]
+
+    assert RequestHeaders(
+        'briana', 'dismal', 'dost', authority='edges', content_type='gazebos',
+        message_type='dobson', message_encoding='patera',
+        message_accept_encoding='shakers', user_agent='dowlin',
+    ).to_list(metadata) == [
+        (':method', 'briana'),
+        (':scheme', 'dismal'),
+        (':path', 'dost'),
+        (':authority', 'edges'),
+        ('grpc-timeout', '100m'),
+        ('te', 'trailers'),
+        ('content-type', 'gazebos'),
+        ('grpc-message-type', 'dobson'),
+        ('grpc-encoding', 'patera'),
+        ('grpc-accept-encoding', 'shakers'),
+        ('user-agent', 'dowlin'),
+        ('dominic', 'lovech'),
     ]
 
 
-def test_with_headers_without_deadline():
+def test_headers_without_deadline():
     metadata = Metadata([('chagga', 'chrome')])
-    assert metadata.with_headers([('caburn', 'taffia')]) == [
-        ('caburn', 'taffia'),
+
+    assert RequestHeaders(
+        'flysch', 'plains', 'slaps', content_type='pemako',
+    ).to_list(metadata) == [
+        (':method', 'flysch'),
+        (':scheme', 'plains'),
+        (':path', 'slaps'),
+        ('te', 'trailers'),
+        ('content-type', 'pemako'),
+        ('chagga', 'chrome'),
+    ]
+
+    assert RequestHeaders(
+        'flysch', 'plains', 'slaps', authority='sleev', content_type='pemako',
+        message_type='deltic', message_encoding='eutexia',
+        message_accept_encoding='glyptic', user_agent='chrisom',
+    ).to_list(metadata) == [
+        (':method', 'flysch'),
+        (':scheme', 'plains'),
+        (':path', 'slaps'),
+        (':authority', 'sleev'),
+        ('te', 'trailers'),
+        ('content-type', 'pemako'),
+        ('grpc-message-type', 'deltic'),
+        ('grpc-encoding', 'eutexia'),
+        ('grpc-accept-encoding', 'glyptic'),
+        ('user-agent', 'chrisom'),
         ('chagga', 'chrome'),
     ]

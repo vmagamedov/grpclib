@@ -7,6 +7,7 @@ from h2.errors import ErrorCodes
 
 from grpclib.enum import Status
 from grpclib.server import Stream, GRPCError
+from grpclib.metadata import Metadata
 
 from .protobuf.testing_pb2 import SavoysRequest, SavoysReply
 
@@ -48,7 +49,7 @@ class H2StreamStub:
 async def test_no_response():
     stub = H2StreamStub()
 
-    async with Stream(stub, SavoysRequest, SavoysReply):
+    async with Stream(Metadata([]), stub, SavoysRequest, SavoysReply):
         pass
 
     assert stub.__events__ == [
@@ -63,7 +64,7 @@ async def test_no_response():
 async def test_exception():
     stub = H2StreamStub()
 
-    async with Stream(stub, SavoysRequest, SavoysReply):
+    async with Stream(Metadata([]), stub, SavoysRequest, SavoysReply):
         1/0
 
     assert stub.__events__ == [
@@ -78,7 +79,7 @@ async def test_exception():
 async def test_deadline():
     stub = H2StreamStub()
 
-    async with Stream(stub, SavoysRequest, SavoysReply):
+    async with Stream(Metadata([]), stub, SavoysRequest, SavoysReply):
         raise GRPCError(Status.DEADLINE_EXCEEDED)
 
     assert stub.__events__ == [

@@ -1,7 +1,7 @@
 import re
 import time
 
-from itertools import chain
+from collections import namedtuple
 
 from multidict import MultiDict
 
@@ -81,10 +81,50 @@ class Metadata(MultiDict):
         metadata.deadline = deadline
         return metadata
 
-    def with_headers(self, headers):
-        result = [(key, value) for key, value in chain(headers, self.items())
-                  if key != 'grpc-timeout']
-        if self.deadline is not None:
-            timeout = self.deadline.time_remaining()
+
+class RequestHeaders(namedtuple('RequestHeaders', [
+    'method', 'scheme', 'path', 'authority',
+    'content_type', 'message_type', 'message_encoding',
+    'message_accept_encoding', 'user_agent'
+])):
+    __slots__ = tuple()
+
+    def __new__(cls, method, scheme, path, *, authority=None,
+                content_type, message_type=None, message_encoding=None,
+                message_accept_encoding=None, user_agent=None):
+        return super().__new__(cls, method, scheme, path, authority,
+                               content_type, message_type, message_encoding,
+                               message_accept_encoding, user_agent)
+
+    def to_list(self, metadata):
+        result = [
+            (':method', self.method),
+            (':scheme', self.scheme),
+            (':path', self.path),
+        ]
+        if self.authority is not None:
+            result.append((':authority', self.authority))
+
+        if metadata.deadline is not None:
+            timeout = metadata.deadline.time_remaining()
             result.append(('grpc-timeout', encode_timeout(timeout)))
+
+        result.append(('te', 'trailers'))
+        result.append(('content-type', self.content_type))
+
+        if self.message_type is not None:
+            result.append(('grpc-message-type', self.message_type))
+
+        if self.message_encoding is not None:
+            result.append(('grpc-encoding', self.message_encoding))
+
+        if self.message_accept_encoding is not None:
+            result.append(('grpc-accept-encoding',
+                           self.message_accept_encoding))
+
+        if self.user_agent is not None:
+            result.append(('user-agent', self.user_agent))
+
+        result.extend((k, v) for k, v in metadata.items()
+                      if k != 'grpc-timeout')
         return result

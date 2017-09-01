@@ -5,7 +5,7 @@ import async_timeout
 
 from .stream import CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
 from .protocol import H2Protocol, AbstractHandler
-from .metadata import Metadata
+from .metadata import Metadata, RequestHeaders
 
 
 class Handler(AbstractHandler):
@@ -59,8 +59,8 @@ class Stream(_Stream):
             protocol = await self._channel.__connect__()
             # TODO: check concurrent streams count and maybe wait
             self._stream = protocol.processor.create_stream()
-            headers = self._metadata.with_headers(self._headers)
-            await self._stream.send_headers(headers)
+            headers_list = self._headers.to_list(self._metadata)
+            await self._stream.send_headers(headers_list)
 
         await super().send(message, end=end)
         if end:
@@ -114,16 +114,12 @@ class Channel:
                                 .format(Metadata))
         if timeout is not None:
             metadata = metadata.apply_timeout(timeout)
-        headers = [
-            (':scheme', 'http'),
-            (':authority', self._authority),
-            (':method', 'POST'),
-            (':path', name),
-            # TODO: specify versions
-            ('user-agent', 'grpc-python-grpclib (asyncio; h2)'),
-            ('content-type', CONTENT_TYPE),
-            ('te', 'trailers'),
-        ]
+
+        headers = RequestHeaders('POST', 'http', name,
+                                 authority=self._authority,
+                                 content_type=CONTENT_TYPE,
+                                 # TODO: specify versions
+                                 user_agent='grpc-python-grpclib')
         return Stream(self, headers, metadata, request_type, reply_type)
 
     def close(self):
