@@ -23,9 +23,14 @@ class Handler(AbstractHandler):
 
 
 class Stream(StreamIterator):
-    _stream = None
-    _reply_headers = None
-    _ended = False
+    # stream state
+    _send_request_done = False
+    _send_message_count = 0
+    _end_done = False
+    _recv_initial_metadata_done = False
+    _recv_message_count = 0
+    _recv_trailing_metadata_done = False
+    _reset_done = False
 
     def __init__(self, channel, headers, metadata, send_type, recv_type):
         self._channel = channel
@@ -33,6 +38,7 @@ class Stream(StreamIterator):
         self._metadata = metadata
         self._send_type = send_type
         self._recv_type = recv_type
+        self._stream = None
 
     def _with_deadline(self):
         if self._metadata.deadline is not None:
@@ -43,51 +49,84 @@ class Stream(StreamIterator):
             timeout = None
         return async_timeout.timeout(timeout)
 
-    async def send(self, message, *, end=False):
-        if self._stream is None:
-            protocol = await self._channel.__connect__()
-            # TODO: check concurrent streams count and maybe wait
-            self._stream = protocol.processor.create_stream()
-            headers_list = self._headers.to_list(self._metadata)
-            await self._stream.send_headers(headers_list)
+    async def send_request(self):
+        assert not self._send_request_done, 'Request is already sent'
+
+        protocol = await self._channel.__connect__()
+        # TODO: check concurrent streams count and maybe wait
+        self._stream = protocol.processor.create_stream()
+        headers_list = self._headers.to_list(self._metadata)
+
+        await self._stream.send_headers(headers_list)
+        self._send_request_done = True
+
+    async def send_message(self, message, *, end=False):
+        if not self._send_request_done:
+            await self.send_request()
 
         await send_message(self._stream, message, self._send_type, end=end)
+        self._send_message_count += 1
+
         if end:
-            assert not self._ended
-            self._ended = True
-
-    async def recv(self):
-        async with self._with_deadline():
-            if self._reply_headers is None:
-                self._reply_headers = dict(await self._stream.recv_headers())
-                assert self._reply_headers[':status'] == '200', \
-                    self._reply_headers[':status']
-                assert self._reply_headers['content-type'] in CONTENT_TYPES, \
-                    self._reply_headers['content-type']
-
-            return await recv_message(self._stream, self._recv_type)
+            assert not self._end_done
+            self._end_done = True
 
     async def end(self):
+        assert not self._end_done, 'Stream is already ended'
         await self._stream.end()
 
+    async def recv_initial_metadata(self):
+        assert self._send_request_done, 'Request is not sent yet'
+        assert not self._recv_initial_metadata_done, \
+            'Method should be called only once'
+
+        async with self._with_deadline():
+            headers = dict(await self._stream.recv_headers())
+            self._recv_initial_metadata_done = True
+
+            assert headers[':status'] == '200', headers[':status']
+            assert headers['content-type'] in CONTENT_TYPES, \
+                headers['content-type']
+
+    async def recv_message(self):
+        # TODO: check that messages were sent for non-stream-stream requests
+        if not self._recv_initial_metadata_done:
+            await self.recv_initial_metadata()
+
+        async with self._with_deadline():
+            message = await recv_message(self._stream, self._recv_type)
+            self._recv_message_count += 1
+            return message
+
+    async def recv_trailing_metadata(self):
+        assert self._recv_message_count, \
+            'No messages were received before waiting for trailing metadata'
+        assert not self._recv_trailing_metadata_done, \
+            'Method should be called only once'
+
+        async with self._with_deadline():
+            trailers = dict(await self._stream.recv_headers())
+            self._recv_trailing_metadata_done = True
+
+            if trailers.get('grpc-status') != '0':
+                raise Exception(trailers)  # TODO: proper exception type
+
     async def reset(self):
+        assert not self._reset_done, 'Stream reset is already done'
         await self._stream.reset()  # TODO: specify error code
+        self._reset_done = True
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._ended:
+        if self._recv_trailing_metadata_done or self._reset_done:
             return
 
         if exc_type or exc_val or exc_tb:
             await self.reset()
         else:
-            await self.end()
-            async with self._with_deadline():
-                trailers = dict(await self._stream.recv_headers())
-                if trailers.get('grpc-status') != '0':
-                    raise Exception(trailers)  # TODO: proper exception type
+            await self.recv_trailing_metadata()
 
 
 class Channel:
@@ -152,15 +191,15 @@ class UnaryUnaryMethod(ServiceMethod):
 
     async def __call__(self, message, *, timeout=None, metadata=None):
         async with self.open(timeout=timeout, metadata=metadata) as stream:
-            await stream.send(message, end=True)
-            return await stream.recv()
+            await stream.send_message(message, end=True)
+            return await stream.recv_message()
 
 
 class UnaryStreamMethod(ServiceMethod):
 
     async def __call__(self, message, *, timeout=None, metadata=None):
         async with self.open(timeout=timeout, metadata=metadata) as stream:
-            await stream.send(message, end=True)
+            await stream.send_message(message, end=True)
             return [message async for message in stream]
 
 
@@ -169,12 +208,12 @@ class StreamUnaryMethod(ServiceMethod):
     async def __call__(self, messages, *, timeout=None, metadata=None):
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             for message in messages[:-1]:
-                await stream.send(message)
+                await stream.send_message(message)
             if messages:
-                await stream.send(messages[-1], end=True)
+                await stream.send_message(messages[-1], end=True)
             else:
                 await stream.end()
-            return await stream.recv()
+            return await stream.recv_message()
 
 
 class StreamStreamMethod(ServiceMethod):
@@ -182,9 +221,9 @@ class StreamStreamMethod(ServiceMethod):
     async def __call__(self, messages, *, timeout=None, metadata=None):
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             for message in messages[:-1]:
-                await stream.send(message)
+                await stream.send_message(message)
             if messages:
-                await stream.send(messages[-1], end=True)
+                await stream.send_message(messages[-1], end=True)
             else:
                 await stream.end()
             return [message async for message in stream]

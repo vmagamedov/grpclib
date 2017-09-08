@@ -42,9 +42,9 @@ Example
     class Greeter(GreeterBase):
 
         async def SayHello(self, stream):
-            request = await stream.recv()
+            request = await stream.recv_message()
             message = 'Hello, {}!'.format(request.name)
-            await stream.send(HelloReply(message=message))
+            await stream.send_message(HelloReply(message=message))
 
     server = Server([Greeter()], loop=loop)
     loop.run_until_complete(server.start('127.0.0.1', 50051))

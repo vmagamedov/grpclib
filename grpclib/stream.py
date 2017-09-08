@@ -35,14 +35,14 @@ async def send_message(stream, message, message_type, *, end=False):
 class StreamIterator(abc.ABC):
 
     @abc.abstractmethod
-    async def recv(self):
+    async def recv_message(self):
         pass
 
     def __aiter__(self):
         return self
 
     async def __anext__(self):
-        message = await self.recv()
+        message = await self.recv_message()
         if message is None:
             raise StopAsyncIteration()
         else:

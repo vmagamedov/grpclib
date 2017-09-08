@@ -9,9 +9,9 @@ from .helloworld_grpc import GreeterBase
 class Greeter(GreeterBase):
 
     async def SayHello(self, stream):
-        request = await stream.recv()
+        request = await stream.recv_message()
         message = 'Hello, {}!'.format(request.name)
-        await stream.send(HelloReply(message=message))
+        await stream.send_message(HelloReply(message=message))
 
 
 def main():

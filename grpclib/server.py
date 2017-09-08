@@ -23,10 +23,12 @@ class GRPCError(Exception):
 
 
 class Stream(StreamIterator):
-    _headers_sent = False
-    _trailers_sent = False
-    _data_sent = False
-    _ended = False
+    # stream state
+    _recv_message_count = 0
+    _send_initial_metadata_done = False
+    _send_message_count = 0
+    _send_trailing_metadata_done = False
+    _reset_done = False
 
     def __init__(self, metadata, stream, recv_type, send_type):
         self.metadata = metadata
@@ -34,68 +36,74 @@ class Stream(StreamIterator):
         self._recv_type = recv_type
         self._send_type = send_type
 
-    async def _send_trailers(self, trailers):
-        assert not self._trailers_sent
-        if not self._headers_sent:
-            trailers = [(':status', '200')] + trailers
-        await self._stream.send_headers(trailers, end_stream=True)
-        self._headers_sent = True
-        self._trailers_sent = True
+    async def recv_message(self):
+        message = await recv_message(self._stream, self._recv_type)
+        self._recv_message_count += 1
+        return message
 
-    async def send(self, message, *, end=False):
-        if not self._headers_sent:
-            await self._stream.send_headers([(':status', '200'),
-                                             ('content-type', CONTENT_TYPE)])
-            self._headers_sent = True
+    async def send_initial_metadata(self):
+        assert not self._send_initial_metadata_done, \
+            'Method should be called only once'
+
+        await self._stream.send_headers([(':status', '200'),
+                                         ('content-type', CONTENT_TYPE)])
+        self._send_initial_metadata_done = True
+
+    async def send_message(self, message, *, end=False):
+        if not self._send_initial_metadata_done:
+            await self.send_initial_metadata()
 
         await send_message(self._stream, message, self._send_type)
-        self._data_sent = True
+        self._send_message_count += 1
 
         if end:
-            await self.end()
+            await self.send_trailing_metadata()
 
-    async def recv(self):
-        return await recv_message(self._stream, self._recv_type)
+    async def send_trailing_metadata(self, *, status=Status.OK,
+                                     status_message=None):
+        assert not self._send_trailing_metadata_done, \
+            'Method should be called only once'
 
-    async def end(self, *, status=Status.OK, status_message=None):
-        assert not self._ended
+        if self._send_initial_metadata_done:
+            headers = []
+        else:
+            # trailers-only response
+            headers = [(':status', '200')]
 
-        headers = [('grpc-status', str(status.value))]
+        headers.append(('grpc-status', str(status.value)))
         if status_message is not None:
             headers.append(('grpc-message', status_message))
 
-        await self._send_trailers(headers)
-        self._ended = True
+        await self._stream.send_headers(headers, end_stream=True)
+        self._send_trailing_metadata_done = True
 
     async def reset(self):
+        assert not self._reset_done, 'Stream reset is already done'
         await self._stream.reset()  # TODO: specify error code
+        self._reset_done = True
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._ended:
+        if self._send_trailing_metadata_done or self._reset_done:
             return
 
         if exc_type or exc_val or exc_tb:
             if isinstance(exc_val, GRPCError):
-                status, message = exc_val.status, exc_val.message
+                status, status_message = exc_val.status, exc_val.message
             else:
-                status, message = Status.UNKNOWN, 'Internal Server Error'
-            headers = [('grpc-status', str(status.value))]
-            if message is not None:
-                headers.append(('grpc-message', message))
+                status, status_message = Status.UNKNOWN, 'Internal Server Error'
 
-        elif not self._data_sent:
-            headers = [('grpc-status', str(Status.UNKNOWN.value)),
-                       ('grpc-message', 'Empty reply')]
-
+            await self.send_trailing_metadata(status=status,
+                                              status_message=status_message)
+            # to suppress exception propagation
+            return True
+        elif not self._send_message_count:
+            await self.send_trailing_metadata(status=Status.UNKNOWN,
+                                              status_message='Empty reply')
         else:
-            headers = [('grpc-status', str(Status.OK.value))]
-
-        await self._send_trailers(headers)
-        # to suppress exception propagation
-        return True
+            await self.send_trailing_metadata()
 
 
 async def request_handler(mapping, _stream, headers):
