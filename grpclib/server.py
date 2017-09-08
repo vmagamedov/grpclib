@@ -1,3 +1,4 @@
+import abc
 import logging
 import asyncio
 
@@ -134,35 +135,69 @@ async def request_handler(mapping, _stream, headers):
             raise
 
 
-class Handler(AbstractHandler):
+class _GC(abc.ABC):
+    _gc_counter = 0
+
+    @property
+    @abc.abstractmethod
+    def __gc_interval__(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def __gc_collect__(self):
+        pass
+
+    def __gc_step__(self):
+        self._gc_counter += 1
+        if not (self._gc_counter % self.__gc_interval__):
+            self.__gc_collect__()
+
+
+class Handler(_GC, AbstractHandler):
+    __gc_interval__ = 10
+
+    closing = False
 
     def __init__(self, mapping, *, loop):
         self.mapping = mapping
         self.loop = loop
-        self.tasks = {}
+        self._tasks = {}
         self._cancelled = set()
 
+    def __gc_collect__(self):
+        self._tasks = {s: t for s, t in self._tasks.items()
+                       if not t.done()}
+        self._cancelled = {t for t in self._cancelled
+                           if not t.done()}
+
     def accept(self, stream, headers):
-        self.tasks[stream] = self.loop.create_task(
+        self.__gc_step__()
+        self._tasks[stream] = self.loop.create_task(
             request_handler(self.mapping, stream, headers)
         )
 
     def cancel(self, stream):
-        task = self.tasks.pop(stream)
+        task = self._tasks.pop(stream)
         task.cancel()
         self._cancelled.add(task)
 
     def close(self):
-        for task in self.tasks.values():
+        for task in self._tasks.values():
             task.cancel()
-        self._cancelled.update(self.tasks.values())
+        self._cancelled.update(self._tasks.values())
+        self.closing = True
 
     async def wait_closed(self):
         if self._cancelled:
             await asyncio.wait(self._cancelled, loop=self.loop)
 
+    def check_closed(self):
+        self.__gc_collect__()
+        return not self._tasks and not self._cancelled
 
-class Server(asyncio.AbstractServer):
+
+class Server(_GC, asyncio.AbstractServer):
+    __gc_interval__ = 10
 
     def __init__(self, handlers, *, loop):
         mapping = {}
@@ -177,9 +212,14 @@ class Server(asyncio.AbstractServer):
         )
 
         self._tcp_server = None
-        self._handlers = set()  # TODO: cleanup
+        self._handlers = set()
+
+    def __gc_collect__(self):
+        self._handlers = {h for h in self._handlers
+                          if not (h.closing and h.check_closed())}
 
     def _protocol_factory(self):
+        self.__gc_step__()
         handler = Handler(self._mapping, loop=self._loop)
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)

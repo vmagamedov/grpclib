@@ -1,5 +1,5 @@
 from io import BytesIO
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict  # noqa
 from asyncio import Transport, Protocol, Event, Queue, AbstractEventLoop
 
@@ -188,7 +188,7 @@ class Stream:
         self.__buffer__.eof()
 
 
-class AbstractHandler(metaclass=ABCMeta):
+class AbstractHandler(ABC):
 
     @abstractmethod
     def accept(self, stream, headers):
