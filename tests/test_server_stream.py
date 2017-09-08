@@ -5,7 +5,7 @@ import pytest
 
 from h2.errors import ErrorCodes
 
-from grpclib.enum import Status
+from grpclib.const import Status
 from grpclib.server import Stream, GRPCError
 from grpclib.metadata import Metadata
 

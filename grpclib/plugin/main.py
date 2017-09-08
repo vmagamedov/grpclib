@@ -7,17 +7,17 @@ from collections import namedtuple
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
+from .. import const
 from .. import client
-from .. import __public__
 
 
 SUFFIX = '_grpc.py'
 
 _CARDINALITY = {
-    (False, False): __public__.Cardinality.UNARY_UNARY,
-    (True, False): __public__.Cardinality.STREAM_UNARY,
-    (False, True): __public__.Cardinality.UNARY_STREAM,
-    (True, True): __public__.Cardinality.STREAM_STREAM,
+    (False, False): const.Cardinality.UNARY_UNARY,
+    (True, False): const.Cardinality.STREAM_UNARY,
+    (False, True): const.Cardinality.UNARY_STREAM,
+    (True, True): const.Cardinality.STREAM_STREAM,
 }
 
 
@@ -50,8 +50,8 @@ def render(proto_file, package, imports, services):
     buf.add('# plugin: {}', __name__)
     buf.add('from abc import ABCMeta, abstractmethod')
     buf.add('')
+    buf.add('import {}', const.__name__)
     buf.add('import {}', client.__name__)
-    buf.add('import {}', __public__.__name__)
     buf.add('')
     for mod in imports:
         buf.add('import {}', mod)
@@ -78,12 +78,12 @@ def render(proto_file, package, imports, services):
                     for method in service.methods:
                         name, cardinality, request_type, reply_type = method
                         full_name = '/{}/{}'.format(service_name, name)
-                        buf.add("'{}': {}.{}(", full_name, __public__.__name__,
-                                __public__.Handler.__name__)
+                        buf.add("'{}': {}.{}(", full_name, const.__name__,
+                                const.Handler.__name__)
                         with buf.indent():
                             buf.add('self.{},', name)
-                            buf.add('{}.{}.{},', __public__.__name__,
-                                    __public__.Cardinality.__name__,
+                            buf.add('{}.{}.{},', const.__name__,
+                                    const.Cardinality.__name__,
                                     cardinality.name)
                             buf.add('{},', request_type)
                             buf.add('{},', reply_type)
@@ -101,13 +101,13 @@ def render(proto_file, package, imports, services):
                 for method in service.methods:
                     name, cardinality, request_type, reply_type = method
                     full_name = '/{}/{}'.format(service_name, name)
-                    if cardinality is __public__.Cardinality.UNARY_UNARY:
+                    if cardinality is const.Cardinality.UNARY_UNARY:
                         method_cls = client.UnaryUnaryMethod
-                    elif cardinality is __public__.Cardinality.UNARY_STREAM:
+                    elif cardinality is const.Cardinality.UNARY_STREAM:
                         method_cls = client.UnaryStreamMethod
-                    elif cardinality is __public__.Cardinality.STREAM_UNARY:
+                    elif cardinality is const.Cardinality.STREAM_UNARY:
                         method_cls = client.StreamUnaryMethod
-                    elif cardinality is __public__.Cardinality.STREAM_STREAM:
+                    elif cardinality is const.Cardinality.STREAM_STREAM:
                         method_cls = client.StreamStreamMethod
                     else:
                         raise TypeError(cardinality)

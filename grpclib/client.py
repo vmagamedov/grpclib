@@ -4,7 +4,7 @@ import h2.config
 import async_timeout
 
 from .exc import GRPCError
-from .enum import Status
+from .const import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler

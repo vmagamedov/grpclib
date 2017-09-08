@@ -1,4 +1,4 @@
-from .enum import Status
+from .const import Status
 
 
 class GRPCError(Exception):

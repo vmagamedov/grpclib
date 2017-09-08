@@ -3,8 +3,8 @@
 # plugin: grpclib.plugin.main
 from abc import ABCMeta, abstractmethod
 
+import grpclib.const
 import grpclib.client
-import grpclib.__public__
 
 import tests.protobuf.testing_pb2
 
@@ -29,27 +29,27 @@ class BombedBase(metaclass=ABCMeta):
 
     def __mapping__(self):
         return {
-            '/Bombed/Plaster': grpclib.__public__.Handler(
+            '/Bombed/Plaster': grpclib.const.Handler(
                 self.Plaster,
-                grpclib.__public__.Cardinality.UNARY_UNARY,
+                grpclib.const.Cardinality.UNARY_UNARY,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.SavoysReply,
             ),
-            '/Bombed/Benzine': grpclib.__public__.Handler(
+            '/Bombed/Benzine': grpclib.const.Handler(
                 self.Benzine,
-                grpclib.__public__.Cardinality.UNARY_STREAM,
+                grpclib.const.Cardinality.UNARY_STREAM,
                 tests.protobuf.testing_pb2.SavoysRequest,
                 tests.protobuf.testing_pb2.GoowyChunk,
             ),
-            '/Bombed/Anginal': grpclib.__public__.Handler(
+            '/Bombed/Anginal': grpclib.const.Handler(
                 self.Anginal,
-                grpclib.__public__.Cardinality.STREAM_UNARY,
+                grpclib.const.Cardinality.STREAM_UNARY,
                 tests.protobuf.testing_pb2.UnyoungChunk,
                 tests.protobuf.testing_pb2.SavoysReply,
             ),
-            '/Bombed/Devilry': grpclib.__public__.Handler(
+            '/Bombed/Devilry': grpclib.const.Handler(
                 self.Devilry,
-                grpclib.__public__.Cardinality.STREAM_STREAM,
+                grpclib.const.Cardinality.STREAM_STREAM,
                 tests.protobuf.testing_pb2.UnyoungChunk,
                 tests.protobuf.testing_pb2.GoowyChunk,
             ),

@@ -3,8 +3,8 @@
 # plugin: grpclib.plugin.main
 from abc import ABCMeta, abstractmethod
 
+import grpclib.const
 import grpclib.client
-import grpclib.__public__
 
 import example.helloworld_pb2
 
@@ -17,9 +17,9 @@ class GreeterBase(metaclass=ABCMeta):
 
     def __mapping__(self):
         return {
-            '/helloworld.Greeter/SayHello': grpclib.__public__.Handler(
+            '/helloworld.Greeter/SayHello': grpclib.const.Handler(
                 self.SayHello,
-                grpclib.__public__.Cardinality.UNARY_UNARY,
+                grpclib.const.Cardinality.UNARY_UNARY,
                 example.helloworld_pb2.HelloRequest,
                 example.helloworld_pb2.HelloReply,
             ),
