@@ -5,7 +5,8 @@ import h2.config
 import async_timeout
 
 from .enum import Status
-from .stream import CONTENT_TYPE, CONTENT_TYPES, Stream as _Stream
+from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
+from .stream import StreamIterator
 from .metadata import Metadata
 from .protocol import H2Protocol, AbstractHandler
 
@@ -21,7 +22,7 @@ class GRPCError(Exception):
         self.message = message
 
 
-class Stream(_Stream):
+class Stream(StreamIterator):
     _headers_sent = False
     _trailers_sent = False
     _data_sent = False
@@ -40,6 +41,37 @@ class Stream(_Stream):
         await self._stream.send_headers(trailers, end_stream=True)
         self._headers_sent = True
         self._trailers_sent = True
+
+    async def send(self, message, *, end=False):
+        if not self._headers_sent:
+            await self._stream.send_headers([(':status', '200'),
+                                             ('content-type', CONTENT_TYPE)])
+            self._headers_sent = True
+
+        await send_message(self._stream, message, self._send_type)
+        self._data_sent = True
+
+        if end:
+            await self.end()
+
+    async def recv(self):
+        return await recv_message(self._stream, self._recv_type)
+
+    async def end(self, *, status=Status.OK, status_message=None):
+        assert not self._ended
+
+        headers = [('grpc-status', str(status.value))]
+        if status_message is not None:
+            headers.append(('grpc-message', status_message))
+
+        await self._send_trailers(headers)
+        self._ended = True
+
+    async def reset(self):
+        await self._stream.reset()  # TODO: specify error code
+
+    async def __aenter__(self):
+        return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._ended:
@@ -64,23 +96,6 @@ class Stream(_Stream):
         await self._send_trailers(headers)
         # to suppress exception propagation
         return True
-
-    async def send(self, message, end=False):
-        if not self._headers_sent:
-            await self._stream.send_headers([(':status', '200'),
-                                             ('content-type', CONTENT_TYPE)])
-            self._headers_sent = True
-
-        await super().send(message)
-        self._data_sent = True
-
-        if end:
-            await self.end()
-
-    async def end(self):
-        assert not self._ended
-        await self._send_trailers([('grpc-status', str(Status.OK.value))])
-        self._ended = True
 
 
 async def request_handler(mapping, _stream, headers):

@@ -3,7 +3,8 @@ import asyncio
 import h2.config
 import async_timeout
 
-from .stream import CONTENT_TYPES, CONTENT_TYPE, Stream as _Stream
+from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
+from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Metadata, RequestHeaders
 
@@ -21,7 +22,8 @@ class Handler(AbstractHandler):
         self.connection_lost = True
 
 
-class Stream(_Stream):
+class Stream(StreamIterator):
+    _stream = None
     _reply_headers = None
     _ended = False
 
@@ -41,6 +43,39 @@ class Stream(_Stream):
             timeout = None
         return async_timeout.timeout(timeout)
 
+    async def send(self, message, *, end=False):
+        if self._stream is None:
+            protocol = await self._channel.__connect__()
+            # TODO: check concurrent streams count and maybe wait
+            self._stream = protocol.processor.create_stream()
+            headers_list = self._headers.to_list(self._metadata)
+            await self._stream.send_headers(headers_list)
+
+        await send_message(self._stream, message, self._send_type, end=end)
+        if end:
+            assert not self._ended
+            self._ended = True
+
+    async def recv(self):
+        async with self._with_deadline():
+            if self._reply_headers is None:
+                self._reply_headers = dict(await self._stream.recv_headers())
+                assert self._reply_headers[':status'] == '200', \
+                    self._reply_headers[':status']
+                assert self._reply_headers['content-type'] in CONTENT_TYPES, \
+                    self._reply_headers['content-type']
+
+            return await recv_message(self._stream, self._recv_type)
+
+    async def end(self):
+        await self._stream.end()
+
+    async def reset(self):
+        await self._stream.reset()  # TODO: specify error code
+
+    async def __aenter__(self):
+        return self
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._ended:
             return
@@ -53,33 +88,6 @@ class Stream(_Stream):
                 trailers = dict(await self._stream.recv_headers())
                 if trailers.get('grpc-status') != '0':
                     raise Exception(trailers)  # TODO: proper exception type
-
-    async def send(self, message, end=False):
-        if self._stream is None:
-            protocol = await self._channel.__connect__()
-            # TODO: check concurrent streams count and maybe wait
-            self._stream = protocol.processor.create_stream()
-            headers_list = self._headers.to_list(self._metadata)
-            await self._stream.send_headers(headers_list)
-
-        await super().send(message, end=end)
-        if end:
-            assert not self._ended
-            self._ended = True
-
-    async def end(self):
-        await self._stream.end()
-
-    async def recv(self):
-        async with self._with_deadline():
-            if self._reply_headers is None:
-                self._reply_headers = dict(await self._stream.recv_headers())
-                assert self._reply_headers[':status'] == '200', \
-                    self._reply_headers[':status']
-                assert self._reply_headers['content-type'] in CONTENT_TYPES, \
-                    self._reply_headers['content-type']
-
-            return await super().recv()
 
 
 class Channel:
