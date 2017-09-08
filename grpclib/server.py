@@ -4,6 +4,7 @@ import asyncio
 import h2.config
 import async_timeout
 
+from .exc import GRPCError
 from .enum import Status
 from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
 from .stream import StreamIterator
@@ -12,14 +13,6 @@ from .protocol import H2Protocol, AbstractHandler
 
 
 log = logging.getLogger(__name__)
-
-
-class GRPCError(Exception):
-
-    def __init__(self, status, message=None):
-        super().__init__(message)
-        self.status = status
-        self.message = message
 
 
 class Stream(StreamIterator):

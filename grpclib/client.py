@@ -3,6 +3,8 @@ import asyncio
 import h2.config
 import async_timeout
 
+from .exc import GRPCError
+from .enum import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
@@ -105,11 +107,15 @@ class Stream(StreamIterator):
             'Method should be called only once'
 
         async with self._with_deadline():
-            trailers = dict(await self._stream.recv_headers())
+            headers = await self._stream.recv_headers()
             self._recv_trailing_metadata_done = True
 
-            if trailers.get('grpc-status') != '0':
-                raise Exception(trailers)  # TODO: proper exception type
+            headers_map = dict(headers)
+            status_code = headers_map['grpc-status']
+            status_message = headers_map.get('grpc-message')
+            status = Status(int(status_code))
+            if status is not Status.OK:
+                raise GRPCError(status, status_message)
 
     async def reset(self):
         assert not self._reset_done, 'Stream reset is already done'
