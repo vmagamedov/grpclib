@@ -1,11 +1,9 @@
-import time
-
 from unittest.mock import Mock
 
 import pytest
 
-from grpclib.metadata import encode_timeout, decode_timeout
-from grpclib.metadata import Metadata, Deadline, RequestHeaders
+from grpclib.metadata import encode_timeout, decode_timeout, Deadline
+from grpclib.metadata import Metadata, Request
 
 
 @pytest.mark.parametrize('value, expected', [
@@ -34,28 +32,20 @@ def test_decode_timeout(value, expected):
     assert decode_timeout(value) == expected
 
 
-@pytest.mark.parametrize('before, timeout, after', [
-    (None, 0.1, 0.1),
-    (0.2, 0.1, 0.1),
-    (0.1, 0.2, 0.1),
-])
-def test_apply_timeout(before, timeout, after):
-    deadline = Deadline(time.time() + before) if before is not None else None
-    metadata = Metadata([], deadline)
-    metadata = metadata.apply_timeout(timeout)
-    assert metadata.deadline.time_remaining() == \
-        pytest.approx(after, abs=0.01)
+def test_deadline():
+    assert min(Deadline(1), Deadline(2)) == Deadline(1)
 
 
 def test_headers_with_deadline():
     deadline = Mock()
     deadline.time_remaining.return_value = 0.1
 
-    metadata = Metadata([('dominic', 'lovech')], deadline)
+    metadata = Metadata([('dominic', 'lovech')])
 
-    assert RequestHeaders(
+    assert Request(
         'briana', 'dismal', 'dost', content_type='gazebos',
-    ).to_list(metadata) == [
+        metadata=metadata, deadline=deadline,
+    ).to_headers() == [
         (':method', 'briana'),
         (':scheme', 'dismal'),
         (':path', 'dost'),
@@ -65,11 +55,12 @@ def test_headers_with_deadline():
         ('dominic', 'lovech'),
     ]
 
-    assert RequestHeaders(
+    assert Request(
         'briana', 'dismal', 'dost', authority='edges', content_type='gazebos',
         message_type='dobson', message_encoding='patera',
         message_accept_encoding='shakers', user_agent='dowlin',
-    ).to_list(metadata) == [
+        metadata=metadata, deadline=deadline,
+    ).to_headers() == [
         (':method', 'briana'),
         (':scheme', 'dismal'),
         (':path', 'dost'),
@@ -88,9 +79,9 @@ def test_headers_with_deadline():
 def test_headers_without_deadline():
     metadata = Metadata([('chagga', 'chrome')])
 
-    assert RequestHeaders(
-        'flysch', 'plains', 'slaps', content_type='pemako',
-    ).to_list(metadata) == [
+    assert Request(
+        'flysch', 'plains', 'slaps', content_type='pemako', metadata=metadata,
+    ).to_headers() == [
         (':method', 'flysch'),
         (':scheme', 'plains'),
         (':path', 'slaps'),
@@ -99,11 +90,12 @@ def test_headers_without_deadline():
         ('chagga', 'chrome'),
     ]
 
-    assert RequestHeaders(
+    assert Request(
         'flysch', 'plains', 'slaps', authority='sleev', content_type='pemako',
         message_type='deltic', message_encoding='eutexia',
         message_accept_encoding='glyptic', user_agent='chrisom',
-    ).to_list(metadata) == [
+        metadata=metadata,
+    ).to_headers() == [
         (':method', 'flysch'),
         (':scheme', 'plains'),
         (':path', 'slaps'),

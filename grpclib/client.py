@@ -8,7 +8,7 @@ from .const import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
-from .metadata import Metadata, RequestHeaders
+from .metadata import Metadata, Request, Deadline
 
 
 class Handler(AbstractHandler):
@@ -34,17 +34,19 @@ class Stream(StreamIterator):
     _recv_trailing_metadata_done = False
     _reset_done = False
 
-    def __init__(self, channel, headers, metadata, send_type, recv_type):
+    initial_metadata = None
+    trailing_metadata = None
+
+    def __init__(self, channel, request, send_type, recv_type):
         self._channel = channel
-        self._headers = headers
-        self._metadata = metadata
+        self._request = request
         self._send_type = send_type
         self._recv_type = recv_type
         self._stream = None
 
     def _with_deadline(self):
-        if self._metadata.deadline is not None:
-            timeout = self._metadata.deadline.time_remaining()
+        if self._request.deadline is not None:
+            timeout = self._request.deadline.time_remaining()
             if not timeout:
                 raise asyncio.TimeoutError('Deadline exceeded')
         else:
@@ -57,7 +59,7 @@ class Stream(StreamIterator):
         protocol = await self._channel.__connect__()
         # TODO: check concurrent streams count and maybe wait
         self._stream = protocol.processor.create_stream()
-        headers_list = self._headers.to_list(self._metadata)
+        headers_list = self._request.to_headers()
 
         await self._stream.send_headers(headers_list)
         self._send_request_done = True
@@ -83,12 +85,15 @@ class Stream(StreamIterator):
             'Method should be called only once'
 
         async with self._with_deadline():
-            headers = dict(await self._stream.recv_headers())
+            headers = await self._stream.recv_headers()
             self._recv_initial_metadata_done = True
 
-            assert headers[':status'] == '200', headers[':status']
-            assert headers['content-type'] in CONTENT_TYPES, \
-                headers['content-type']
+            self.initial_metadata = Metadata.from_headers(headers)
+
+            headers_map = dict(headers)
+            assert headers_map[':status'] == '200', headers_map[':status']
+            assert headers_map['content-type'] in CONTENT_TYPES, \
+                headers_map['content-type']
 
     async def recv_message(self):
         # TODO: check that messages were sent for non-stream-stream requests
@@ -109,6 +114,8 @@ class Stream(StreamIterator):
         async with self._with_deadline():
             headers = await self._stream.recv_headers()
             self._recv_trailing_metadata_done = True
+
+            self.trailing_metadata = Metadata.from_headers(headers)
 
             headers_map = dict(headers)
             status_code = headers_map['grpc-status']
@@ -158,22 +165,21 @@ class Channel:
         return self._protocol
 
     def request(self, name, request_type, reply_type, *, timeout=None,
-                metadata=None):
-        if metadata is None:
-            metadata = Metadata([])
+                deadline=None, metadata=None):
+        if timeout is not None and deadline is None:
+            deadline = Deadline.from_timeout(timeout)
+        elif timeout is not None and deadline is not None:
+            deadline = min(Deadline.from_timeout(timeout), deadline)
         else:
-            if not isinstance(metadata, Metadata):
-                raise TypeError('"metadata" should be of {!r} type'
-                                .format(Metadata))
-        if timeout is not None:
-            metadata = metadata.apply_timeout(timeout)
+            deadline = None
 
-        headers = RequestHeaders('POST', 'http', name,
-                                 authority=self._authority,
-                                 content_type=CONTENT_TYPE,
-                                 # TODO: specify versions
-                                 user_agent='grpc-python-grpclib')
-        return Stream(self, headers, metadata, request_type, reply_type)
+        request = Request('POST', 'http', name, authority=self._authority,
+                          content_type=CONTENT_TYPE,
+                          # TODO: specify versions
+                          user_agent='grpc-python-grpclib',
+                          metadata=metadata, deadline=deadline)
+
+        return Stream(self, request, request_type, reply_type)
 
     def close(self):
         self._protocol.processor.close()

@@ -9,7 +9,7 @@ from .exc import GRPCError
 from .const import Status
 from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
 from .stream import StreamIterator
-from .metadata import Metadata
+from .metadata import Metadata, Deadline
 from .protocol import H2Protocol, AbstractHandler
 
 
@@ -24,8 +24,10 @@ class Stream(StreamIterator):
     _send_trailing_metadata_done = False
     _reset_done = False
 
-    def __init__(self, metadata, stream, recv_type, send_type):
+    def __init__(self, metadata, stream, recv_type, send_type,
+                 *, deadline=None):
         self.metadata = metadata
+        self.deadline = deadline
         self._stream = stream
         self._recv_type = recv_type
         self._send_type = send_type
@@ -107,10 +109,7 @@ async def request_handler(mapping, _stream, headers):
     h2_content_type = headers_map['content-type']
 
     metadata = Metadata.from_headers(headers)
-    if metadata.deadline is not None:
-        request_timeout = metadata.deadline.time_remaining()
-    else:
-        request_timeout = None
+    deadline = Deadline.from_metadata(metadata)
 
     method = mapping.get(h2_path)
 
@@ -119,10 +118,11 @@ async def request_handler(mapping, _stream, headers):
     assert h2_content_type in CONTENT_TYPES, h2_content_type
 
     async with Stream(metadata, _stream, method.request_type,
-                      method.reply_type) as stream:
+                      method.reply_type, deadline=deadline) as stream:
+        timeout = None if deadline is None else deadline.time_remaining()
         timeout_cm = None
         try:
-            with async_timeout.timeout(request_timeout) as timeout_cm:
+            with async_timeout.timeout(timeout) as timeout_cm:
                 await method.func(stream)
         except asyncio.TimeoutError:
             if timeout_cm and timeout_cm.expired:

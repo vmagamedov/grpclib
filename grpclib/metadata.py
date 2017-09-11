@@ -42,61 +42,57 @@ class Deadline:
     def __init__(self, timestamp):
         self.timestamp = timestamp
 
+    def __lt__(self, other):
+        return self.timestamp < other.timestamp
+
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp
+
+    @classmethod
+    def from_metadata(cls, metadata):
+        timeout = min(map(decode_timeout,
+                          metadata.getall('grpc-timeout', [])),
+                      default=None)
+        if timeout is not None:
+            return cls.from_timeout(timeout)
+        else:
+            return None
+
+    @classmethod
+    def from_timeout(cls, timeout):
+        return cls(time.time() + timeout)
+
     def time_remaining(self):
         return max(0, self.timestamp - time.time())
 
 
 class Metadata(MultiDict):
-
-    def __init__(self, items, deadline=None):
-        super().__init__(items)
-        self.deadline = deadline
-
-    def copy(self):
-        metadata = super().copy()
-        metadata.deadline = self.deadline
-        return metadata
+    _headers = {'content-type', 'te'}
 
     @classmethod
     def from_headers(cls, headers):
-        metadata = cls([(key, value) for key, value in headers
-                        if not key.startswith(':')
-                        and key not in {'content-type', 'te'}])
-        timeout = min(map(decode_timeout, metadata.getall('grpc-timeout', [])),
-                      default=None)
-        if timeout is not None:
-            metadata.deadline = Deadline(time.time() + timeout)
-        return metadata
-
-    def apply_timeout(self, timeout):
-        timestamp = time.time() + timeout
-        if self.deadline is not None:
-            if self.deadline.timestamp > timestamp:
-                deadline = Deadline(timestamp)
-            else:
-                return self
-        else:
-            deadline = Deadline(timestamp)
-        metadata = self.copy()
-        metadata.deadline = deadline
-        return metadata
+        return cls([(key, value) for key, value in headers
+                    if not key.startswith(':') and key not in cls._headers])
 
 
-class RequestHeaders(namedtuple('RequestHeaders', [
+class Request(namedtuple('Request', [
     'method', 'scheme', 'path', 'authority',
     'content_type', 'message_type', 'message_encoding',
-    'message_accept_encoding', 'user_agent'
+    'message_accept_encoding', 'user_agent',
+    'metadata', 'deadline',
 ])):
     __slots__ = tuple()
 
     def __new__(cls, method, scheme, path, *, authority=None,
                 content_type, message_type=None, message_encoding=None,
-                message_accept_encoding=None, user_agent=None):
+                message_accept_encoding=None, user_agent=None,
+                metadata=None, deadline=None):
         return super().__new__(cls, method, scheme, path, authority,
                                content_type, message_type, message_encoding,
-                               message_accept_encoding, user_agent)
+                               message_accept_encoding, user_agent,
+                               metadata, deadline)
 
-    def to_list(self, metadata):
+    def to_headers(self):
         result = [
             (':method', self.method),
             (':scheme', self.scheme),
@@ -105,8 +101,8 @@ class RequestHeaders(namedtuple('RequestHeaders', [
         if self.authority is not None:
             result.append((':authority', self.authority))
 
-        if metadata.deadline is not None:
-            timeout = metadata.deadline.time_remaining()
+        if self.deadline is not None:
+            timeout = self.deadline.time_remaining()
             result.append(('grpc-timeout', encode_timeout(timeout)))
 
         result.append(('te', 'trailers'))
@@ -125,6 +121,7 @@ class RequestHeaders(namedtuple('RequestHeaders', [
         if self.user_agent is not None:
             result.append(('user-agent', self.user_agent))
 
-        result.extend((k, v) for k, v in metadata.items()
-                      if k != 'grpc-timeout')
+        if self.metadata is not None:
+            result.extend((k, v) for k, v in self.metadata.items()
+                          if k != 'grpc-timeout')
         return result
