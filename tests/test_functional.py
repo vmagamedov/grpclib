@@ -66,16 +66,16 @@ class ClientServer:
 
 
 @pytest.mark.asyncio
-async def test_unary_unary_simple(event_loop):
-    async with ClientServer(loop=event_loop) as (handler, stub):
+async def test_unary_unary_simple(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
         reply = await stub.Plaster(SavoysRequest(kyler='huizhou'))
         assert reply == SavoysReply(benito='bebops')
         assert handler.log == [SavoysRequest(kyler='huizhou')]
 
 
 @pytest.mark.asyncio
-async def test_unary_unary_advanced(event_loop):
-    async with ClientServer(loop=event_loop) as (handler, stub):
+async def test_unary_unary_advanced(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
         async with stub.Plaster.open() as stream:
             await stream.send_message(SavoysRequest(kyler='huizhou'))
             reply = await stream.recv_message()
@@ -84,8 +84,8 @@ async def test_unary_unary_advanced(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_unary_stream_simple(event_loop):
-    async with ClientServer(loop=event_loop) as (handler, stub):
+async def test_unary_stream_simple(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
         replies = await stub.Benzine(SavoysRequest(kyler='eediot'))
         assert handler.log == [SavoysRequest(kyler='eediot')]
         assert replies == [GoowyChunk(biomes='papists'),
@@ -94,8 +94,8 @@ async def test_unary_stream_simple(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_unary_stream_advanced(event_loop):
-    async with ClientServer(loop=event_loop) as (handler, stub):
+async def test_unary_stream_advanced(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
         async with stub.Benzine.open() as stream:
             await stream.send_message(SavoysRequest(kyler='eediot'), end=True)
             replies = [r async for r in stream]
@@ -106,8 +106,8 @@ async def test_unary_stream_advanced(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_unary_simple(event_loop):
-    async with ClientServer(loop=event_loop) as (handler, stub):
+async def test_stream_unary_simple(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
         reply = await stub.Anginal([
             UnyoungChunk(whome='canopy'),
             UnyoungChunk(whome='iver'),
@@ -120,8 +120,8 @@ async def test_stream_unary_simple(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_unary_advanced(event_loop):
-    async with ClientServer(loop=event_loop) as (handler, stub):
+async def test_stream_unary_advanced(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
         async with stub.Anginal.open() as stream:
             await stream.send_message(UnyoungChunk(whome='canopy'))
             await stream.send_message(UnyoungChunk(whome='iver'))
@@ -134,8 +134,8 @@ async def test_stream_unary_advanced(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_stream_simple(event_loop):
-    async with ClientServer(loop=event_loop) as (_, stub):
+async def test_stream_stream_simple(loop):
+    async with ClientServer(loop=loop) as (_, stub):
         replies = await stub.Devilry([
             UnyoungChunk(whome='guv'),
             UnyoungChunk(whome='lactic'),
@@ -149,8 +149,8 @@ async def test_stream_stream_simple(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_stream_advanced(event_loop):
-    async with ClientServer(loop=event_loop) as (_, stub):
+async def test_stream_stream_advanced(loop):
+    async with ClientServer(loop=loop) as (_, stub):
         async with stub.Devilry.open() as stream:
             await stream.send_message(UnyoungChunk(whome='guv'))
             assert await stream.recv_message() == GoowyChunk(biomes='guv')
