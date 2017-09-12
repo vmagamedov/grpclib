@@ -83,7 +83,8 @@ class Stream(StreamIterator):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._send_trailing_metadata_done or self._reset_done:
-            return
+            # to suppress exception propagation
+            return True
 
         if exc_type or exc_val or exc_tb:
             if isinstance(exc_val, GRPCError):

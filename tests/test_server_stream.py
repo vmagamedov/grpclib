@@ -1,3 +1,5 @@
+import struct
+
 from asyncio import Queue
 from collections import namedtuple
 
@@ -6,6 +8,7 @@ import pytest
 from h2.errors import ErrorCodes
 
 from grpclib.const import Status
+from grpclib.stream import CONTENT_TYPE
 from grpclib.server import Stream, GRPCError
 from grpclib.metadata import Metadata
 
@@ -45,46 +48,121 @@ class H2StreamStub:
         self.__events__.append(Reset(error_code))
 
 
-@pytest.mark.asyncio
-async def test_no_response():
-    stub = H2StreamStub()
+@pytest.fixture(name='stub')
+def _stub():
+    return H2StreamStub()
 
-    async with Stream(Metadata([]), stub, SavoysRequest, SavoysReply):
+
+@pytest.fixture(name='stream')
+def _stream(stub):
+    return Stream(Metadata([]), stub, SavoysRequest, SavoysReply)
+
+
+def encode_message(message):
+    message_bin = message.SerializeToString()
+    return (struct.pack('?', False)
+            + struct.pack('>I', len(message_bin))
+            + message_bin)
+
+
+@pytest.mark.asyncio
+async def test_no_response(stream, stub):
+    async with stream:
         pass
-
     assert stub.__events__ == [
-        SendHeaders(headers=[(':status', '200'),
-                             ('grpc-status', str(Status.UNKNOWN.value)),
-                             ('grpc-message', 'Empty reply')],
-                    end_stream=True),
+        SendHeaders(
+            [(':status', '200'),
+             ('grpc-status', str(Status.UNKNOWN.value)),
+             ('grpc-message', 'Empty reply')],
+            end_stream=True,
+        ),
     ]
 
 
 @pytest.mark.asyncio
-async def test_exception():
-    stub = H2StreamStub()
-
-    async with Stream(Metadata([]), stub, SavoysRequest, SavoysReply):
-        1/0
-
+async def test_error_before_send_initial_metadata(stream, stub):
+    async with stream:
+        raise Exception()
     assert stub.__events__ == [
-        SendHeaders(headers=[(':status', '200'),
-                             ('grpc-status', str(Status.UNKNOWN.value)),
-                             ('grpc-message', 'Internal Server Error')],
-                    end_stream=True),
+        SendHeaders(
+            [(':status', '200'),
+             ('grpc-status', str(Status.UNKNOWN.value)),
+             ('grpc-message', 'Internal Server Error')],
+            end_stream=True,
+        ),
     ]
 
 
 @pytest.mark.asyncio
-async def test_deadline():
-    stub = H2StreamStub()
+async def test_error_after_send_initial_metadata(stream, stub):
+    async with stream:
+        await stream.send_initial_metadata()
+        raise Exception()
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            end_stream=False,
+        ),
+        SendHeaders(
+            [('grpc-status', str(Status.UNKNOWN.value)),
+             ('grpc-message', 'Internal Server Error')],
+            end_stream=True,
+        ),
+    ]
 
-    async with Stream(Metadata([]), stub, SavoysRequest, SavoysReply):
+
+@pytest.mark.asyncio
+async def test_error_after_send_message(stream, stub):
+    async with stream:
+        await stream.send_message(SavoysReply(benito='aimee'))
+        raise Exception()
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            end_stream=False,
+        ),
+        SendData(
+            encode_message(SavoysReply(benito='aimee')),
+            end_stream=False,
+        ),
+        SendHeaders(
+            [('grpc-status', str(Status.UNKNOWN.value)),
+             ('grpc-message', 'Internal Server Error')],
+            end_stream=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_error_after_send_trailing_metadata(stream, stub):
+    async with stream:
+        await stream.send_message(SavoysReply(benito='aimee'))
+        await stream.send_trailing_metadata()
+        raise Exception()
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            end_stream=False,
+        ),
+        SendData(
+            encode_message(SavoysReply(benito='aimee')),
+            end_stream=False,
+        ),
+        SendHeaders(
+            [('grpc-status', str(Status.OK.value))],
+            end_stream=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_grpc_error(stream, stub):
+    async with stream:
         raise GRPCError(Status.DEADLINE_EXCEEDED)
-
     assert stub.__events__ == [
-        SendHeaders(headers=[(':status', '200'),
-                             ('grpc-status',
-                              str(Status.DEADLINE_EXCEEDED.value))],
-                    end_stream=True),
+        SendHeaders(
+            [(':status', '200'),
+             ('grpc-status', str(Status.DEADLINE_EXCEEDED.value))],
+            end_stream=True,
+        ),
     ]
