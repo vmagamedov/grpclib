@@ -18,28 +18,26 @@ log = logging.getLogger(__name__)
 
 class Stream(StreamIterator):
     # stream state
-    _recv_message_count = 0
     _send_initial_metadata_done = False
     _send_message_count = 0
     _send_trailing_metadata_done = False
-    _reset_done = False
+    _cancel_done = False
 
-    def __init__(self, metadata, stream, recv_type, send_type,
-                 *, deadline=None):
-        self.metadata = metadata
-        self.deadline = deadline
+    def __init__(self, stream, cardinality, recv_type, send_type,
+                 *, metadata, deadline=None):
         self._stream = stream
+        self._cardinality = cardinality
         self._recv_type = recv_type
         self._send_type = send_type
+        self.metadata = metadata
+        self.deadline = deadline
 
     async def recv_message(self):
-        message = await recv_message(self._stream, self._recv_type)
-        self._recv_message_count += 1
-        return message
+        return await recv_message(self._stream, self._recv_type)
 
     async def send_initial_metadata(self):
         assert not self._send_initial_metadata_done, \
-            'Method should be called only once'
+            'Initial metadata was already sent'
 
         await self._stream.send_headers([(':status', '200'),
                                          ('content-type', CONTENT_TYPE)])
@@ -48,6 +46,10 @@ class Stream(StreamIterator):
     async def send_message(self, message, *, end=False):
         if not self._send_initial_metadata_done:
             await self.send_initial_metadata()
+
+        if not self._cardinality.server_streaming:
+            assert not self._send_message_count, \
+                'Server should send exactly one message in response'
 
         await send_message(self._stream, message, self._send_type)
         self._send_message_count += 1
@@ -58,7 +60,10 @@ class Stream(StreamIterator):
     async def send_trailing_metadata(self, *, status=Status.OK,
                                      status_message=None):
         assert not self._send_trailing_metadata_done, \
-            'Method should be called only once'
+            'Trailing metadata was already sent'
+
+        assert self._send_message_count or status is not Status.OK, \
+            '{!r} requires non-empty response'.format(status)
 
         if self._send_initial_metadata_done:
             headers = []
@@ -73,16 +78,16 @@ class Stream(StreamIterator):
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True
 
-    async def reset(self):
-        assert not self._reset_done, 'Stream reset is already done'
+    async def cancel(self):
+        assert not self._cancel_done, 'Stream was already cancelled'
         await self._stream.reset()  # TODO: specify error code
-        self._reset_done = True
+        self._cancel_done = True
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._send_trailing_metadata_done or self._reset_done:
+        if self._send_trailing_metadata_done or self._cancel_done:
             # to suppress exception propagation
             return True
 
@@ -98,7 +103,7 @@ class Stream(StreamIterator):
             return True
         elif not self._send_message_count:
             await self.send_trailing_metadata(status=Status.UNKNOWN,
-                                              status_message='Empty reply')
+                                              status_message='Empty response')
         else:
             await self.send_trailing_metadata()
 
@@ -118,8 +123,9 @@ async def request_handler(mapping, _stream, headers):
     assert method is not None, h2_path
     assert h2_content_type in CONTENT_TYPES, h2_content_type
 
-    async with Stream(metadata, _stream, method.request_type,
-                      method.reply_type, deadline=deadline) as stream:
+    async with Stream(_stream, method.cardinality,
+                      method.request_type, method.reply_type,
+                      metadata=metadata, deadline=deadline) as stream:
         timeout = None if deadline is None else deadline.time_remaining()
         timeout_cm = None
         try:

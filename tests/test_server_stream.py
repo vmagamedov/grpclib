@@ -7,7 +7,7 @@ import pytest
 
 from h2.errors import ErrorCodes
 
-from grpclib.const import Status
+from grpclib.const import Status, Cardinality
 from grpclib.stream import CONTENT_TYPE
 from grpclib.server import Stream, GRPCError
 from grpclib.metadata import Metadata
@@ -55,7 +55,14 @@ def _stub():
 
 @pytest.fixture(name='stream')
 def _stream(stub):
-    return Stream(Metadata([]), stub, SavoysRequest, SavoysReply)
+    return Stream(stub, Cardinality.UNARY_UNARY, SavoysRequest, SavoysReply,
+                  metadata=Metadata([]))
+
+
+@pytest.fixture(name='stream_streaming')
+def _stream_streaming(stub):
+    return Stream(stub, Cardinality.UNARY_STREAM, SavoysRequest, SavoysReply,
+                  metadata=Metadata([]))
 
 
 def encode_message(message):
@@ -73,10 +80,79 @@ async def test_no_response(stream, stub):
         SendHeaders(
             [(':status', '200'),
              ('grpc-status', str(Status.UNKNOWN.value)),
-             ('grpc-message', 'Empty reply')],
+             ('grpc-message', 'Empty response')],
             end_stream=True,
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_send_initial_metadata_twice(stream):
+    async with stream:
+        await stream.send_initial_metadata()
+        with pytest.raises(AssertionError) as err:
+            await stream.send_initial_metadata()
+    err.match('Initial metadata was already sent')
+
+
+@pytest.mark.asyncio
+async def test_send_message_twice(stream):
+    async with stream:
+        await stream.send_message(SavoysReply(benito='aimee'))
+        with pytest.raises(AssertionError) as err:
+            await stream.send_message(SavoysReply(benito='amaya'))
+    err.match('Server should send exactly one message in response')
+
+
+@pytest.mark.asyncio
+async def test_send_message_twice_ok(stream_streaming, stub):
+    async with stream_streaming:
+        await stream_streaming.send_message(SavoysReply(benito='aimee'))
+        await stream_streaming.send_message(SavoysReply(benito='amaya'))
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            end_stream=False,
+        ),
+        SendData(
+            encode_message(SavoysReply(benito='aimee')),
+            end_stream=False,
+        ),
+        SendData(
+            encode_message(SavoysReply(benito='amaya')),
+            end_stream=False,
+        ),
+        SendHeaders(
+            [('grpc-status', str(Status.OK.value))],
+            end_stream=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_send_trailing_metadata_twice(stream):
+    async with stream:
+        await stream.send_trailing_metadata(status=Status.UNKNOWN)
+        with pytest.raises(AssertionError) as err:
+            await stream.send_trailing_metadata(status=Status.UNKNOWN)
+    err.match('Trailing metadata was already sent')
+
+
+@pytest.mark.asyncio
+async def test_send_trailing_metadata_and_empty_response(stream):
+    async with stream:
+        with pytest.raises(AssertionError) as err:
+            await stream.send_trailing_metadata()
+    err.match('<Status\.OK: 0> requires non-empty response')
+
+
+@pytest.mark.asyncio
+async def test_cancel_twice(stream):
+    async with stream:
+        await stream.cancel()
+        with pytest.raises(AssertionError) as err:
+            await stream.cancel()
+    err.match('Stream was already cancelled')
 
 
 @pytest.mark.asyncio

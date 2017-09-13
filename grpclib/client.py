@@ -32,7 +32,7 @@ class Stream(StreamIterator):
     _recv_initial_metadata_done = False
     _recv_message_count = 0
     _recv_trailing_metadata_done = False
-    _reset_done = False
+    _cancel_done = False
 
     initial_metadata = None
     trailing_metadata = None
@@ -124,20 +124,20 @@ class Stream(StreamIterator):
             if status is not Status.OK:
                 raise GRPCError(status, status_message)
 
-    async def reset(self):
-        assert not self._reset_done, 'Stream reset is already done'
+    async def cancel(self):
+        assert not self._cancel_done, 'Stream reset is already done'
         await self._stream.reset()  # TODO: specify error code
-        self._reset_done = True
+        self._cancel_done = True
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._recv_trailing_metadata_done or self._reset_done:
+        if self._recv_trailing_metadata_done or self._cancel_done:
             return
 
         if exc_type or exc_val or exc_tb:
-            await self.reset()
+            await self.cancel()
         else:
             await self.recv_trailing_metadata()
 
