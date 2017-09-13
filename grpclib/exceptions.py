@@ -7,3 +7,7 @@ class GRPCError(Exception):
         super().__init__(status, message)
         self.status = status
         self.message = message
+
+
+class ProtocolError(Exception):
+    pass

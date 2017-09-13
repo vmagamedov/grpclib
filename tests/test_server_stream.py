@@ -11,6 +11,7 @@ from grpclib.const import Status, Cardinality
 from grpclib.stream import CONTENT_TYPE
 from grpclib.server import Stream, GRPCError
 from grpclib.metadata import Metadata
+from grpclib.exceptions import ProtocolError
 
 from .protobuf.testing_pb2 import SavoysRequest, SavoysReply
 
@@ -90,7 +91,7 @@ async def test_no_response(stream, stub):
 async def test_send_initial_metadata_twice(stream):
     async with stream:
         await stream.send_initial_metadata()
-        with pytest.raises(AssertionError) as err:
+        with pytest.raises(ProtocolError) as err:
             await stream.send_initial_metadata()
     err.match('Initial metadata was already sent')
 
@@ -99,7 +100,7 @@ async def test_send_initial_metadata_twice(stream):
 async def test_send_message_twice(stream):
     async with stream:
         await stream.send_message(SavoysReply(benito='aimee'))
-        with pytest.raises(AssertionError) as err:
+        with pytest.raises(ProtocolError) as err:
             await stream.send_message(SavoysReply(benito='amaya'))
     err.match('Server should send exactly one message in response')
 
@@ -133,7 +134,7 @@ async def test_send_message_twice_ok(stream_streaming, stub):
 async def test_send_trailing_metadata_twice(stream):
     async with stream:
         await stream.send_trailing_metadata(status=Status.UNKNOWN)
-        with pytest.raises(AssertionError) as err:
+        with pytest.raises(ProtocolError) as err:
             await stream.send_trailing_metadata(status=Status.UNKNOWN)
     err.match('Trailing metadata was already sent')
 
@@ -141,7 +142,7 @@ async def test_send_trailing_metadata_twice(stream):
 @pytest.mark.asyncio
 async def test_send_trailing_metadata_and_empty_response(stream):
     async with stream:
-        with pytest.raises(AssertionError) as err:
+        with pytest.raises(ProtocolError) as err:
             await stream.send_trailing_metadata()
     err.match('<Status\.OK: 0> requires non-empty response')
 
@@ -150,7 +151,7 @@ async def test_send_trailing_metadata_and_empty_response(stream):
 async def test_cancel_twice(stream):
     async with stream:
         await stream.cancel()
-        with pytest.raises(AssertionError) as err:
+        with pytest.raises(ProtocolError) as err:
             await stream.cancel()
     err.match('Stream was already cancelled')
 

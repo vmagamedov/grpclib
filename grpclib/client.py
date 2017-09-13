@@ -3,12 +3,12 @@ import asyncio
 import h2.config
 import async_timeout
 
-from .exc import GRPCError
 from .const import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Metadata, Request, Deadline
+from .exceptions import GRPCError, ProtocolError
 
 
 class Handler(AbstractHandler):
@@ -54,7 +54,8 @@ class Stream(StreamIterator):
         return async_timeout.timeout(timeout)
 
     async def send_request(self):
-        assert not self._send_request_done, 'Request is already sent'
+        if self._send_request_done:
+            raise ProtocolError('Request is already sent')
 
         protocol = await self._channel.__connect__()
         # TODO: check concurrent streams count and maybe wait
@@ -68,21 +69,27 @@ class Stream(StreamIterator):
         if not self._send_request_done:
             await self.send_request()
 
+        if end and self._end_done:
+            raise ProtocolError('Stream was already ended')
+
         await send_message(self._stream, message, self._send_type, end=end)
         self._send_message_count += 1
-
         if end:
-            assert not self._end_done
             self._end_done = True
 
     async def end(self):
-        assert not self._end_done, 'Stream is already ended'
+        if self._end_done:
+            raise ProtocolError('Stream was already ended')
+
         await self._stream.end()
+        self._end_done = True
 
     async def recv_initial_metadata(self):
-        assert self._send_request_done, 'Request is not sent yet'
-        assert not self._recv_initial_metadata_done, \
-            'Method should be called only once'
+        if not self._send_request_done:
+            raise ProtocolError('Request was not sent yet')
+
+        if self._recv_initial_metadata_done:
+            raise ProtocolError('Initial metadata was already received')
 
         async with self._with_deadline():
             headers = await self._stream.recv_headers()
@@ -106,10 +113,12 @@ class Stream(StreamIterator):
             return message
 
     async def recv_trailing_metadata(self):
-        assert self._recv_message_count, \
-            'No messages were received before waiting for trailing metadata'
-        assert not self._recv_trailing_metadata_done, \
-            'Method should be called only once'
+        if not self._recv_message_count:
+            raise ProtocolError('No messages were received before waiting '
+                                'for trailing metadata')
+
+        if self._recv_trailing_metadata_done:
+            raise ProtocolError('Trailing metadata was already received')
 
         async with self._with_deadline():
             headers = await self._stream.recv_headers()
@@ -125,7 +134,9 @@ class Stream(StreamIterator):
                 raise GRPCError(status, status_message)
 
     async def cancel(self):
-        assert not self._cancel_done, 'Stream reset is already done'
+        if self._cancel_done:
+            raise ProtocolError('Stream was already cancelled')
+
         await self._stream.reset()  # TODO: specify error code
         self._cancel_done = True
 

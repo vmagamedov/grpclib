@@ -5,12 +5,12 @@ import asyncio
 import h2.config
 import async_timeout
 
-from .exc import GRPCError
 from .const import Status
 from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
 from .stream import StreamIterator
 from .metadata import Metadata, Deadline
 from .protocol import H2Protocol, AbstractHandler
+from .exceptions import GRPCError, ProtocolError
 
 
 log = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ class Stream(StreamIterator):
         return await recv_message(self._stream, self._recv_type)
 
     async def send_initial_metadata(self):
-        assert not self._send_initial_metadata_done, \
-            'Initial metadata was already sent'
+        if self._send_initial_metadata_done:
+            raise ProtocolError('Initial metadata was already sent')
 
         await self._stream.send_headers([(':status', '200'),
                                          ('content-type', CONTENT_TYPE)])
@@ -48,8 +48,9 @@ class Stream(StreamIterator):
             await self.send_initial_metadata()
 
         if not self._cardinality.server_streaming:
-            assert not self._send_message_count, \
-                'Server should send exactly one message in response'
+            if self._send_message_count:
+                raise ProtocolError('Server should send exactly one message '
+                                    'in response')
 
         await send_message(self._stream, message, self._send_type)
         self._send_message_count += 1
@@ -59,11 +60,12 @@ class Stream(StreamIterator):
 
     async def send_trailing_metadata(self, *, status=Status.OK,
                                      status_message=None):
-        assert not self._send_trailing_metadata_done, \
-            'Trailing metadata was already sent'
+        if self._send_trailing_metadata_done:
+            raise ProtocolError('Trailing metadata was already sent')
 
-        assert self._send_message_count or status is not Status.OK, \
-            '{!r} requires non-empty response'.format(status)
+        if not self._send_message_count and status is Status.OK:
+            raise ProtocolError('{!r} requires non-empty response'
+                                .format(status))
 
         if self._send_initial_metadata_done:
             headers = []
@@ -79,7 +81,9 @@ class Stream(StreamIterator):
         self._send_trailing_metadata_done = True
 
     async def cancel(self):
-        assert not self._cancel_done, 'Stream was already cancelled'
+        if self._cancel_done:
+            raise ProtocolError('Stream was already cancelled')
+
         await self._stream.reset()  # TODO: specify error code
         self._cancel_done = True
 
