@@ -4,6 +4,31 @@ changelog carefully to upgrade between versions.
 This project is a pure-Python `gRPC`_ implementation, based on `hyper-h2`_
 project.
 
+Installation
+~~~~~~~~~~~~
+
+Currently you can install ``grpclib`` only from the GitHub:
+
+.. code-block:: shell
+
+    $ pip install git+https://github.com/vmagamedov/grpclib.git
+
+For the code generation you will also need a ``protoc`` compiler, which can be installed
+with ``protobuf`` package:
+
+.. code-block:: shell
+
+    $ brew install protobuf  # example for macOS users
+
+Or you can use ``protoc`` compiler from the ``grpcio-tools`` Python package:
+
+.. code-block:: shell
+
+    $ pip install grpcio-tools
+
+**Note**: ``grpcio`` and ``grpcio-tools`` packages are **not required in runtime**,
+``grpcio-tools`` package will be used only during code generation.
+
 Protoc plugin
 ~~~~~~~~~~~~~
 
