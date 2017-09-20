@@ -24,9 +24,9 @@ Reset = namedtuple('Reset', 'error_code')
 
 class H2StreamStub:
 
-    def __init__(self):
-        self.__headers__ = Queue()
-        self.__data__ = Queue()
+    def __init__(self, *, loop):
+        self.__headers__ = Queue(loop=loop)
+        self.__data__ = Queue(loop=loop)
         self.__events__ = []
 
     async def recv_headers(self):
@@ -35,6 +35,7 @@ class H2StreamStub:
     async def recv_data(self, size=None):
         data = await self.__data__.get()
         assert size is None or len(data) == size
+        return data
 
     async def send_headers(self, headers, end_stream=False):
         self.__events__.append(SendHeaders(headers, end_stream))
@@ -50,8 +51,8 @@ class H2StreamStub:
 
 
 @pytest.fixture(name='stub')
-def _stub():
-    return H2StreamStub()
+def _stub(loop):
+    return H2StreamStub(loop=loop)
 
 
 @pytest.fixture(name='stream')

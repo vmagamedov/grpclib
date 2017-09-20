@@ -144,7 +144,11 @@ class Stream(StreamIterator):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._recv_trailing_metadata_done or self._cancel_done:
+        if (
+            self._recv_trailing_metadata_done
+            or self._cancel_done
+            or self._stream is None
+        ):
             return
 
         if exc_type or exc_val or exc_tb:
