@@ -1,21 +1,21 @@
 proto: clean
-	python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --python_grpc_out=. example/helloworld.proto
-	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. tests/protobuf/testing.proto
+	cd example; python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --python_grpc_out=. greeter/helloworld.proto
+	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. bombed.proto
 
 server:
-	@PYTHONPATH=. python -m example.server
+	@PYTHONPATH=. cd example; python3 -m greeter.server
 
 _server:
-	@PYTHONPATH=. python -m example._reference.server
+	@PYTHONPATH=. cd example; python3 -m greeter._reference.server
 
 client:
-	@PYTHONPATH=. python -m example.client
+	@PYTHONPATH=. cd example; python3 -m greeter.client
 
 _client:
-	@PYTHONPATH=. python -m example._reference.client
+	@PYTHONPATH=. cd example; python3 -m greeter._reference.client
 
 clean:
-	rm -f ./example/*_pb2.py
-	rm -f ./example/*_grpc.py
-	rm -f ./tests/protobuf/*_pb2.py
-	rm -f ./tests/protobuf/*_grpc.py
+	rm -f ./example/greeter/*_pb2.py
+	rm -f ./example/greeter/*_grpc.py
+	rm -f ./tests/*_pb2.py
+	rm -f ./tests/*_grpc.py

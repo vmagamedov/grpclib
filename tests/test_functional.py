@@ -5,9 +5,9 @@ import pytest
 from grpclib.client import Channel
 from grpclib.server import Server
 
-from .protobuf.testing_pb2 import SavoysRequest, SavoysReply
-from .protobuf.testing_pb2 import UnyoungChunk, GoowyChunk
-from .protobuf.testing_grpc import BombedBase, BombedStub
+from bombed_pb2 import SavoysRequest, SavoysReply
+from bombed_pb2 import UnyoungChunk, GoowyChunk
+from bombed_grpc import BombedBase, BombedStub
 
 
 class Bombed(BombedBase):

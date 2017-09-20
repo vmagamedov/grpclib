@@ -13,7 +13,7 @@ from grpclib.server import Stream, GRPCError
 from grpclib.metadata import Metadata
 from grpclib.exceptions import ProtocolError
 
-from .protobuf.testing_pb2 import SavoysRequest, SavoysReply
+from bombed_pb2 import SavoysRequest, SavoysReply
 
 
 SendHeaders = namedtuple('SendHeaders', 'headers, end_stream')

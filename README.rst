@@ -50,6 +50,12 @@ installed by ``setuptools`` into your ``PATH`` during installation of the
 Example
 ~~~~~~~
 
+See ``example`` directory for a full example of the ``greeter`` service.
+``example/README.rst`` contains instructions about how to generate
+``helloworld_pb2.py`` and ``helloworld_grpc.py`` files and how to run example.
+
+Example basically looks like this:
+
 .. code-block:: python
 
     import asyncio
@@ -57,8 +63,8 @@ Example
     from grpclib.server import Server
     from grpclib.client import Channel
 
-    from helloworld_pb2 import HelloRequest, HelloReply
-    from helloworld_grpc import GreeterBase, GreeterStub
+    from .helloworld_pb2 import HelloRequest, HelloReply
+    from .helloworld_grpc import GreeterBase, GreeterStub
 
     loop = asyncio.get_event_loop()
 
