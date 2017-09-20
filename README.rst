@@ -1,8 +1,15 @@
-**WARNING**: this library is a prototype, under active development, please read
-changelog carefully to upgrade between versions.
+**WARNING**: this library is a prototype, under active development.
 
 This project is a pure-Python `gRPC`_ implementation, based on `hyper-h2`_
-project.
+project, **requires Python >= 3.5**.
+
+Motivation: ``grpclib`` is intended to implement gRPC protocol in Python once
+and natively support all concurrency models. However, currently ``grpclib``
+supports only ``asyncio`` library and only with ``async/await`` syntax, because
+this is the most modern for Python stack, which was not supported yet.
+
+Note: Python 2.7 support is not planned, but you can use official `grpcio`_
+library for projects with such requirements.
 
 Installation
 ~~~~~~~~~~~~
@@ -11,10 +18,10 @@ Currently you can install ``grpclib`` only from the GitHub:
 
 .. code-block:: shell
 
-    $ pip install git+https://github.com/vmagamedov/grpclib.git
+    $ pip3 install git+https://github.com/vmagamedov/grpclib.git
 
-For the code generation you will also need a ``protoc`` compiler, which can be installed
-with ``protobuf`` package:
+For the code generation you will also need a ``protoc`` compiler, which can be
+installed with ``protobuf`` package:
 
 .. code-block:: shell
 
@@ -24,10 +31,10 @@ Or you can use ``protoc`` compiler from the ``grpcio-tools`` Python package:
 
 .. code-block:: shell
 
-    $ pip install grpcio-tools
+    $ pip3 install grpcio-tools
 
-**Note**: ``grpcio`` and ``grpcio-tools`` packages are **not required in runtime**,
-``grpcio-tools`` package will be used only during code generation.
+**Note**: ``grpcio`` and ``grpcio-tools`` packages are **not required in
+runtime**, ``grpcio-tools`` package will be used only during code generation.
 
 Protoc plugin
 ~~~~~~~~~~~~~
@@ -37,7 +44,7 @@ plugin provided, which can be used like this:
 
 .. code-block:: shell
 
-    $ python -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld.proto
+    $ python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld.proto
 
 This command will generate ``helloworld_pb2.py`` and ``helloworld_grpc.py``
 files.
@@ -128,3 +135,4 @@ Changelog
 
 .. _gRPC: http://www.grpc.io
 .. _hyper-h2: https://github.com/python-hyper/hyper-h2
+.. _grpcio: https://pypi.org/project/grpcio/
