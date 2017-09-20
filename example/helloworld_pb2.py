@@ -107,6 +107,30 @@ _sym_db.RegisterMessage(HelloReply)
 
 DESCRIPTOR.has_options = True
 DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\033io.grpc.examples.helloworldB\017HelloWorldProtoP\001\242\002\003HLW'))
+
+_GREETER = _descriptor.ServiceDescriptor(
+  name='Greeter',
+  full_name='helloworld.Greeter',
+  file=DESCRIPTOR,
+  index=0,
+  options=None,
+  serialized_start=101,
+  serialized_end=174,
+  methods=[
+  _descriptor.MethodDescriptor(
+    name='SayHello',
+    full_name='helloworld.Greeter.SayHello',
+    index=0,
+    containing_service=None,
+    input_type=_HELLOREQUEST,
+    output_type=_HELLOREPLY,
+    options=None,
+  ),
+])
+_sym_db.RegisterServiceDescriptor(_GREETER)
+
+DESCRIPTOR.services_by_name['Greeter'] = _GREETER
+
 try:
   # THESE ELEMENTS WILL BE DEPRECATED.
   # Please use the generated *_pb2_grpc.py files instead.

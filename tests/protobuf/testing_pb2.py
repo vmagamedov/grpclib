@@ -183,4 +183,55 @@ GoowyChunk = _reflection.GeneratedProtocolMessageType('GoowyChunk', (_message.Me
 _sym_db.RegisterMessage(GoowyChunk)
 
 
+
+_BOMBED = _descriptor.ServiceDescriptor(
+  name='Bombed',
+  full_name='Bombed',
+  file=DESCRIPTOR,
+  index=0,
+  options=None,
+  serialized_start=157,
+  serialized_end=341,
+  methods=[
+  _descriptor.MethodDescriptor(
+    name='Plaster',
+    full_name='Bombed.Plaster',
+    index=0,
+    containing_service=None,
+    input_type=_SAVOYSREQUEST,
+    output_type=_SAVOYSREPLY,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Benzine',
+    full_name='Bombed.Benzine',
+    index=1,
+    containing_service=None,
+    input_type=_SAVOYSREQUEST,
+    output_type=_GOOWYCHUNK,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Anginal',
+    full_name='Bombed.Anginal',
+    index=2,
+    containing_service=None,
+    input_type=_UNYOUNGCHUNK,
+    output_type=_SAVOYSREPLY,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Devilry',
+    full_name='Bombed.Devilry',
+    index=3,
+    containing_service=None,
+    input_type=_UNYOUNGCHUNK,
+    output_type=_GOOWYCHUNK,
+    options=None,
+  ),
+])
+_sym_db.RegisterServiceDescriptor(_BOMBED)
+
+DESCRIPTOR.services_by_name['Bombed'] = _BOMBED
+
 # @@protoc_insertion_point(module_scope)
