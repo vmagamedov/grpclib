@@ -57,7 +57,7 @@ installed by ``setuptools`` into your ``PATH`` during installation of the
 Example
 ~~~~~~~
 
-See ``example`` directory for a full example of the ``greeter`` service.
+See ``example`` directory for a full example of the ``helloworld`` service.
 ``example/README.rst`` contains instructions about how to generate
 ``helloworld_pb2.py`` and ``helloworld_grpc.py`` files and how to run example.
 
