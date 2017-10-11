@@ -7,6 +7,7 @@ from grpclib.const import Status
 from grpclib.stream import CONTENT_TYPE
 from grpclib.client import Stream
 from grpclib.metadata import Request
+from grpclib.exceptions import GRPCError
 
 from bombed_pb2 import SavoysRequest, SavoysReply
 from test_server_stream import H2StreamStub
@@ -76,3 +77,16 @@ async def test_connection_error(broken_stream):
         async with broken_stream:
             await broken_stream.send_request()
     err.match('Intentionally broken connection')
+
+
+@pytest.mark.asyncio
+async def test_method_unimplemented(stream, stub):
+    stub.__headers__.put_nowait([
+        (':status', '200'),
+        ('grpc-status', str(Status.UNIMPLEMENTED.value)),
+    ])
+    with pytest.raises(GRPCError) as err:
+        async with stream:
+            await stream.send_message(SavoysRequest(kyler='bhatta'), end=True)
+            assert await stream.recv_message()
+    err.match('UNIMPLEMENTED')

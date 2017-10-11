@@ -99,6 +99,14 @@ class Stream(StreamIterator):
 
             headers_map = dict(headers)
             assert headers_map[':status'] == '200', headers_map[':status']
+
+            status_code = headers_map.get('grpc-status')
+            if status_code is not None:
+                status = Status(int(status_code))
+                if status is not Status.OK:
+                    status_message = headers_map.get('grpc-message')
+                    raise GRPCError(status, status_message)
+
             assert headers_map['content-type'] in CONTENT_TYPES, \
                 headers_map['content-type']
 
