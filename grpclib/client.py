@@ -1,7 +1,9 @@
 import asyncio
 
-import h2.config
 import async_timeout
+
+from h2.config import H2Configuration
+from h2.exceptions import StreamClosedError
 
 from .const import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
@@ -145,7 +147,10 @@ class Stream(StreamIterator):
         if self._cancel_done:
             raise ProtocolError('Stream was already cancelled')
 
-        await self._stream.reset()  # TODO: specify error code
+        try:
+            await self._stream.reset()  # TODO: specify error code
+        except StreamClosedError:
+            pass
         self._cancel_done = True
 
     async def __aenter__(self):
@@ -173,8 +178,8 @@ class Channel:
         self._port = port
         self._loop = loop
 
-        self._config = h2.config.H2Configuration(client_side=True,
-                                                 header_encoding='utf-8')
+        self._config = H2Configuration(client_side=True,
+                                       header_encoding='utf-8')
         self._authority = '{}:{}'.format(self._host, self._port)
 
     def _protocol_factory(self):
