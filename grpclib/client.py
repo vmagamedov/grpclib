@@ -60,11 +60,10 @@ class Stream(StreamIterator):
             raise ProtocolError('Request is already sent')
 
         protocol = await self._channel.__connect__()
-        # TODO: check concurrent streams count and maybe wait
-        self._stream = protocol.processor.create_stream()
-        headers_list = self._request.to_headers()
-
-        await self._stream.send_headers(headers_list)
+        stream = protocol.processor.connection.create_stream()
+        await stream.send_request(self._request.to_headers(),
+                                  _processor=protocol.processor)
+        self._stream = stream
         self._send_request_done = True
 
     async def send_message(self, message, *, end=False):
@@ -160,7 +159,7 @@ class Stream(StreamIterator):
         if (
             self._recv_trailing_metadata_done
             or self._cancel_done
-            or self._stream is None
+            or not self._send_request_done
         ):
             return
 

@@ -9,8 +9,9 @@ from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
 from h2.events import ConnectionTerminated, RemoteSettingsChanged
 from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
 from h2.events import StreamReset, PriorityUpdated
+from h2.settings import SettingCodes
 from h2.connection import H2Connection
-from h2.exceptions import ProtocolError
+from h2.exceptions import ProtocolError, TooManyStreamsError
 
 
 def _slice(chunks: List[bytes], size: int):
@@ -77,6 +78,39 @@ class Buffer:
                 return data_bytes
 
 
+class StreamsLimit:
+
+    def __init__(self, limit=None, *, loop):
+        self._limit = limit
+        self._current = 0
+        self._loop = loop
+        self._release = Event(loop=loop)
+
+    def reached(self):
+        if self._limit is not None:
+            return self._current >= self._limit
+        else:
+            return False
+
+    async def wait(self):
+        # TODO: use FIFO queue for waiters
+        if self.reached():
+            self._release.clear()
+        await self._release.wait()
+
+    def acquire(self):
+        self._current += 1
+
+    def release(self):
+        self._current -= 1
+        if not self.reached():
+            self._release.set()
+
+    def set(self, value: Optional[int]):
+        assert value is None or value >= 0, value
+        self._limit = value
+
+
 class Connection:
     """
     Holds connection state (write_ready), and manages
@@ -91,6 +125,8 @@ class Connection:
         self.write_ready = Event(loop=self._loop)
         self.write_ready.set()
 
+        self.outbound_streams_limit = StreamsLimit(loop=self._loop)
+
     def feed(self, data):
         return self._connection.receive_data(data)
 
@@ -101,8 +137,6 @@ class Connection:
         self.write_ready.set()
 
     def create_stream(self, stream_id=None):
-        if stream_id is None:
-            stream_id = self._connection.get_next_available_stream_id()
         return Stream(self, self._connection, self._transport, stream_id,
                       loop=self._loop)
 
@@ -118,7 +152,7 @@ class Stream:
     API for working with streams, used by clients and request handlers
     """
     def __init__(self, connection: Connection, h2_connection: H2Connection,
-                 transport: Transport, stream_id: int,
+                 transport: Transport, stream_id: Optional[int] = None,
                  *, loop: AbstractEventLoop) -> None:
         self._connection = connection
         self._h2_connection = h2_connection
@@ -138,7 +172,41 @@ class Stream:
         self._h2_connection.acknowledge_received_data(len(data), self.id)
         return data
 
+    async def send_request(self, headers, end_stream=False, *, _processor):
+        assert self.id is None, self.id
+        while True:
+            # this is the first thing we should check before even trying to
+            # create new stream, because this wait() can be cancelled by timeout
+            # and we wouldn't need to create new stream at all
+            if not self._connection.write_ready.is_set():
+                await self._connection.write_ready.wait()
+
+            if self._connection.outbound_streams_limit.reached():
+                await self._connection.outbound_streams_limit.wait()
+                # while we were trying to create a new stream, write buffer
+                # can became full, so we need to repeat checks from checking
+                # if we can write() data
+                continue
+
+            # `get_next_available_stream_id()` should be as close to
+            # `connection.send_headers()` as possible, without any async
+            # interruptions in between, see the docs on the
+            # `get_next_available_stream_id()` method
+            stream_id = self._h2_connection.get_next_available_stream_id()
+            try:
+                self._h2_connection.send_headers(stream_id, headers,
+                                                 end_stream=end_stream)
+            except TooManyStreamsError:
+                continue
+            else:
+                self._connection.outbound_streams_limit.acquire()
+                self.id = stream_id
+                _processor.register(self)
+                self._transport.write(self._h2_connection.data_to_send())
+                break
+
     async def send_headers(self, headers, end_stream=False):
+        assert self.id is not None
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
 
@@ -233,6 +301,10 @@ class EventsProcessor:
         self.streams[stream.id] = stream
         return stream
 
+    def register(self, stream):
+        assert stream.id is not None
+        self.streams[stream.id] = stream
+
     def close(self):
         self.connection.close()
         self.handler.close()
@@ -255,7 +327,11 @@ class EventsProcessor:
         self.streams[event.stream_id].__headers__.put_nowait(event.headers)
 
     def process_remote_settings_changed(self, event: RemoteSettingsChanged):
-        pass
+        if SettingCodes.MAX_CONCURRENT_STREAMS in event.changed_settings:
+            max_concurrent_streams = \
+                event.changed_settings[SettingCodes.MAX_CONCURRENT_STREAMS]
+            self.connection.outbound_streams_limit.set(max_concurrent_streams
+                                                       .new_value)
 
     def process_settings_acknowledged(self, event: SettingsAcknowledged):
         pass
@@ -272,6 +348,7 @@ class EventsProcessor:
 
     def process_stream_ended(self, event: StreamEnded):
         self.streams.pop(event.stream_id).__ended__()
+        self.connection.outbound_streams_limit.release()
 
     def process_stream_reset(self, event: StreamReset):
         stream = self.streams.pop(event.stream_id)
