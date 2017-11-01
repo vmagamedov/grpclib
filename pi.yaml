@@ -1,0 +1,31 @@
+- !Image
+  name: env36
+  from: !DockerImage alpine:3.6
+  repository: reg.local/grpclib/env36
+  tasks:
+  - run: apk add --no-cache python3
+  - run: pip3 install --no-cache-dir {{packages|join(" ")}}
+    packages:
+    - h2==3.0.1
+    - protobuf==3.4.0
+    - async-timeout==2.0.0
+    - multidict==3.3.0
+
+
+- !Command
+  name: server
+  image: env36
+  run: python3 -m helloworld.server
+  network-name: server
+  environ:
+    PYTHONPATH: example
+  ports:
+    - !Expose { port: 50051, as: 50051 }
+
+
+- !Command
+  name: client
+  image: env36
+  run: python3 -m helloworld.client
+  environ:
+    PYTHONPATH: example
