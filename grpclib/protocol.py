@@ -1,3 +1,5 @@
+import socket
+
 from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict  # noqa
@@ -12,6 +14,21 @@ from h2.events import StreamReset, PriorityUpdated
 from h2.settings import SettingCodes
 from h2.connection import H2Connection
 from h2.exceptions import ProtocolError, TooManyStreamsError
+
+
+if hasattr(socket, 'TCP_NODELAY'):
+    _sock_type_mask = 0xf if hasattr(socket, 'SOCK_NONBLOCK') else 0xffffffff
+
+    def _set_nodelay(sock):
+        if (
+            sock.family in {socket.AF_INET, socket.AF_INET6}
+            and sock.type & _sock_type_mask == socket.SOCK_STREAM
+            and sock.proto == socket.IPPROTO_TCP
+        ):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+else:
+    def _set_nodelay(sock):
+        pass
 
 
 def _slice(chunks: List[bytes], size: int):
@@ -372,6 +389,10 @@ class H2Protocol(Protocol):
         self.loop = loop
 
     def connection_made(self, transport: Transport):  # type: ignore
+        sock = transport.get_extra_info('socket')
+        if sock is not None:
+            _set_nodelay(sock)
+
         h2_conn = H2Connection(config=self.config)
         h2_conn.initiate_connection()
 
