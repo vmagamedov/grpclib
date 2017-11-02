@@ -1,7 +1,7 @@
 - !Image
   name: env36
   from: !DockerImage alpine:3.6
-  repository: reg.local/grpclib/env36
+  repository: localhost/grpclib/env36
   tasks:
   - run: apk add --no-cache python3
   - run: pip3 install --no-cache-dir {{packages|join(" ")}}
