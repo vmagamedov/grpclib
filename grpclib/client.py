@@ -209,7 +209,8 @@ class Channel:
         return Stream(self, request, request_type, reply_type)
 
     def close(self):
-        self._protocol.processor.close()
+        if self._protocol is not None:
+            self._protocol.processor.close()
 
 
 class ServiceMethod:
