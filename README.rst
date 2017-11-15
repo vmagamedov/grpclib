@@ -126,6 +126,11 @@ Where ``helloworld.proto`` contains:
       string message = 1;
     }
 
+Contributing
+~~~~~~~~~~~~
+
+Use Tox_ in order to test and lint your changes.
+
 Changelog
 ~~~~~~~~~
 
@@ -136,3 +141,4 @@ Changelog
 .. _gRPC: http://www.grpc.io
 .. _hyper-h2: https://github.com/python-hyper/hyper-h2
 .. _grpcio: https://pypi.org/project/grpcio/
+.. _Tox: https://tox.readthedocs.io/
