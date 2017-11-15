@@ -56,13 +56,14 @@ class ClientServer:
         self.server = Server([bombed], loop=self.loop)
         await self.server.start(host, port)
 
-        channel = Channel(host=host, port=port, loop=self.loop)
-        stub = BombedStub(channel)
+        self.channel = Channel(host=host, port=port, loop=self.loop)
+        stub = BombedStub(self.channel)
         return bombed, stub
 
     async def __aexit__(self, *exc_info):
         self.server.close()
         await self.server.wait_closed()
+        self.channel.close()
 
 
 @pytest.mark.asyncio
