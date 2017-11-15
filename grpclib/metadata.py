@@ -39,14 +39,14 @@ def encode_timeout(timeout):
 
 class Deadline:
 
-    def __init__(self, timestamp):
-        self.timestamp = timestamp
+    def __init__(self, *, _timestamp):
+        self._timestamp = _timestamp
 
     def __lt__(self, other):
-        return self.timestamp < other.timestamp
+        return self._timestamp < other.timestamp
 
     def __eq__(self, other):
-        return self.timestamp == other.timestamp
+        return self._timestamp == other.timestamp
 
     @classmethod
     def from_metadata(cls, metadata):
@@ -60,10 +60,10 @@ class Deadline:
 
     @classmethod
     def from_timeout(cls, timeout):
-        return cls(time.time() + timeout)
+        return cls(_timestamp=time.monotonic() + timeout)
 
     def time_remaining(self):
-        return max(0, self.timestamp - time.time())
+        return max(0, self._timestamp - time.monotonic())
 
 
 class Metadata(MultiDict):
