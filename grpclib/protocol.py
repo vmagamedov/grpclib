@@ -51,7 +51,7 @@ def _slice(chunks: List[bytes], size: int):
 class Buffer:
 
     def __init__(self, *, loop: AbstractEventLoop) -> None:
-        self._chunks: List[bytes] = []
+        self._chunks = []  # type: List[bytes]
         self._length = 0
         self._complete_size = -1
         self._complete_event = Event(loop=loop)
@@ -178,7 +178,8 @@ class Stream:
         self.id = stream_id
 
         self.__buffer__ = Buffer(loop=loop)
-        self.__headers__: 'Queue[List[Tuple[str, str]]]' = Queue(loop=loop)
+        self.__headers__ = Queue(loop=loop) \
+            # type: Queue[List[Tuple[str, str]]]
         self.__window_updated__ = Event(loop=loop)
 
     async def recv_headers(self):
@@ -311,7 +312,7 @@ class EventsProcessor:
             ConnectionTerminated: self.process_connection_terminated,
         }
 
-        self.streams: Dict[int, Stream] = {}
+        self.streams = {}  # type: Dict[int, Stream]
 
     def create_stream(self):
         stream = self.connection.create_stream()
@@ -379,8 +380,8 @@ class EventsProcessor:
 
 
 class H2Protocol(Protocol):
-    connection: Optional[Connection] = None
-    processor: Optional[EventsProcessor] = None
+    connection = None  # type: Optional[Connection]
+    processor = None  # type: Optional[EventsProcessor]
 
     def __init__(self, handler: AbstractHandler, config: H2Configuration,
                  *, loop) -> None:

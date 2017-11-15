@@ -13,6 +13,13 @@ from .metadata import Metadata, Request, Deadline
 from .exceptions import GRPCError, ProtocolError
 
 
+async def _to_list(stream):
+    result = []
+    async for message in stream:
+        result.append(message)
+    return result
+
+
 class Handler(AbstractHandler):
     connection_lost = False
 
@@ -240,7 +247,7 @@ class UnaryStreamMethod(ServiceMethod):
     async def __call__(self, message, *, timeout=None, metadata=None):
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send_message(message, end=True)
-            return [message async for message in stream]
+            return await _to_list(stream)
 
 
 class StreamUnaryMethod(ServiceMethod):
@@ -266,4 +273,4 @@ class StreamStreamMethod(ServiceMethod):
                 await stream.send_message(messages[-1], end=True)
             else:
                 await stream.end()
-            return [message async for message in stream]
+            return await _to_list(stream)

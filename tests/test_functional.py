@@ -2,7 +2,7 @@ import socket
 
 import pytest
 
-from grpclib.client import Channel
+from grpclib.client import Channel, _to_list
 from grpclib.server import Server
 
 from bombed_pb2 import SavoysRequest, SavoysReply
@@ -98,7 +98,7 @@ async def test_unary_stream_advanced(loop):
     async with ClientServer(loop=loop) as (handler, stub):
         async with stub.Benzine.open() as stream:
             await stream.send_message(SavoysRequest(kyler='eediot'), end=True)
-            replies = [r async for r in stream]
+            replies = await _to_list(stream)
         assert handler.log == [SavoysRequest(kyler='eediot')]
         assert replies == [GoowyChunk(biomes='papists'),
                            GoowyChunk(biomes='tip'),
