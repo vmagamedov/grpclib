@@ -33,7 +33,16 @@ def test_decode_timeout(value, expected):
 
 
 def test_deadline():
-    assert min(Deadline(1), Deadline(2)) == Deadline(1)
+    assert Deadline.from_timeout(1) < Deadline.from_timeout(2)
+
+    with pytest.raises(TypeError) as err:
+        Deadline.from_timeout(1) < 'invalid'
+    err.match('comparison is not supported between instances '
+              'of \'Deadline\' and \'str\'')
+
+    assert Deadline(_timestamp=1) == Deadline(_timestamp=1)
+
+    assert Deadline.from_timeout(1) != 'invalid'
 
 
 def test_headers_with_deadline():

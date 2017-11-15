@@ -43,10 +43,16 @@ class Deadline:
         self._timestamp = _timestamp
 
     def __lt__(self, other):
-        return self._timestamp < other.timestamp
+        if not isinstance(other, Deadline):
+            raise TypeError('comparison is not supported between '
+                            'instances of \'{}\' and \'{}\''
+                            .format(type(self).__name__, type(other).__name__))
+        return self._timestamp < other._timestamp
 
     def __eq__(self, other):
-        return self._timestamp == other.timestamp
+        if not isinstance(other, Deadline):
+            return False
+        return self._timestamp == other._timestamp
 
     @classmethod
     def from_metadata(cls, metadata):
