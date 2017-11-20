@@ -41,6 +41,7 @@ class Bombed(BombedBase):
 
 class ClientServer:
     server = None
+    channel = None
 
     def __init__(self, *, loop):
         self.loop = loop
@@ -64,6 +65,12 @@ class ClientServer:
         self.server.close()
         await self.server.wait_closed()
         self.channel.close()
+
+
+@pytest.mark.asyncio
+async def test_close_empty_channel(loop):
+    async with ClientServer(loop=loop):
+        """it should not raise exceptions"""
 
 
 @pytest.mark.asyncio
