@@ -18,7 +18,7 @@ Currently you can install ``grpclib`` only from the GitHub:
 
 .. code-block:: shell
 
-    $ pip3 install git+https://github.com/vmagamedov/grpclib.git
+    $ pip3 install grpclib
 
 For the code generation you will also need a ``protoc`` compiler, which can be
 installed with ``protobuf`` package:
@@ -115,28 +115,21 @@ Where ``helloworld.proto`` contains:
     package helloworld;
 
     service Greeter {
-      rpc SayHello (HelloRequest) returns (HelloReply) {}
+        rpc SayHello (HelloRequest) returns (HelloReply) {}
     }
 
     message HelloRequest {
-      string name = 1;
+        string name = 1;
     }
 
     message HelloReply {
-      string message = 1;
+        string message = 1;
     }
 
 Contributing
 ~~~~~~~~~~~~
 
 Use Tox_ in order to test and lint your changes.
-
-Changelog
-~~~~~~~~~
-
-* ``0.2.0`` - complete rewrite, pure-Python, based on `hyper-h2`_
-* ``0.1.0`` – workaround implemented, only server implementation available and
-  only for unary calls
 
 .. _gRPC: http://www.grpc.io
 .. _hyper-h2: https://github.com/python-hyper/hyper-h2
