@@ -11,6 +11,17 @@
     - async-timeout==2.0.0
     - multidict==3.3.0
 
+- !Image
+  name: docs
+  from: env36
+  repository: localhost/grpclib/docs
+  tasks:
+  - run: apk add --no-cache ca-certificates
+  - run: update-ca-certificates
+  - run: pip3 install --no-cache-dir {{packages|join(" ")}}
+    packages:
+    - sphinx==1.6.5
+    - sphinx_rtd_theme==0.2.5b1
 
 - !Command
   name: server
@@ -22,10 +33,14 @@
   ports:
     - !Expose { port: 50051, as: 50051 }
 
-
 - !Command
   name: client
   image: env36
   run: python3 -m helloworld.client
   environ:
     PYTHONPATH: example
+
+- !Command
+  name: build docs
+  image: docs
+  run: sphinx-build -b html docs build
