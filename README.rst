@@ -18,7 +18,7 @@ Currently you can install ``grpclib`` only from the GitHub:
 
 .. code-block:: shell
 
-    $ pip3 install grpclib
+    $ pip3 install grpclib==0.1.0rc1
 
 For the code generation you will also need a ``protoc`` compiler, which can be
 installed with ``protobuf`` package:
