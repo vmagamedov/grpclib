@@ -50,49 +50,64 @@ def _slice(chunks: List[bytes], size: int):
 
 class Buffer:
 
-    def __init__(self, *, loop: AbstractEventLoop) -> None:
+    def __init__(self, stream_id, connection, h2_connection,
+                 *, loop: AbstractEventLoop) -> None:
+        self._stream_id = stream_id
+        self._connection = connection
+        self._h2_connection = h2_connection
         self._chunks = []  # type: List[bytes]
-        self._length = 0
-        self._complete_size = -1
-        self._complete_event = Event(loop=loop)
+        self._size = 0
+        self._read_size = None
+        self._ready_event = Event(loop=loop)
         self._eof = False
 
-    def append(self, data):
-        self._chunks.append(data)
-        self._length += len(data)
+    def _ack(self, size):
+        if size:
+            self._h2_connection.acknowledge_received_data(size, self._stream_id)
+            self._connection.flush()
 
-        if self._complete_size != -1:
-            if self._length >= self._complete_size:
-                self._complete_event.set()
+    def append(self, data):
+        size = len(data)
+        self._chunks.append(data)
+        self._size += size
+
+        if self._read_size is not None:
+            self._ack(min(max(size - self._size + self._read_size, 0), size))
+            if self._size >= self._read_size:
+                self._ready_event.set()
 
     def eof(self):
         self._eof = True
-        self._complete_event.set()
+        self._ready_event.set()
 
-    async def read(self, size=None):
-        if size is None:
-            if not self._eof:
-                await self._complete_event.wait()
-            return b''.join(self._chunks)
+    async def read(self, size):
+        if size < 0:
+            raise ValueError('Size can not be negative')
+        elif size == 0:
+            return b''
         else:
-            if size < 0:
-                raise ValueError('Size is negative')
-            elif size == 0:
-                return b''
+            if self._size < size and not self._eof:
+                self._read_size = size
+                self._ready_event.clear()
+                self._ack(self._size)
+                await self._ready_event.wait()
+                self._read_size = None
+            elif self._size >= size:
+                self._ack(size)
             else:
-                if size > self._length and not self._eof:
-                    self._complete_size = size
-                    await self._complete_event.wait()
-                    self._complete_size = -1
-                    self._complete_event.clear()
-                data, self._chunks = _slice(self._chunks, size)
-                self._length -= size
-                data_bytes = b''.join(data)
-                if data_bytes and len(data_bytes) < size:
-                    # TODO: proper exception
-                    raise Exception('Incomplete data, {} instead of {}'
-                                    .format(len(data_bytes), size))
-                return data_bytes
+                assert self._eof
+                self._ack(self._size)
+
+            data, self._chunks = _slice(self._chunks, size)
+            data_bytes = b''.join(data)
+            data_size = len(data_bytes)
+            self._size -= data_size
+
+            if 0 < data_size < size:
+                # TODO: proper exception
+                raise Exception('Incomplete data, {} instead of {}'
+                                .format(data_size, size))
+            return data_bytes
 
 
 class StreamsLimit:
@@ -168,16 +183,22 @@ class Stream:
     """
     API for working with streams, used by clients and request handlers
     """
+    id = None
+    __buffer__ = None
+
     def __init__(self, connection: Connection, h2_connection: H2Connection,
                  transport: Transport, stream_id: Optional[int] = None,
                  *, loop: AbstractEventLoop) -> None:
         self._connection = connection
         self._h2_connection = h2_connection
         self._transport = transport
+        self._loop = loop
 
-        self.id = stream_id
+        if stream_id is not None:
+            self.id = stream_id
+            self.__buffer__ = Buffer(self.id, self._connection,
+                                     self._h2_connection, loop=self._loop)
 
-        self.__buffer__ = Buffer(loop=loop)
         self.__headers__ = Queue(loop=loop) \
             # type: Queue[List[Tuple[str, str]]]
         self.__window_updated__ = Event(loop=loop)
@@ -185,10 +206,8 @@ class Stream:
     async def recv_headers(self):
         return await self.__headers__.get()
 
-    async def recv_data(self, size=None):
-        data = await self.__buffer__.read(size)
-        self._h2_connection.acknowledge_received_data(len(data), self.id)
-        return data
+    async def recv_data(self, size):
+        return await self.__buffer__.read(size)
 
     async def send_request(self, headers, end_stream=False, *, _processor):
         assert self.id is None, self.id
@@ -219,6 +238,8 @@ class Stream:
             else:
                 self._connection.outbound_streams_limit.acquire()
                 self.id = stream_id
+                self.__buffer__ = Buffer(self.id, self._connection,
+                                         self._h2_connection, loop=self._loop)
                 _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
                 break

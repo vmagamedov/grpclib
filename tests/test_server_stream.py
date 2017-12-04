@@ -32,9 +32,9 @@ class H2StreamStub:
     async def recv_headers(self):
         return await self.__headers__.get()
 
-    async def recv_data(self, size=None):
+    async def recv_data(self, size):
         data = await self.__data__.get()
-        assert size is None or len(data) == size
+        assert len(data) == size
         return data
 
     async def send_headers(self, headers, end_stream=False):

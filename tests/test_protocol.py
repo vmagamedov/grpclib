@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 
 from h2.config import H2Configuration
 from h2.settings import SettingCodes
@@ -86,3 +87,58 @@ async def test_send_data_larger_than_frame_size(loop):
 
     await stream.send_request(request.to_headers(), _processor=processor)
     await stream.send_data(b'0' * (client_h2c.max_outbound_frame_size + 1))
+
+
+@pytest.mark.asyncio
+async def test_recv_data_larger_than_window_size(loop):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+
+    client_processor = EventsProcessor(DummyHandler(), client_conn)
+    client_stream = client_conn.create_stream()
+
+    request = Request('POST', 'http', '/', authority='test.com')
+    await client_stream.send_request(request.to_headers(),
+                                     _processor=client_processor)
+
+    initial_window = server_h2c.local_settings.initial_window_size
+    assert (client_h2c.local_flow_control_window(client_stream.id)
+            == initial_window)
+
+    # data should be bigger than window size
+    data = b'0' * (initial_window + 1)
+    size = len(data)
+
+    # sending less than a full message
+    await client_stream.send_data(data[:initial_window - 1])
+
+    # let server process it's events
+    server_processor = EventsProcessor(DummyHandler(), server_conn)
+    for event in to_server_transport.events():
+        server_processor.process(event)
+
+    # checking window size was decreased
+    assert client_h2c.local_flow_control_window(client_stream.id) == 1
+
+    # simulate that server is waiting for the size of a message and should
+    # acknowledge that size as soon as it will be received
+    server_stream, = server_processor.streams.values()
+    recv_task = loop.create_task(server_stream.recv_data(size))
+    await asyncio.wait([recv_task], timeout=.01, loop=loop)
+    assert server_stream.__buffer__._read_size == size
+    assert server_stream.__buffer__._size == initial_window - 1
+
+    # check that server acknowledged received partial data
+    assert client_h2c.local_flow_control_window(client_stream.id) > 1
+
+    # sending remaining data and recv_task should finish
+    await client_stream.send_data(data[initial_window - 1:])
+    for event in to_server_transport.events():
+        server_processor.process(event)
+    await asyncio.wait_for(recv_task, 0.01, loop=loop)
+    assert server_stream.__buffer__._size == 0
