@@ -246,7 +246,8 @@ class Stream:
                 await self.__window_updated__.wait()
                 window = self._h2_connection.local_flow_control_window(self.id)
 
-            f_chunk = f.read(min(window, f_last - f_pos))
+            max_frame_size = self._h2_connection.max_outbound_frame_size
+            f_chunk = f.read(min(window, max_frame_size, f_last - f_pos))
             f_pos = f.tell()
 
             if f_pos == f_last:

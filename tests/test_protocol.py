@@ -1,4 +1,50 @@
-from grpclib.protocol import _slice
+import pytest
+
+from h2.config import H2Configuration
+from h2.settings import SettingCodes
+from h2.connection import H2Connection
+
+from grpclib.metadata import Request
+from grpclib.protocol import _slice, Connection, EventsProcessor
+
+from stubs import TransportStub, DummyHandler
+
+
+def create_connections(*, connection_window=None, stream_window=None,
+                       max_frame_size=None):
+    server_conn = H2Connection(H2Configuration(client_side=False,
+                                               header_encoding='utf-8'))
+    server_conn.initiate_connection()
+
+    if connection_window is not None:
+        initial_window_size = server_conn.local_settings.initial_window_size
+        assert connection_window > initial_window_size, (
+            '{} should be greater than {}'
+            .format(connection_window, initial_window_size)
+        )
+        server_conn.increment_flow_control_window(
+            connection_window - initial_window_size
+        )
+
+    if stream_window is not None:
+        server_conn.update_settings({
+            SettingCodes.INITIAL_WINDOW_SIZE: stream_window
+        })
+
+    if max_frame_size is not None:
+        server_conn.update_settings({
+            SettingCodes.MAX_FRAME_SIZE: max_frame_size
+        })
+
+    client_conn = H2Connection(H2Configuration(client_side=True,
+                                               header_encoding='utf-8'))
+    client_conn.initiate_connection()
+
+    client_conn.receive_data(server_conn.data_to_send())
+    server_conn.receive_data(client_conn.data_to_send())
+    client_conn.receive_data(server_conn.data_to_send())
+
+    return client_conn, server_conn
 
 
 def test_slice():
@@ -25,3 +71,18 @@ def test_slice():
     data, tail = _slice([b'abcdefgh', b'ij'], 100)
     assert data == [b'abcdefgh', b'ij']
     assert tail == []
+
+
+@pytest.mark.asyncio
+async def test_send_data_larger_than_frame_size(loop):
+    client_h2c, server_h2c = create_connections()
+
+    transport = TransportStub(server_h2c)
+    conn = Connection(client_h2c, transport, loop=loop)
+    stream = conn.create_stream()
+
+    request = Request('POST', 'http', '/', authority='test.com')
+    processor = EventsProcessor(DummyHandler(), conn)
+
+    await stream.send_request(request.to_headers(), _processor=processor)
+    await stream.send_data(b'0' * (client_h2c.max_outbound_frame_size + 1))

@@ -14,6 +14,7 @@ from grpclib.protocol import H2Protocol
 from grpclib.metadata import Request
 from grpclib.exceptions import GRPCError
 
+from stubs import TransportStub
 from bombed_pb2 import SavoysRequest, SavoysReply
 
 
@@ -32,22 +33,6 @@ def encode_message(message):
     message_bin = message.SerializeToString()
     header = struct.pack('?', False) + struct.pack('>I', len(message_bin))
     return header + message_bin
-
-
-class TransportStub(asyncio.Transport):
-
-    def __init__(self, connection):
-        super().__init__()
-        self._connection = connection
-        self._events = []
-
-    def events(self):
-        events = self._events[:]
-        del self._events[:]
-        return events
-
-    def write(self, data):
-        self._events.extend(self._connection.receive_data(data))
 
 
 class ServerStub:
