@@ -24,7 +24,7 @@ def _broken_stream():
         def __connect__(self):
             raise IOError('Intentionally broken connection')
 
-    request = Request('POST', 'http', '/foo/bar', content_type=CONTENT_TYPE)
+    request = Request('POST', 'http', '/foo/bar', authority='test.com')
     return Stream(BrokenChannel(), request, SavoysRequest, SavoysReply)
 
 
@@ -85,8 +85,7 @@ def _stub(loop):
                           H2Configuration(header_encoding='utf-8'),
                           loop=loop)
     channel = ChannelStub(protocol)
-    request = Request('POST', 'http', '/foo/bar', content_type=CONTENT_TYPE,
-                      authority='test.com')
+    request = Request('POST', 'http', '/foo/bar', authority='test.com')
     stream = Stream(channel, request, SavoysRequest, SavoysReply)
     server = ServerStub(protocol)
     return Stub(stream, server, channel)
@@ -186,8 +185,7 @@ async def test_outbound_streams_limit(stub, loop):
     })
     stub.server.flush()
 
-    request = Request('POST', 'http', '/foo/bar', content_type=CONTENT_TYPE,
-                      authority='test.com')
+    request = Request('POST', 'http', '/foo/bar', authority='test.com')
 
     async def worker1():
         s1 = Stream(stub.channel, request, SavoysRequest, SavoysReply)

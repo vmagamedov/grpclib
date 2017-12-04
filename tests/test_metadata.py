@@ -52,12 +52,13 @@ def test_headers_with_deadline():
     metadata = Metadata([('dominic', 'lovech')])
 
     assert Request(
-        'briana', 'dismal', 'dost', content_type='gazebos',
+        'briana', 'dismal', 'dost', authority='lemnos', content_type='gazebos',
         metadata=metadata, deadline=deadline,
     ).to_headers() == [
         (':method', 'briana'),
         (':scheme', 'dismal'),
         (':path', 'dost'),
+        (':authority', 'lemnos'),
         ('grpc-timeout', '100m'),
         ('te', 'trailers'),
         ('content-type', 'gazebos'),
@@ -89,11 +90,13 @@ def test_headers_without_deadline():
     metadata = Metadata([('chagga', 'chrome')])
 
     assert Request(
-        'flysch', 'plains', 'slaps', content_type='pemako', metadata=metadata,
+        'flysch', 'plains', 'slaps', authority='darrin', content_type='pemako',
+        metadata=metadata,
     ).to_headers() == [
         (':method', 'flysch'),
         (':scheme', 'plains'),
         (':path', 'slaps'),
+        (':authority', 'darrin'),
         ('te', 'trailers'),
         ('content-type', 'pemako'),
         ('chagga', 'chrome'),
