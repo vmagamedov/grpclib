@@ -240,9 +240,9 @@ class Stream:
                 self.id = stream_id
                 self.__buffer__ = Buffer(self.id, self._connection,
                                          self._h2_connection, loop=self._loop)
-                _processor.register(self)
+                release_stream = _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
-                break
+                return release_stream
 
     async def send_headers(self, headers, end_stream=False):
         assert self.id is not None
@@ -299,7 +299,7 @@ class Stream:
 class AbstractHandler(ABC):
 
     @abstractmethod
-    def accept(self, stream, headers):
+    def accept(self, stream, headers, release_stream):
         pass
 
     @abstractmethod
@@ -345,6 +345,11 @@ class EventsProcessor:
         assert stream.id is not None
         self.streams[stream.id] = stream
 
+        def release_stream(*, _streams=self.streams, _id=stream.id):
+            _streams.pop(_id)
+
+        return release_stream
+
     def close(self):
         self.connection.close()
         self.handler.close()
@@ -359,12 +364,14 @@ class EventsProcessor:
 
     def process_request_received(self, event: RequestReceived):
         stream = self.connection.create_stream(event.stream_id)
-        self.streams[event.stream_id] = stream
-        self.handler.accept(stream, event.headers)
+        release_stream = self.register(stream)
+        self.handler.accept(stream, event.headers, release_stream)
         # TODO: check EOF
 
     def process_response_received(self, event: ResponseReceived):
-        self.streams[event.stream_id].__headers__.put_nowait(event.headers)
+        stream = self.streams.get(event.stream_id)
+        if stream is not None:
+            stream.__headers__.put_nowait(event.headers)
 
     def process_remote_settings_changed(self, event: RemoteSettingsChanged):
         if SettingCodes.MAX_CONCURRENT_STREAMS in event.changed_settings:
@@ -377,22 +384,31 @@ class EventsProcessor:
         pass
 
     def process_data_received(self, event: DataReceived):
-        self.streams[event.stream_id].__buffer__.append(event.data)
+        stream = self.streams.get(event.stream_id)
+        if stream is not None:
+            stream.__buffer__.append(event.data)
 
     def process_window_updated(self, event: WindowUpdated):
-        if event.stream_id > 0:
-            self.streams[event.stream_id].__window_updated__.set()
+        stream = self.streams.get(event.stream_id)
+        # this check also ignores event when stream_id == 0
+        if stream is not None:
+            stream.__window_updated__.set()
 
     def process_trailers_received(self, event: TrailersReceived):
-        self.streams[event.stream_id].__headers__.put_nowait(event.headers)
+        stream = self.streams.get(event.stream_id)
+        if stream is not None:
+            stream.__headers__.put_nowait(event.headers)
 
     def process_stream_ended(self, event: StreamEnded):
-        self.streams.pop(event.stream_id).__ended__()
+        stream = self.streams.get(event.stream_id)
+        if stream is not None:
+            stream.__ended__()
         self.connection.outbound_streams_limit.release()
 
     def process_stream_reset(self, event: StreamReset):
-        stream = self.streams.pop(event.stream_id)
-        self.handler.cancel(stream)
+        stream = self.streams.get(event.stream_id)
+        if stream is not None:
+            self.handler.cancel(stream)
 
     def process_priority_updated(self, event: PriorityUpdated):
         pass

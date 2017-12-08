@@ -2,6 +2,7 @@ import pytest
 import asyncio
 
 from h2.config import H2Configuration
+from h2.events import StreamEnded, WindowUpdated
 from h2.settings import SettingCodes
 from h2.connection import H2Connection
 
@@ -142,3 +143,56 @@ async def test_recv_data_larger_than_window_size(loop):
         server_processor.process(event)
     await asyncio.wait_for(recv_task, 0.01, loop=loop)
     assert server_stream.__buffer__._size == 0
+
+
+@pytest.mark.asyncio
+async def test_stream_release(loop):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+
+    client_processor = EventsProcessor(DummyHandler(), client_conn)
+    client_stream = client_conn.create_stream()
+
+    server_processor = EventsProcessor(DummyHandler(), server_conn)
+
+    request = Request('POST', 'http', '/', authority='test.com')
+
+    assert not client_processor.streams
+    client_release_stream = await client_stream.send_request(
+        request.to_headers(), _processor=client_processor,
+    )
+    assert client_release_stream and client_processor.streams
+
+    # sending data and closing stream on the client-side
+    msg = b'message'
+    await client_stream.send_data(msg, end_stream=True)
+    events1 = to_server_transport.process(server_processor)
+    assert any(isinstance(e, StreamEnded) for e in events1), events1
+
+    # intentionally sending some stream-specific frame after stream was
+    # half-closed
+    client_h2c.increment_flow_control_window(10, stream_id=client_stream.id)
+    client_conn.flush()
+    events2 = to_server_transport.process(server_processor)
+    assert any(isinstance(e, WindowUpdated) for e in events2), events2
+
+    server_stream, = server_processor.streams.values()
+    await server_stream.recv_data(len(msg))
+    await server_stream.end()
+
+    events3 = to_client_transport.process(client_processor)
+    assert any(isinstance(e, StreamEnded) for e in events3), events3
+
+    # simulating request handler exit by releasing server-side stream
+    server_processor.handler.release_stream()
+    assert not server_processor.streams
+
+    # simulating call exit by releasing client-side stream
+    assert client_processor.streams
+    client_release_stream()
+    assert not client_processor.streams

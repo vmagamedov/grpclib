@@ -15,14 +15,21 @@ class TransportStub(asyncio.Transport):
         del self._events[:]
         return events
 
+    def process(self, processor):
+        events = self.events()
+        for event in events:
+            processor.process(event)
+        return events
+
     def write(self, data):
         self._events.extend(self._connection.receive_data(data))
 
 
 class DummyHandler(AbstractHandler):
+    release_stream = None
 
-    def accept(self, stream, headers):
-        pass
+    def accept(self, stream, headers, release_stream):
+        self.release_stream = release_stream
 
     def cancel(self, stream):
         pass

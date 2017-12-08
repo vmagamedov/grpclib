@@ -23,7 +23,7 @@ async def _to_list(stream):
 class Handler(AbstractHandler):
     connection_lost = False
 
-    def accept(self, stream, headers):
+    def accept(self, stream, headers, release_stream):
         raise NotImplementedError('Client connection can not accept requests')
 
     def cancel(self, stream):
@@ -43,6 +43,9 @@ class Stream(StreamIterator):
     _recv_trailing_metadata_done = False
     _cancel_done = False
 
+    _stream = None
+    _release_stream = None
+
     initial_metadata = None
     trailing_metadata = None
 
@@ -51,7 +54,6 @@ class Stream(StreamIterator):
         self._request = request
         self._send_type = send_type
         self._recv_type = recv_type
-        self._stream = None
 
     def _with_deadline(self):
         if self._request.deadline is not None:
@@ -68,9 +70,11 @@ class Stream(StreamIterator):
 
         protocol = await self._channel.__connect__()
         stream = protocol.processor.connection.create_stream()
-        await stream.send_request(self._request.to_headers(),
-                                  _processor=protocol.processor)
+        release_stream = await stream.send_request(
+            self._request.to_headers(), _processor=protocol.processor,
+        )
         self._stream = stream
+        self._release_stream = release_stream
         self._send_request_done = True
 
     async def send_message(self, message, *, end=False):
@@ -163,17 +167,21 @@ class Stream(StreamIterator):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if (
-            self._recv_trailing_metadata_done
-            or self._cancel_done
-            or not self._send_request_done
-        ):
-            return
+        try:
+            if (
+                self._recv_trailing_metadata_done
+                or self._cancel_done
+                or not self._send_request_done
+            ):
+                return
 
-        if exc_type or exc_val or exc_tb:
-            await self.cancel()
-        else:
-            await self.recv_trailing_metadata()
+            if exc_type or exc_val or exc_tb:
+                await self.cancel()
+            else:
+                await self.recv_trailing_metadata()
+        finally:
+            if self._release_stream is not None:
+                self._release_stream()
 
 
 class Channel:
