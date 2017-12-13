@@ -14,8 +14,6 @@ library for projects with such requirements.
 Installation
 ~~~~~~~~~~~~
 
-Currently you can install ``grpclib`` only from the GitHub:
-
 .. code-block:: shell
 
     $ pip3 install grpclib==0.1.0rc2
