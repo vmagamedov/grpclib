@@ -4,4 +4,5 @@ Changelog
 0.1.0
 ~~~~~
 
-  - Initial release
+  - [rc1] Initial release
+  - [rc2] Fixed issues with sending large messages

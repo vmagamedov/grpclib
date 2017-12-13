@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='grpclib',
-    version='0.1.0rc1',
+    version='0.1.0rc2',
     description='Pure-Python gRPC implementation, based on hyper-h2 project',
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',
