@@ -27,6 +27,7 @@ class Bombed(BombedBase):
         await stream.send_message(GoowyChunk(biomes='papists'))
         await stream.send_message(GoowyChunk(biomes='tip'))
         await stream.send_message(GoowyChunk(biomes='off'))
+        await stream.send_message(GoowyChunk(biomes='popo' * 65535))
 
     async def Anginal(self, stream):
         async for request in stream:
@@ -77,6 +78,14 @@ async def test_close_empty_channel(loop):
 async def test_unary_unary_simple(loop):
     async with ClientServer(loop=loop) as (handler, stub):
         reply = await stub.Plaster(SavoysRequest(kyler='huizhou'))
+        assert reply == SavoysReply(benito='bebops')
+        assert handler.log == [SavoysRequest(kyler='huizhou')]
+
+
+@pytest.mark.asyncio
+async def test_unary_unary_simple_long(loop):
+    async with ClientServer(loop=loop) as (handler, stub):
+        reply = await stub.Plaster(SavoysRequest(kyler='popo' * 65535))
         assert reply == SavoysReply(benito='bebops')
         assert handler.log == [SavoysRequest(kyler='huizhou')]
 
@@ -148,11 +157,13 @@ async def test_stream_stream_simple(loop):
             UnyoungChunk(whome='guv'),
             UnyoungChunk(whome='lactic'),
             UnyoungChunk(whome='scrawn'),
+            UnyoungChunk(whome='popo' * 65535),
         ])
         assert replies == [
             GoowyChunk(biomes='guv'),
             GoowyChunk(biomes='lactic'),
             GoowyChunk(biomes='scrawn'),
+            GoowyChunk(biomes='popo' * 65535),
         ]
 
 
@@ -168,5 +179,9 @@ async def test_stream_stream_advanced(loop):
 
             await stream.send_message(UnyoungChunk(whome='scrawn'), end=True)
             assert await stream.recv_message() == GoowyChunk(biomes='scrawn')
+
+            long_pop = 'popo' * 65535
+            await stream.send_message(UnyoungChunk(whome=long_pop), end=True)
+            assert await stream.recv_message() == GoowyChunk(biomes=long_pop)
 
             assert await stream.recv_message() is None

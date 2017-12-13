@@ -16,7 +16,21 @@ async def recv_message(stream, message_type):
         raise NotImplementedError('Compression not implemented')
 
     message_len = struct.unpack('>I', meta[1:])[0]
-    message_bin = await stream.recv_data(message_len)
+
+    message_bin = b''
+
+    chunk_size = 16384
+    chunks = int(message_len / chunk_size)
+    tail = message_len % chunk_size
+
+    for _ in range(chunks):
+        chunk = await stream.recv_data(chunk_size)
+        message_bin += chunk
+
+    if tail > 0:
+        chunk = await stream.recv_data(tail)
+        message_bin += chunk
+
     assert len(message_bin) == message_len, \
         '{} != {}'.format(len(message_bin), message_len)
     message = message_type.FromString(message_bin)
