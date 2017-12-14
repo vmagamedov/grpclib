@@ -1,15 +1,14 @@
-**WARNING**: this library is a prototype, under active development.
-
 This project is a pure-Python `gRPC`_ implementation, based on `hyper-h2`_
 project, **requires Python >= 3.5**.
 
 Motivation: ``grpclib`` is intended to implement gRPC protocol in Python once
-and natively support all concurrency models. However, currently ``grpclib``
-supports only ``asyncio`` library and only with ``async/await`` syntax, because
-this is the most modern for Python stack, which was not supported yet.
+for all concurrency models. However, currently ``grpclib`` supports only
+``asyncio`` library and only with ``async/await`` syntax.
 
 Note: Python 2.7 support is not planned, but you can use official `grpcio`_
 library for projects with such requirements.
+
+.. contents::
 
 Installation
 ~~~~~~~~~~~~
