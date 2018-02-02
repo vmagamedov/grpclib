@@ -103,9 +103,8 @@ class Request(namedtuple('Request', [
             (':method', self.method),
             (':scheme', self.scheme),
             (':path', self.path),
+            (':authority', self.authority),
         ]
-        if self.authority is not None:
-            result.append((':authority', self.authority))
 
         if self.deadline is not None:
             timeout = self.deadline.time_remaining()

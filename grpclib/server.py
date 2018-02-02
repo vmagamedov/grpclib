@@ -3,6 +3,7 @@ import logging
 import asyncio
 
 import h2.config
+import h2.exceptions
 import async_timeout
 
 from .const import Status
@@ -95,21 +96,31 @@ class Stream(StreamIterator):
             # to suppress exception propagation
             return True
 
-        if exc_type or exc_val or exc_tb:
+        if exc_val is not None:
             if isinstance(exc_val, GRPCError):
-                status, status_message = exc_val.status, exc_val.message
+                status = exc_val.status
+                status_message = exc_val.message
+            elif isinstance(exc_val, Exception):
+                status = Status.UNKNOWN
+                status_message = 'Internal Server Error'
             else:
-                status, status_message = Status.UNKNOWN, 'Internal Server Error'
+                # propagate exception
+                return
+        elif not self._send_message_count:
+            status = Status.UNKNOWN
+            status_message = 'Empty response'
+        else:
+            status = Status.OK
+            status_message = None
 
+        try:
             await self.send_trailing_metadata(status=status,
                                               status_message=status_message)
-            # to suppress exception propagation
-            return True
-        elif not self._send_message_count:
-            await self.send_trailing_metadata(status=Status.UNKNOWN,
-                                              status_message='Empty response')
-        else:
-            await self.send_trailing_metadata()
+        except h2.exceptions.StreamClosedError:
+            pass
+
+        # to suppress exception propagation
+        return True
 
 
 async def request_handler(mapping, _stream, headers, release_stream):
@@ -138,13 +149,19 @@ async def request_handler(mapping, _stream, headers, release_stream):
                     await method.func(stream)
             except asyncio.TimeoutError:
                 if timeout_cm and timeout_cm.expired:
+                    log.exception('Deadline exceeded')
                     raise GRPCError(Status.DEADLINE_EXCEEDED)
                 else:
-                    log.exception('Server error')
+                    log.exception('Timeout occurred')
                     raise
-            except Exception:
-                log.exception('Server error')
+            except asyncio.CancelledError:
+                log.exception('Request was cancelled')
                 raise
+            except Exception:
+                log.exception('Application error')
+                raise
+    except Exception:
+        log.exception('Server error')
     finally:
         release_stream()
 

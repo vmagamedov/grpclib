@@ -8,12 +8,15 @@ import pytest
 from h2.errors import ErrorCodes
 
 from grpclib.const import Status, Cardinality
-from grpclib.stream import CONTENT_TYPE
+from grpclib.stream import CONTENT_TYPE, send_message
 from grpclib.server import Stream, GRPCError
-from grpclib.metadata import Metadata
+from grpclib.protocol import Connection, EventsProcessor
+from grpclib.metadata import Metadata, Request
 from grpclib.exceptions import ProtocolError
 
+from stubs import TransportStub, DummyHandler
 from bombed_pb2 import SavoysRequest, SavoysReply
+from test_protocol import create_connections
 
 
 SendHeaders = namedtuple('SendHeaders', 'headers, end_stream')
@@ -244,3 +247,73 @@ async def test_grpc_error(stream, stub):
             end_stream=True,
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_exit_and_stream_was_closed(loop):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    to_server_transport = TransportStub(server_h2c)
+
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    server_proc = EventsProcessor(DummyHandler(), server_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+
+    request = Request('POST', 'http', '/', authority='test.com')
+    client_h2_stream = client_conn.create_stream()
+    await client_h2_stream.send_request(request.to_headers(),
+                                        _processor=client_proc)
+
+    request = SavoysRequest(kyler='cloth')
+    await send_message(client_h2_stream, request, SavoysRequest, end=True)
+    to_server_transport.process(server_proc)
+
+    server_h2_stream = server_proc.handler.stream
+    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+
+    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
+                      SavoysRequest, SavoysReply,
+                      metadata=request_metadata) as server_stream:
+        await server_stream.recv_message()
+
+        # simulating client closing connection
+        await client_h2_stream.reset()
+        to_server_transport.process(server_proc)
+
+
+@pytest.mark.asyncio
+async def test_exit_and_connection_was_broken(loop):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    to_server_transport = TransportStub(server_h2c)
+
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    server_proc = EventsProcessor(DummyHandler(), server_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+
+    request = Request('POST', 'http', '/', authority='test.com')
+    client_h2_stream = client_conn.create_stream()
+    await client_h2_stream.send_request(request.to_headers(),
+                                        _processor=client_proc)
+
+    request = SavoysRequest(kyler='cloth')
+    await send_message(client_h2_stream, request, SavoysRequest, end=True)
+    to_server_transport.process(server_proc)
+
+    server_h2_stream = server_proc.handler.stream
+    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+
+    with pytest.raises(OSError):
+        async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
+                          SavoysRequest, SavoysReply,
+                          metadata=request_metadata) as server_stream:
+            await server_stream.recv_message()
+
+            # simulate broken connection
+            to_client_transport.__raise_on_write__(OSError)
