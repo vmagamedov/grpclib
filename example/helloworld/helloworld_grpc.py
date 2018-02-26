@@ -15,11 +15,41 @@ class GreeterBase(abc.ABC):
     async def SayHello(self, stream):
         pass
 
+    @abc.abstractmethod
+    async def SayHelloGoodbye(self, stream):
+        pass
+
+    @abc.abstractmethod
+    async def SayHelloToManyAtOnce(self, stream):
+        pass
+
+    @abc.abstractmethod
+    async def SayHelloToMany(self, stream):
+        pass
+
     def __mapping__(self):
         return {
             '/helloworld.Greeter/SayHello': grpclib.const.Handler(
                 self.SayHello,
                 grpclib.const.Cardinality.UNARY_UNARY,
+                helloworld.helloworld_pb2.HelloRequest,
+                helloworld.helloworld_pb2.HelloReply,
+            ),
+            '/helloworld.Greeter/SayHelloGoodbye': grpclib.const.Handler(
+                self.SayHelloGoodbye,
+                grpclib.const.Cardinality.UNARY_STREAM,
+                helloworld.helloworld_pb2.HelloRequest,
+                helloworld.helloworld_pb2.HelloReply,
+            ),
+            '/helloworld.Greeter/SayHelloToManyAtOnce': grpclib.const.Handler(
+                self.SayHelloToManyAtOnce,
+                grpclib.const.Cardinality.STREAM_UNARY,
+                helloworld.helloworld_pb2.HelloRequest,
+                helloworld.helloworld_pb2.HelloReply,
+            ),
+            '/helloworld.Greeter/SayHelloToMany': grpclib.const.Handler(
+                self.SayHelloToMany,
+                grpclib.const.Cardinality.STREAM_STREAM,
                 helloworld.helloworld_pb2.HelloRequest,
                 helloworld.helloworld_pb2.HelloReply,
             ),
@@ -32,6 +62,24 @@ class GreeterStub:
         self.SayHello = grpclib.client.UnaryUnaryMethod(
             channel,
             '/helloworld.Greeter/SayHello',
+            helloworld.helloworld_pb2.HelloRequest,
+            helloworld.helloworld_pb2.HelloReply,
+        )
+        self.SayHelloGoodbye = grpclib.client.UnaryStreamMethod(
+            channel,
+            '/helloworld.Greeter/SayHelloGoodbye',
+            helloworld.helloworld_pb2.HelloRequest,
+            helloworld.helloworld_pb2.HelloReply,
+        )
+        self.SayHelloToManyAtOnce = grpclib.client.StreamUnaryMethod(
+            channel,
+            '/helloworld.Greeter/SayHelloToManyAtOnce',
+            helloworld.helloworld_pb2.HelloRequest,
+            helloworld.helloworld_pb2.HelloReply,
+        )
+        self.SayHelloToMany = grpclib.client.StreamStreamMethod(
+            channel,
+            '/helloworld.Greeter/SayHelloToMany',
             helloworld.helloworld_pb2.HelloRequest,
             helloworld.helloworld_pb2.HelloReply,
         )
