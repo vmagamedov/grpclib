@@ -12,43 +12,43 @@ import helloworld.helloworld_pb2
 class GreeterBase(abc.ABC):
 
     @abc.abstractmethod
-    async def SayHello(self, stream):
+    async def UnaryUnaryGreeting(self, stream):
         pass
 
     @abc.abstractmethod
-    async def SayHelloGoodbye(self, stream):
+    async def UnaryStreamGreeting(self, stream):
         pass
 
     @abc.abstractmethod
-    async def SayHelloToManyAtOnce(self, stream):
+    async def StreamUnaryGreeting(self, stream):
         pass
 
     @abc.abstractmethod
-    async def SayHelloToMany(self, stream):
+    async def StreamStreamGreeting(self, stream):
         pass
 
     def __mapping__(self):
         return {
-            '/helloworld.Greeter/SayHello': grpclib.const.Handler(
-                self.SayHello,
+            '/helloworld.Greeter/UnaryUnaryGreeting': grpclib.const.Handler(
+                self.UnaryUnaryGreeting,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 helloworld.helloworld_pb2.HelloRequest,
                 helloworld.helloworld_pb2.HelloReply,
             ),
-            '/helloworld.Greeter/SayHelloGoodbye': grpclib.const.Handler(
-                self.SayHelloGoodbye,
+            '/helloworld.Greeter/UnaryStreamGreeting': grpclib.const.Handler(
+                self.UnaryStreamGreeting,
                 grpclib.const.Cardinality.UNARY_STREAM,
                 helloworld.helloworld_pb2.HelloRequest,
                 helloworld.helloworld_pb2.HelloReply,
             ),
-            '/helloworld.Greeter/SayHelloToManyAtOnce': grpclib.const.Handler(
-                self.SayHelloToManyAtOnce,
+            '/helloworld.Greeter/StreamUnaryGreeting': grpclib.const.Handler(
+                self.StreamUnaryGreeting,
                 grpclib.const.Cardinality.STREAM_UNARY,
                 helloworld.helloworld_pb2.HelloRequest,
                 helloworld.helloworld_pb2.HelloReply,
             ),
-            '/helloworld.Greeter/SayHelloToMany': grpclib.const.Handler(
-                self.SayHelloToMany,
+            '/helloworld.Greeter/StreamStreamGreeting': grpclib.const.Handler(
+                self.StreamStreamGreeting,
                 grpclib.const.Cardinality.STREAM_STREAM,
                 helloworld.helloworld_pb2.HelloRequest,
                 helloworld.helloworld_pb2.HelloReply,
@@ -59,27 +59,27 @@ class GreeterBase(abc.ABC):
 class GreeterStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
-        self.SayHello = grpclib.client.UnaryUnaryMethod(
+        self.UnaryUnaryGreeting = grpclib.client.UnaryUnaryMethod(
             channel,
-            '/helloworld.Greeter/SayHello',
+            '/helloworld.Greeter/UnaryUnaryGreeting',
             helloworld.helloworld_pb2.HelloRequest,
             helloworld.helloworld_pb2.HelloReply,
         )
-        self.SayHelloGoodbye = grpclib.client.UnaryStreamMethod(
+        self.UnaryStreamGreeting = grpclib.client.UnaryStreamMethod(
             channel,
-            '/helloworld.Greeter/SayHelloGoodbye',
+            '/helloworld.Greeter/UnaryStreamGreeting',
             helloworld.helloworld_pb2.HelloRequest,
             helloworld.helloworld_pb2.HelloReply,
         )
-        self.SayHelloToManyAtOnce = grpclib.client.StreamUnaryMethod(
+        self.StreamUnaryGreeting = grpclib.client.StreamUnaryMethod(
             channel,
-            '/helloworld.Greeter/SayHelloToManyAtOnce',
+            '/helloworld.Greeter/StreamUnaryGreeting',
             helloworld.helloworld_pb2.HelloRequest,
             helloworld.helloworld_pb2.HelloReply,
         )
-        self.SayHelloToMany = grpclib.client.StreamStreamMethod(
+        self.StreamStreamGreeting = grpclib.client.StreamStreamMethod(
             channel,
-            '/helloworld.Greeter/SayHelloToMany',
+            '/helloworld.Greeter/StreamStreamGreeting',
             helloworld.helloworld_pb2.HelloRequest,
             helloworld.helloworld_pb2.HelloReply,
         )

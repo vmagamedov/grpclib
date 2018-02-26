@@ -39,13 +39,13 @@ package helloworld;
 // The greeting service definition.
 service Greeter {
   // A simple RPC
-  rpc SayHello (HelloRequest) returns (HelloReply) {}
+  rpc UnaryUnaryGreeting (HelloRequest) returns (HelloReply) {}
   // A response streaming RPC
-  rpc SayHelloGoodbye (HelloRequest) returns (stream HelloReply) {}
+  rpc UnaryStreamGreeting (HelloRequest) returns (stream HelloReply) {}
   // A request streaming RPC.
-  rpc SayHelloToManyAtOnce (stream HelloRequest) returns (HelloReply) {}
+  rpc StreamUnaryGreeting (stream HelloRequest) returns (HelloReply) {}
   // A bidirectional streaming RPC
-  rpc SayHelloToMany (stream HelloRequest) returns (stream HelloReply) {}
+  rpc StreamStreamGreeting (stream HelloRequest) returns (stream HelloReply) {}
 
 }
 

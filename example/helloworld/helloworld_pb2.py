@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='helloworld/helloworld.proto',
   package='helloworld',
   syntax='proto3',
-  serialized_pb=_b('\n\x1bhelloworld/helloworld.proto\x12\nhelloworld\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t2\xaa\x02\n\x07Greeter\x12>\n\x08SayHello\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00\x12G\n\x0fSayHelloGoodbye\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00\x30\x01\x12L\n\x14SayHelloToManyAtOnce\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00(\x01\x12H\n\x0eSayHelloToMany\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00(\x01\x30\x01\x42\x36\n\x1bio.grpc.examples.helloworldB\x0fHelloWorldProtoP\x01\xa2\x02\x03HLWb\x06proto3')
+  serialized_pb=_b('\n\x1bhelloworld/helloworld.proto\x12\nhelloworld\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t2\xbd\x02\n\x07Greeter\x12H\n\x12UnaryUnaryGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00\x12K\n\x13UnaryStreamGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00\x30\x01\x12K\n\x13StreamUnaryGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00(\x01\x12N\n\x14StreamStreamGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00(\x01\x30\x01\x42\x36\n\x1bio.grpc.examples.helloworldB\x0fHelloWorldProtoP\x01\xa2\x02\x03HLWb\x06proto3')
 )
 
 
@@ -115,11 +115,11 @@ _GREETER = _descriptor.ServiceDescriptor(
   index=0,
   options=None,
   serialized_start=105,
-  serialized_end=403,
+  serialized_end=422,
   methods=[
   _descriptor.MethodDescriptor(
-    name='SayHello',
-    full_name='helloworld.Greeter.SayHello',
+    name='UnaryUnaryGreeting',
+    full_name='helloworld.Greeter.UnaryUnaryGreeting',
     index=0,
     containing_service=None,
     input_type=_HELLOREQUEST,
@@ -127,8 +127,8 @@ _GREETER = _descriptor.ServiceDescriptor(
     options=None,
   ),
   _descriptor.MethodDescriptor(
-    name='SayHelloGoodbye',
-    full_name='helloworld.Greeter.SayHelloGoodbye',
+    name='UnaryStreamGreeting',
+    full_name='helloworld.Greeter.UnaryStreamGreeting',
     index=1,
     containing_service=None,
     input_type=_HELLOREQUEST,
@@ -136,8 +136,8 @@ _GREETER = _descriptor.ServiceDescriptor(
     options=None,
   ),
   _descriptor.MethodDescriptor(
-    name='SayHelloToManyAtOnce',
-    full_name='helloworld.Greeter.SayHelloToManyAtOnce',
+    name='StreamUnaryGreeting',
+    full_name='helloworld.Greeter.StreamUnaryGreeting',
     index=2,
     containing_service=None,
     input_type=_HELLOREQUEST,
@@ -145,8 +145,8 @@ _GREETER = _descriptor.ServiceDescriptor(
     options=None,
   ),
   _descriptor.MethodDescriptor(
-    name='SayHelloToMany',
-    full_name='helloworld.Greeter.SayHelloToMany',
+    name='StreamStreamGreeting',
+    full_name='helloworld.Greeter.StreamStreamGreeting',
     index=3,
     containing_service=None,
     input_type=_HELLOREQUEST,
