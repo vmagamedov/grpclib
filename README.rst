@@ -15,7 +15,7 @@ Installation
 
 .. code-block:: shell
 
-    $ pip3 install grpclib==0.1.0rc2
+    $ pip3 install grpclib
 
 For the code generation you will also need a ``protoc`` compiler, which can be
 installed with ``protobuf`` package:
