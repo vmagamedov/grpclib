@@ -1,0 +1,505 @@
+.diagram pre,
+.diagram p,
+.diagram div,
+.diagram ol,
+.diagram li,
+.diagram span,
+.diagram .elements .element .note {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 100%;
+    text-align: left;
+    vertical-align: baseline;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.diagram code {
+    border-style: none;
+}
+
+.diagram p,
+.diagram li {
+    line-height: 16px;
+}
+
+.diagram .elements .element ol li {
+    margin-left: 0px;
+}
+
+.diagram {
+    font-family: 'Source Sans Pro', Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-top: 20px;
+    padding: 0 20px;
+}
+
+.diagram h1 {
+    margin-bottom: .8em;
+    text-align: center;
+    font-size: 2em;
+    font-weight: 600
+}
+
+.diagram h1 input {
+    width: 90%;
+    border: none;
+    color: #333;
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 500;
+    font-size: .86em;
+    line-height: 1.2;
+    text-align: center
+}
+
+.diagram h1 input:focus {
+    outline: 0
+}
+
+.diagram strong {
+    font-weight: 700
+}
+
+.diagram code {
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+    border-radius: .286em;
+    padding: .083em .333em;
+    font-size: .86em;
+    color: #222;
+    background-color: #eee
+}
+
+.diagram ._inline-edit {
+    width: 90%;
+    border: none;
+    color: #333;
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 500;
+    font-size: .86em;
+    line-height: 1.2
+}
+
+.diagram ._inline-edit:focus {
+    outline: 0
+}
+
+.diagram .lane-titles {
+    position: relative;
+    height: 3em;
+    color: #333;
+    font-size: 1.143em;
+    font-weight: 600
+}
+
+.diagram .lane-titles .lane-title {
+    position: absolute;
+    height: 100%;
+    padding: 0 .25em;
+    border: .125em solid #aaa;
+    border-radius: .357em;
+    text-align: center;
+    vertical-align: middle;
+    overflow: hidden
+}
+
+.diagram .lane-titles .lane-title:before {
+    display: inline-block;
+    height: 100%;
+    margin-right: -0.25em;
+    vertical-align: middle;
+    content: ''
+}
+
+.diagram .lane-titles .lane-title span {
+    display: inline-block;
+    text-align: center;
+    vertical-align: middle
+}
+
+.diagram .lane-titles .lane-title span input {
+    width: 90%;
+    border: none;
+    color: #333;
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 500;
+    font-size: .86em;
+    line-height: 1.2;
+    font-size: 1em;
+    text-align: center
+}
+
+.diagram .lane-titles .lane-title span input:focus {
+    outline: 0
+}
+
+.diagram .lane-titles.bottom {
+    margin-bottom: 20px
+}
+
+.diagram .lane-line {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    width: 0;
+    height: 100%;
+    margin-left: -0.071em;
+    border-left: .143em solid #aaa
+}
+
+.diagram .elements {
+    position: relative;
+    padding: 1.429em 0
+}
+
+.diagram .elements .element {
+    z-index: 10;
+    position: relative;
+    padding: .357em 0
+}
+
+.diagram .elements .element.focus {
+    background-color: rgba(169, 79, 130, 0.1)
+}
+
+.diagram .elements .element.focus .message span,
+.diagram .elements .element.focus .line span,
+.diagram .elements .element.focus .delay-text span {
+    background: #f7eef3
+}
+
+.diagram .elements .element.focus .delay .lane-overlay {
+    border-color: #f7eef3
+}
+
+.diagram .elements .element.v-space {
+    margin-top: 1.429em
+}
+
+.diagram .elements .element .message,
+.diagram .elements .element .line,
+.diagram .elements .element .delay-text {
+    position: relative;
+    margin-bottom: .357em;
+    border-bottom: .143em solid #333;
+    padding-bottom: .214em;
+    color: #333;
+    text-align: center
+}
+
+.diagram .elements .element .message.dashed,
+.diagram .elements .element .line.dashed,
+.diagram .elements .element .delay-text.dashed {
+    border-style: dashed
+}
+
+.diagram .elements .element .message.dashed .pointer,
+.diagram .elements .element .line.dashed .pointer,
+.diagram .elements .element .delay-text.dashed .pointer {
+    border-style: dashed;
+    border-left: none
+}
+
+.diagram .elements .element .message.strong,
+.diagram .elements .element .line.strong,
+.diagram .elements .element .delay-text.strong {
+    border-width: .286em
+}
+
+.diagram .elements .element .message.strong .pointer,
+.diagram .elements .element .line.strong .pointer,
+.diagram .elements .element .delay-text.strong .pointer {
+    border-width: .286em
+}
+
+.diagram .elements .element .message.strong .arrow,
+.diagram .elements .element .line.strong .arrow,
+.diagram .elements .element .delay-text.strong .arrow {
+    bottom: -0.643em
+}
+
+.diagram .elements .element .message.strong .arrow polyline,
+.diagram .elements .element .line.strong .arrow polyline,
+.diagram .elements .element .delay-text.strong .arrow polyline,
+.diagram .elements .element .message.strong .arrow polygon,
+.diagram .elements .element .line.strong .arrow polygon,
+.diagram .elements .element .delay-text.strong .arrow polygon {
+    stroke-width: .286em
+}
+
+.diagram .elements .element .message.strong.to-self .arrow.left,
+.diagram .elements .element .line.strong.to-self .arrow.left,
+.diagram .elements .element .delay-text.strong.to-self .arrow.left {
+    bottom: -0.357em
+}
+
+.diagram .elements .element .message.thin,
+.diagram .elements .element .line.thin,
+.diagram .elements .element .delay-text.thin {
+    border-width: .0715em
+}
+
+.diagram .elements .element .message.to-self,
+.diagram .elements .element .line.to-self,
+.diagram .elements .element .delay-text.to-self {
+    border: none;
+    padding-bottom: 0;
+    margin-bottom: .214em
+}
+
+.diagram .elements .element .message.to-self .arrow.left,
+.diagram .elements .element .line.to-self .arrow.left,
+.diagram .elements .element .delay-text.to-self .arrow.left {
+    left: 50%;
+    margin-left: -0.143em;
+    bottom: -0.4285em
+}
+
+.diagram .elements .element .message.to-self .arrow.left.dropped,
+.diagram .elements .element .line.to-self .arrow.left.dropped,
+.diagram .elements .element .delay-text.to-self .arrow.left.dropped {
+    left: 50%;
+    margin-left: -0.5em
+}
+
+.diagram .elements .element .message span,
+.diagram .elements .element .line span,
+.diagram .elements .element .delay-text span {
+    line-height: 1;
+    background: #fff
+}
+
+.diagram .elements .element .message span input,
+.diagram .elements .element .line span input,
+.diagram .elements .element .delay-text span input {
+    width: 90%;
+    border: none;
+    color: #333;
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 500;
+    font-size: .86em;
+    line-height: 1.2;
+    text-align: center;
+    background: #f7eef3
+}
+
+.diagram .elements .element .message span input:focus,
+.diagram .elements .element .line span input:focus,
+.diagram .elements .element .delay-text span input:focus {
+    outline: 0
+}
+
+.diagram .elements .element .message .arrow,
+.diagram .elements .element .line .arrow,
+.diagram .elements .element .delay-text .arrow {
+    position: absolute;
+    bottom: -0.5715em;
+    width: 1em;
+    height: 1em
+}
+
+.diagram .elements .element .message .arrow.left,
+.diagram .elements .element .line .arrow.left,
+.diagram .elements .element .delay-text .arrow.left {
+    left: -0.143em
+}
+
+.diagram .elements .element .message .arrow.left.dropped,
+.diagram .elements .element .line .arrow.left.dropped,
+.diagram .elements .element .delay-text .arrow.left.dropped {
+    left: -0.5em
+}
+
+.diagram .elements .element .message .arrow.right,
+.diagram .elements .element .line .arrow.right,
+.diagram .elements .element .delay-text .arrow.right {
+    right: -0.286em
+}
+
+.diagram .elements .element .message .arrow.right.dropped,
+.diagram .elements .element .line .arrow.right.dropped,
+.diagram .elements .element .delay-text .arrow.right.dropped {
+    right: -0.5em
+}
+
+.diagram .elements .element .message .arrow polyline,
+.diagram .elements .element .line .arrow polyline,
+.diagram .elements .element .delay-text .arrow polyline {
+    fill: none
+}
+
+.diagram .elements .element .message .arrow polygon,
+.diagram .elements .element .line .arrow polygon,
+.diagram .elements .element .delay-text .arrow polygon {
+    fill: #333
+}
+
+.diagram .elements .element .message .arrow polyline,
+.diagram .elements .element .line .arrow polyline,
+.diagram .elements .element .delay-text .arrow polyline,
+.diagram .elements .element .message .arrow polygon,
+.diagram .elements .element .line .arrow polygon,
+.diagram .elements .element .delay-text .arrow polygon {
+    stroke: #333;
+    stroke-width: .143em;
+    stroke-linecap: round
+}
+
+.diagram .elements .element .message .pointer,
+.diagram .elements .element .line .pointer,
+.diagram .elements .element .delay-text .pointer {
+    position: relative;
+    width: 2.5em;
+    height: 1.786em;
+    left: 50%;
+    margin-top: .143em;
+    border: .143em solid #333;
+    border-radius: 0 .357em .357em 0;
+    border-left: none
+}
+
+.diagram .elements .element .line {
+    left: 0;
+    width: 100%;
+    margin-bottom: 0
+}
+
+.diagram .elements .element.delay {
+    left: 0;
+    width: 100%;
+    height: 5em;
+    margin: 0
+}
+
+.diagram .elements .element.delay .lane-overlay {
+    z-index: 1;
+    position: absolute;
+    margin-left: -0.143em;
+    width: 0;
+    height: 100%;
+    border: none;
+    border-left: .143em dashed white;
+    border-right: .143em dashed white
+}
+
+.diagram .elements .element.delay.focus .lane-overlay {
+    border-color: #f7eef3
+}
+
+.diagram .elements .element.delay .delay-text {
+    z-index: 2;
+    position: absolute;
+    width: 100%;
+    top: 2em;
+    border: none
+}
+
+.diagram .elements .element .note {
+    border: 1px solid #dddbcc;
+    padding: .571em;
+    position: relative;
+    color: #333;
+    background: #fffdee;
+    overflow: hidden
+}
+
+.diagram .elements .element .note p,
+.diagram .elements .element .note ul,
+.diagram .elements .element .note ol,
+.diagram .elements .element .note pre {
+    margin-bottom: 1em
+}
+
+.diagram .elements .element .note p:last-child,
+.diagram .elements .element .note ul:last-child,
+.diagram .elements .element .note ol:last-child,
+.diagram .elements .element .note pre:last-child {
+    margin-bottom: 0
+}
+
+.diagram .elements .element .note ul,
+.diagram .elements .element .note ol {
+    padding-left: 1.4em
+}
+
+.diagram .elements .element .note pre code {
+    box-shadow: none;
+    background: none;
+    padding: 0
+}
+
+.diagram .elements .element .note textarea {
+    width: 90%;
+    border: none;
+    color: #333;
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 500;
+    font-size: .86em;
+    line-height: 1.2;
+    background: #fffdee;
+    resize: none;
+    overflow-x: hidden
+}
+
+.diagram .elements .element .note textarea:focus {
+    outline: 0
+}
+
+.diagram .elements .if,
+.diagram .elements .else {
+    margin: .357em -0.143em;
+    border: .143em solid #888
+}
+
+.diagram .elements .if .title,
+.diagram .elements .else .title {
+    width: 33%;
+    margin-top: -0.357em;
+    margin-bottom: .357em;
+    border-right: 1px solid #d0d2d9;
+    border-bottom: 1px solid #d0d2d9;
+    padding: .357em .714em;
+    background: #f2f4fb;
+    font-weight: 600
+}
+
+.diagram .elements .if .title input,
+.diagram .elements .else .title input {
+    width: 90%;
+    border: none;
+    color: #333;
+    font-family: 'Source Code Pro', Courier, monospace;
+    font-weight: 500;
+    font-size: .86em;
+    line-height: 1.2;
+    background: #f2f4fb
+}
+
+.diagram .elements .if .title input:focus,
+.diagram .elements .else .title input:focus {
+    outline: 0
+}
+
+.diagram .elements .if .if,
+.diagram .elements .else .if,
+.diagram .elements .if .else,
+.diagram .elements .else .else {
+    margin-left: 1%;
+    margin-right: 1%
+}
+
+.diagram .elements .if {
+    z-index: 10
+}
+
+.diagram .elements .else {
+    z-index: 20;
+    margin-top: -0.5em;
+    border-top: .143em dashed #fff
+}

@@ -1,6 +1,7 @@
 import abc
 import logging
 import asyncio
+import warnings
 
 import h2.config
 import h2.exceptions
@@ -45,6 +46,10 @@ class Stream(StreamIterator):
         self._send_initial_metadata_done = True
 
     async def send_message(self, message, *, end=False):
+        if end:
+            warnings.warn('"end" argument is deprecated, '
+                          'use "send_trailing_metadata" explicitly')
+
         if not self._send_initial_metadata_done:
             await self.send_initial_metadata()
 

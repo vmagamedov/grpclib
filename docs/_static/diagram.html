@@ -1,0 +1,149 @@
+<link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600,700,400italic,600italic,700italic|Source+Code+Pro:400,500,600"
+    rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="_static/diagram.css">
+<div class="diagram overflow">
+    <div class="lane-titles top">
+        <div class="lane-title" data-index="0" style="left:0%; width:20%"><span>Client</span>
+        </div>
+        <div class="lane-title" data-index="1" style="left:80%; width:20%">
+            <span>Server</span>
+        </div>
+    </div>
+    <div class="elements">
+        <div id="element_0" data-index="0" class="element">
+            <div class="note" style="left:3%; width:47%">
+                <p><code>send_request</code> <em>[auto]</em></p>
+            </div>
+        </div>
+        <div id="element_1" data-index="1" class="element">
+            <div class="message solid " style="left:10%; width:80%">
+                <span><code>HEADERS</code> frame</span>
+                <svg class="right arrow closed">
+                    <polygon class="x1" points="3,3 9,7 3,11"></polygon>
+                </svg>
+            </div>
+        </div>
+        <div id="element_2" data-index="2" class="element">
+            <div class="note" style="left:50%; width:47%">
+                <p>request accepted</p>
+            </div>
+        </div>
+        <div id="element_3" data-index="3" class="element">
+            <div class="note" style="left:3%; width:47%">
+                <p><code>send_message</code></p>
+            </div>
+        </div>
+        <div id="element_4" data-index="4" class="element">
+            <div class="message solid " style="left:10%; width:80%">
+                <span><code>DATA</code> ... <code>DATA</code> frames</span>
+                <svg class="right arrow closed">
+                    <polygon class="x1" points="3,3 9,7 3,11"></polygon>
+                </svg>
+            </div>
+        </div>
+        <div id="element_5" data-index="5" class="element">
+            <div class="note" style="left:50%; width:47%">
+                <p><code>recv_message</code></p>
+            </div>
+        </div>
+        <div id="element_6" data-index="6" class="element">
+            <div class="note" style="left:7%; width:86%">
+                <p>Now you have to end stream from the client-side, and you can
+                    do this in two
+                    ways:
+                </p>
+                <ol>
+                    <li><code>send_message(message, end=True)</code> - last
+                        <code>DATA</code> frame will contain
+                        <code>END_STREAM</code> flag
+                    </li>
+                    <li><code>end()</code> - one extra frame will be sent, as
+                        shown below. It is better to
+                        avoid this way if possible.
+                    </li>
+                </ol>
+            </div>
+        </div>
+        <div id="element_7" data-index="7" class="element">
+            <div class="note" style="left:3%; width:47%">
+                <p><code>end</code> <em>(optional, read note above)</em></p>
+            </div>
+        </div>
+        <div id="element_8" data-index="8" class="element">
+            <div class="message solid " style="left:10%; width:80%">
+                <span><code>HEADERS[END_STREAM]</code> frame</span>
+                <svg class="right arrow closed">
+                    <polygon class="x1" points="3,3 9,7 3,11"></polygon>
+                </svg>
+            </div>
+        </div>
+        <div id="element_9" data-index="9" class="element">
+            <div class="note" style="left:50%; width:47%">
+                <p><code>send_initial_metadata</code> <em>[auto]</em> You can
+                    send initial metadata
+                    even before receiving messages from the client. RPC success
+                    or failure in gRPC
+                    protocol is indicated in trailers.
+                </p>
+            </div>
+        </div>
+        <div id="element_10" data-index="10" class="element">
+            <div class="message solid " style="left:10%; width:80%">
+                <span><code>HEADERS</code> frame</span>
+                <svg class="left arrow closed">
+                    <polygon class="x1" points="9,3 3,7 9,11"></polygon>
+                </svg>
+            </div>
+        </div>
+        <div id="element_11" data-index="11" class="element">
+            <div class="note" style="left:3%; width:47%">
+                <p><code>recv_initial_metadata</code> <em>[auto]</em></p>
+            </div>
+        </div>
+        <div id="element_12" data-index="12" class="element">
+            <div class="note" style="left:50%; width:47%">
+                <p><code>send_message</code></p>
+            </div>
+        </div>
+        <div id="element_13" data-index="13" class="element">
+            <div class="message solid " style="left:10%; width:80%">
+                <span><code>DATA</code> ... <code>DATA</code> frames</span>
+                <svg class="left arrow closed">
+                    <polygon class="x1" points="9,3 3,7 9,11"></polygon>
+                </svg>
+            </div>
+        </div>
+        <div id="element_14" data-index="14" class="element">
+            <div class="note" style="left:3%; width:47%">
+                <p><code>recv_message</code></p>
+            </div>
+        </div>
+        <div id="element_15" data-index="15" class="element">
+            <div class="note" style="left:50%; width:47%">
+                <p><code>send_trailing_metadata</code> <em>[auto]</em></p>
+            </div>
+        </div>
+        <div id="element_16" data-index="16" class="element">
+            <div class="message solid " style="left:10%; width:80%">
+                <span><code>HEADERS</code> frame as trailers</span>
+                <svg class="left arrow closed">
+                    <polygon class="x1" points="9,3 3,7 9,11"></polygon>
+                </svg>
+            </div>
+        </div>
+        <div id="element_17" data-index="17" class="element">
+            <div class="note" style="left:3%; width:47%">
+                <p><code>recv_trailing_metadata</code> <em>[auto]</em></p>
+            </div>
+        </div>
+        <div class="lane-line" style="left:10%"></div>
+        <div class="lane-line" style="left:90%"></div>
+    </div>
+    <div class="lane-titles bottom">
+        <div class="lane-title" data-index="0" style="left:0%; width:20%"><span>Client</span>
+        </div>
+        <div class="lane-title" data-index="1" style="left:80%; width:20%">
+            <span>Server</span>
+        </div>
+    </div>
+</div>

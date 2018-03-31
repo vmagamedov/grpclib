@@ -1,0 +1,35 @@
+GO: https://swimlanes.io
+
+Note Client: `send_request` *[auto]*
+Client -> Server: `HEADERS` frame
+Note Server: request accepted
+
+Note Client: `send_message`
+Client -> Server: `DATA` ... `DATA` frames
+Note Server:
+`recv_message`
+
+Note Client Server:
+Now you have to end stream from the client-side, and you can do this in two
+ways:
+1. `send_message(message, end=True)` - last `DATA` frame will contain
+   `END_STREAM` flag
+2. `end()` - one extra frame will be sent, as shown below. It is better to
+   avoid this way if possible.
+
+Note Client: `end` *(optional, read note above)*
+Client -> Server: `HEADERS[END_STREAM]` frame
+
+Note Server: `send_initial_metadata` *[auto]* You can send initial metadata
+even before receiving messages from the client. RPC success or failure in gRPC
+protocol is indicated in trailers.
+Client <- Server: `HEADERS` frame
+Note Client: `recv_initial_metadata` *[auto]*
+
+Note Server: `send_message`
+Client <- Server: `DATA` ... `DATA` frames
+Note Client: `recv_message`
+
+Note Server: `send_trailing_metadata` *[auto]*
+Client <- Server: `HEADERS` frame as trailers
+Note Client: `recv_trailing_metadata` *[auto]*
