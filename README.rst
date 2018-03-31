@@ -8,8 +8,6 @@ for all concurrency models. However, currently ``grpclib`` supports only
 Note: Python 2.7 support is not planned, but you can use official `grpcio`_
 library for projects with such requirements.
 
-.. contents::
-
 Installation
 ~~~~~~~~~~~~
 
