@@ -45,10 +45,14 @@ class Stream(StreamIterator):
                                          ('content-type', CONTENT_TYPE)])
         self._send_initial_metadata_done = True
 
-    async def send_message(self, message, *, end=False):
-        if end:
-            warnings.warn('"end" argument is deprecated, '
-                          'use "send_trailing_metadata" explicitly')
+    async def send_message(self, message, **kwargs):
+        if 'end' in kwargs:
+            warnings.warn('"end" argument is deprecated, use '
+                          '"stream.send_trailing_metadata" explicitly',
+                          stacklevel=2)
+
+        end = kwargs.pop('end', False)
+        assert not kwargs, kwargs
 
         if not self._send_initial_metadata_done:
             await self.send_initial_metadata()
