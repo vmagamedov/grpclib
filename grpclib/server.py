@@ -1,4 +1,10 @@
+"""
+    Server
+    ~~~~~~
+
+"""
 import abc
+import socket
 import logging
 import asyncio
 import warnings
@@ -237,9 +243,33 @@ class Handler(_GC, AbstractHandler):
 
 
 class Server(_GC, asyncio.AbstractServer):
+    """
+    HTTP/2 server, which uses gRPC service handlers to handle requests.
+
+    Handler is a subclass of the abstract base class, which was generated
+    from .proto file:
+
+    .. code-block:: python
+
+        import cafe_pb2
+        import cafe_grpc
+
+        class CoffeeMachine(cafe_grpc.CoffeeMachineBase):
+
+            async def make_latte(self, stream):
+                task: cafe_pb2.LatteOrder = await stream.recv_message()
+                ...
+                await stream.send_message(Empty())
+
+        server = Server([CoffeeMachine()], loop=loop)
+    """
     __gc_interval__ = 10
 
     def __init__(self, handlers, *, loop):
+        """
+        :param handlers: list of handlers
+        :param loop: asyncio-compatible event loop
+        """
         mapping = {}
         for handler in handlers:
             mapping.update(handler.__mapping__())
@@ -264,15 +294,55 @@ class Server(_GC, asyncio.AbstractServer):
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 
-    async def start(self, *args, **kwargs):
+    async def start(self, host=None, port=None, *,
+                    family=socket.AF_UNSPEC, flags=socket.AI_PASSIVE,
+                    sock=None, backlog=100, ssl=None, reuse_address=None,
+                    reuse_port=None):
+        """Coroutine to start the server.
+
+        :param host: can be a string, containing IPv4/v6 address or domain name.
+            If host is None, server will be bound to all available interfaces.
+
+        :param port: port number.
+
+        :param family: can be set to either :py:data:`python:socket.AF_INET` or
+            :py:data:`python:socket.AF_INET6` to force the socket to use IPv4 or
+            IPv6. If not set it will be determined from host.
+
+        :param flags: is a bitmask for
+            :py:meth:`~python:asyncio.AbstractEventLoop.getaddrinfo`.
+
+        :param sock: sock can optionally be specified in order to use a
+            preexisting socket object. If specified, host and port should be
+            omitted (must be None).
+
+        :param backlog: is the maximum number of queued connections passed to
+            listen().
+
+        :param ssl: can be set to an :py:class:`~python:ssl.SSLContext`
+            to enable SSL over the accepted connections.
+
+        :param reuse_address: tells the kernel to reuse a local socket in
+            TIME_WAIT state, without waiting for its natural timeout to expire.
+
+        :param reuse_port: tells the kernel to allow this endpoint to be bound
+            to the same port as other existing endpoints are bound to,
+            so long as they all set this flag when being created.
+        """
         if self._tcp_server is not None:
             raise RuntimeError('Server is already started')
 
         self._tcp_server = await self._loop.create_server(
-            self._protocol_factory, *args, **kwargs
+            self._protocol_factory, host, port,
+            family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
+            reuse_address=reuse_address, reuse_port=reuse_port
         )
 
     def close(self):
+        """Stops accepting new connections, cancels all currently running
+        requests. Request handlers are able to handle `CancelledError` and
+        exit properly.
+        """
         if self._tcp_server is None:
             raise RuntimeError('Server is not started')
         self._tcp_server.close()
@@ -280,6 +350,9 @@ class Server(_GC, asyncio.AbstractServer):
             handler.close()
 
     async def wait_closed(self):
+        """Coroutine to wait until all existing request handlers will exit
+        properly.
+        """
         if self._tcp_server is None:
             raise RuntimeError('Server is not started')
         await self._tcp_server.wait_closed()
