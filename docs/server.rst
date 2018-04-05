@@ -1,2 +1,2 @@
 .. automodule:: grpclib.server
-    :members: Server
+    :members: Server, Stream

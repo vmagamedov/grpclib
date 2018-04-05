@@ -25,6 +25,22 @@ log = logging.getLogger(__name__)
 
 
 class Stream(StreamIterator):
+    """
+    Represents gRPC method call – HTTP/2 request/stream, and everything you
+    need to communicate with client in order to handle this request.
+
+    As you can see, every method handler accepts single positional argument -
+    stream:
+
+    .. code-block:: python
+
+        async def make_latte(self, stream: grpclib.server.Stream):
+            task: cafe_pb2.LatteOrder = await stream.recv_message()
+            ...
+            await stream.send_message(Empty())
+
+    This is true for every gRPC method type.
+    """
     # stream state
     _send_initial_metadata_done = False
     _send_message_count = 0
@@ -41,9 +57,45 @@ class Stream(StreamIterator):
         self.deadline = deadline
 
     async def recv_message(self):
+        """Coroutine to receive incoming message from the client.
+
+        If client sends UNARY request, then you can call this method only once.
+        If client sends STREAM request, then you should call this method several
+        times, until it returns None. To simplify your code in this case,
+        :py:class:`Stream` class implements async iteration protocol, so you
+        can use it like this:
+
+        .. code-block:: python
+
+            async for massage in stream:
+                do_smth_with(message)
+
+        or even like this:
+
+        .. code-block:: python
+
+            messages = [msg async for msg in stream]
+
+        HTTP/2 has flow control mechanism, so server will acknowledge received
+        DATA frames as a message only after user consumes this coroutine.
+
+        :returns: decoded protobuf message
+        """
         return await recv_message(self._stream, self._recv_type)
 
     async def send_initial_metadata(self):
+        """Coroutine to send headers with initial metadata to the client.
+
+        In gRPC you can send initial metadata as soon as possible, because
+        gRPC doesn't use `:status` pseudo header to indicate success or failure
+        of the current request. gRPC uses trailers for this purpose, and
+        trailers are sent during :py:meth:`send_trailing_metadata` call, which
+        should be called in the end.
+
+        .. note:: This method will be called implicitly during first
+            :py:meth:`send_message` method call, if not called before
+            explicitly.
+        """
         if self._send_initial_metadata_done:
             raise ProtocolError('Initial metadata was already sent')
 
@@ -52,6 +104,14 @@ class Stream(StreamIterator):
         self._send_initial_metadata_done = True
 
     async def send_message(self, message, **kwargs):
+        """Coroutine to send message to the client.
+
+        If server sends UNARY response, then you should call this method only
+        once. If server sends STREAM response, then you can call this method
+        as many times as you need.
+
+        :param message: protobuf message object
+        """
         if 'end' in kwargs:
             warnings.warn('"end" argument is deprecated, use '
                           '"stream.send_trailing_metadata" explicitly',
@@ -76,6 +136,19 @@ class Stream(StreamIterator):
 
     async def send_trailing_metadata(self, *, status=Status.OK,
                                      status_message=None):
+        """Coroutine to send trailers with trailing metadata to the client.
+
+        This method allows sending trailers-only responses, in case of some
+        failure conditions during handling current request, i.e. when
+        ``status is not OK``.
+
+        .. note:: This method will be called implicitly at exit from
+            request handler, with appropriate status code, if not called
+            explicitly during handler execution.
+
+        :param status: resulting status of this method call
+        :param status_message: description for a status
+        """
         if self._send_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already sent')
 
@@ -97,6 +170,12 @@ class Stream(StreamIterator):
         self._send_trailing_metadata_done = True
 
     async def cancel(self):
+        """Coroutine to cancel current request/stream.
+
+        Server will send RST_STREAM frame to the client, so it will be
+        explicitly informed that there is nothing to expect from the server
+        regarding this request/stream.
+        """
         if self._cancel_done:
             raise ProtocolError('Stream was already cancelled')
 
