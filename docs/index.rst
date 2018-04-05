@@ -7,5 +7,6 @@ User's Guide
   :maxdepth: 2
 
   overview
+  client
   server
   changelog/index

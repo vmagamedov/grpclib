@@ -1,8 +1,3 @@
-"""
-    Server
-    ~~~~~~
-
-"""
 import abc
 import socket
 import logging
