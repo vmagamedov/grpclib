@@ -29,10 +29,10 @@ class Stream(StreamIterator):
 
     .. code-block:: python
 
-        async def make_latte(self, stream: grpclib.server.Stream):
+        async def MakeLatte(self, stream: grpclib.server.Stream):
             task: cafe_pb2.LatteOrder = await stream.recv_message()
             ...
-            await stream.send_message(Empty())
+            await stream.send_message(empty_pb2.Empty())
 
     This is true for every gRPC method type.
     """
@@ -54,11 +54,11 @@ class Stream(StreamIterator):
     async def recv_message(self):
         """Coroutine to receive incoming message from the client.
 
-        If client sends UNARY request, then you can call this method only once.
-        If client sends STREAM request, then you should call this method several
-        times, until it returns None. To simplify your code in this case,
-        :py:class:`Stream` class implements async iteration protocol, so you
-        can use it like this:
+        If client sends UNARY request, then you can call this coroutine
+        only once. If client sends STREAM request, then you should call this
+        coroutine several times, until it returns None. To simplify your code
+        in this case, :py:class:`Stream` class implements async iteration
+        protocol, so you can use it like this:
 
         .. code-block:: python
 
@@ -74,7 +74,7 @@ class Stream(StreamIterator):
         HTTP/2 has flow control mechanism, so server will acknowledge received
         DATA frames as a message only after user consumes this coroutine.
 
-        :returns: decoded protobuf message
+        :returns: protobuf message
         """
         return await recv_message(self._stream, self._recv_type)
 
@@ -87,8 +87,8 @@ class Stream(StreamIterator):
         trailers are sent during :py:meth:`send_trailing_metadata` call, which
         should be called in the end.
 
-        .. note:: This method will be called implicitly during first
-            :py:meth:`send_message` method call, if not called before
+        .. note:: This coroutine will be called implicitly during first
+            :py:meth:`send_message` coroutine call, if not called before
             explicitly.
         """
         if self._send_initial_metadata_done:
@@ -101,8 +101,8 @@ class Stream(StreamIterator):
     async def send_message(self, message, **kwargs):
         """Coroutine to send message to the client.
 
-        If server sends UNARY response, then you should call this method only
-        once. If server sends STREAM response, then you can call this method
+        If server sends UNARY response, then you should call this coroutine only
+        once. If server sends STREAM response, then you can call this coroutine
         as many times as you need.
 
         :param message: protobuf message object
@@ -133,15 +133,15 @@ class Stream(StreamIterator):
                                      status_message=None):
         """Coroutine to send trailers with trailing metadata to the client.
 
-        This method allows sending trailers-only responses, in case of some
+        This coroutine allows sending trailers-only responses, in case of some
         failure conditions during handling current request, i.e. when
         ``status is not OK``.
 
-        .. note:: This method will be called implicitly at exit from
+        .. note:: This coroutine will be called implicitly at exit from
             request handler, with appropriate status code, if not called
             explicitly during handler execution.
 
-        :param status: resulting status of this method call
+        :param status: resulting status of this coroutine call
         :param status_message: description for a status
         """
         if self._send_trailing_metadata_done:
@@ -165,7 +165,7 @@ class Stream(StreamIterator):
         self._send_trailing_metadata_done = True
 
     async def cancel(self):
-        """Coroutine to cancel current request/stream.
+        """Coroutine to cancel this request/stream.
 
         Server will send RST_STREAM frame to the client, so it will be
         explicitly informed that there is nothing to expect from the server
@@ -325,15 +325,12 @@ class Server(_GC, asyncio.AbstractServer):
 
     .. code-block:: python
 
-        import cafe_pb2
-        import cafe_grpc
-
         class CoffeeMachine(cafe_grpc.CoffeeMachineBase):
 
-            async def make_latte(self, stream):
+            async def MakeLatte(self, stream):
                 task: cafe_pb2.LatteOrder = await stream.recv_message()
                 ...
-                await stream.send_message(Empty())
+                await stream.send_message(empty_pb2.Empty())
 
         server = Server([CoffeeMachine()], loop=loop)
     """

@@ -1,10 +1,9 @@
 Client
 ======
 
-TBD
-
 Reference
 ~~~~~~~~~
 
 .. automodule:: grpclib.client
-    :members: Channel, Stream
+    :members: Channel, Stream, UnaryUnaryMethod, UnaryStreamMethod,
+        StreamUnaryMethod, StreamStreamMethod
