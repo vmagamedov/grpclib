@@ -1,0 +1,25 @@
+.wy-nav-side {
+    background: #2d3a48;
+}
+.wy-side-nav-search {
+    background: #181f27;
+}
+.wy-menu-vertical a:hover {
+    background-color: #475260;
+}
+.rst-content code {
+    border-radius: 3px;
+}
+.rst-content code.literal {
+    color: black;
+}
+.rst-content dl:not(.docutils) code {
+    font-weight: normal;
+}
+.rst-content a code.literal {
+    font-weight: normal;
+    color: #2980B9;
+}
+.rst-content a:hover code.literal {
+    color: #3091d1;
+}
