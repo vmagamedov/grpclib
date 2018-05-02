@@ -6,7 +6,7 @@ from h2.config import H2Configuration
 from h2.exceptions import StreamClosedError
 
 from .const import Status
-from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
+from .stream import ProtocolBuffersCodec
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Metadata, Request, Deadline
@@ -68,11 +68,12 @@ class Stream(StreamIterator):
     initial_metadata = None
     trailing_metadata = None
 
-    def __init__(self, channel, request, send_type, recv_type):
+    def __init__(self, channel, request, send_type, recv_type, *, codec=None):
         self._channel = channel
         self._request = request
         self._send_type = send_type
         self._recv_type = recv_type
+        self._codec = codec or ProtocolBuffersCodec
 
     def _with_deadline(self):
         if self._request.deadline is not None:
@@ -130,7 +131,7 @@ class Stream(StreamIterator):
         if end and self._end_done:
             raise ProtocolError('Stream was already ended')
 
-        await send_message(self._stream, message, self._send_type, end=end)
+        await self._codec.send_message(self._stream, message, self._send_type, end=end)
         self._send_message_count += 1
         if end:
             self._end_done = True
@@ -184,7 +185,7 @@ class Stream(StreamIterator):
                     status_message = headers_map.get('grpc-message')
                     raise GRPCError(status, status_message)
 
-            assert headers_map['content-type'] in CONTENT_TYPES, \
+            assert headers_map['content-type'] in self._codec.CONTENT_TYPES, \
                 headers_map['content-type']
 
     async def recv_message(self):
@@ -217,7 +218,7 @@ class Stream(StreamIterator):
             await self.recv_initial_metadata()
 
         async with self._with_deadline():
-            message = await recv_message(self._stream, self._recv_type)
+            message = await self._codec.recv_message(self._stream, self._recv_type)
             self._recv_message_count += 1
             return message
 
@@ -309,10 +310,11 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host='127.0.0.1', port=50051, *, loop):
+    def __init__(self, host='127.0.0.1', port=50051, *, loop, codec=ProtocolBuffersCodec):
         self._host = host
         self._port = port
         self._loop = loop
+        self._codec = codec
 
         self._config = H2Configuration(client_side=True,
                                        header_encoding='utf-8')
@@ -338,12 +340,12 @@ class Channel:
             deadline = None
 
         request = Request('POST', 'http', name, authority=self._authority,
-                          content_type=CONTENT_TYPE,
+                          content_type=self._codec.CONTENT_TYPE,
                           # TODO: specify versions
                           user_agent='grpc-python-grpclib',
                           metadata=metadata, deadline=deadline)
 
-        return Stream(self, request, request_type, reply_type)
+        return Stream(self, request, request_type, reply_type, codec=self._codec)
 
     def close(self):
         """Closes connection to the server.
