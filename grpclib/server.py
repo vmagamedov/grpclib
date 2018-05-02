@@ -9,7 +9,7 @@ import h2.exceptions
 import async_timeout
 
 from .const import Status
-from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
+from .stream import ProtocolBuffersCodec
 from .stream import StreamIterator
 from .metadata import Metadata, Deadline
 from .protocol import H2Protocol, AbstractHandler
@@ -43,11 +43,12 @@ class Stream(StreamIterator):
     _cancel_done = False
 
     def __init__(self, stream, cardinality, recv_type, send_type,
-                 *, metadata, deadline=None):
+                 *, metadata, deadline=None, codec=ProtocolBuffersCodec):
         self._stream = stream
         self._cardinality = cardinality
         self._recv_type = recv_type
         self._send_type = send_type
+        self._codec = codec
         self.metadata = metadata
         self.deadline = deadline
 
@@ -76,7 +77,7 @@ class Stream(StreamIterator):
 
         :returns: protobuf message
         """
-        return await recv_message(self._stream, self._recv_type)
+        return await self._codec.recv_message(self._stream, self._recv_type)
 
     async def send_initial_metadata(self):
         """Coroutine to send headers with initial metadata to the client.
@@ -95,7 +96,7 @@ class Stream(StreamIterator):
             raise ProtocolError('Initial metadata was already sent')
 
         await self._stream.send_headers([(':status', '200'),
-                                         ('content-type', CONTENT_TYPE)])
+                                         ('content-type', self._codec.CONTENT_TYPE)])
         self._send_initial_metadata_done = True
 
     async def send_message(self, message, **kwargs):
@@ -123,7 +124,7 @@ class Stream(StreamIterator):
                 raise ProtocolError('Server should send exactly one message '
                                     'in response')
 
-        await send_message(self._stream, message, self._send_type)
+        await self._codec.send_message(self._stream, message, self._send_type)
         self._send_message_count += 1
 
         if end:
@@ -212,7 +213,7 @@ class Stream(StreamIterator):
         return True
 
 
-async def request_handler(mapping, _stream, headers, release_stream):
+async def request_handler(mapping, _stream, headers, release_stream, codec):
     try:
         headers_map = dict(headers)
         h2_method = headers_map[':method']
@@ -226,11 +227,12 @@ async def request_handler(mapping, _stream, headers, release_stream):
 
         assert h2_method == 'POST', h2_method
         assert method is not None, h2_path
-        assert h2_content_type in CONTENT_TYPES, h2_content_type
+        assert h2_content_type in codec.CONTENT_TYPES, h2_content_type
 
         async with Stream(_stream, method.cardinality,
                           method.request_type, method.reply_type,
-                          metadata=metadata, deadline=deadline) as stream:
+                          metadata=metadata, deadline=deadline,
+                          codec=codec) as stream:
             timeout = None if deadline is None else deadline.time_remaining()
             timeout_cm = None
             try:
@@ -278,11 +280,12 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    def __init__(self, mapping, *, loop):
+    def __init__(self, mapping, *, loop, codec=None):
         self.mapping = mapping
         self.loop = loop
         self._tasks = {}
         self._cancelled = set()
+        self._codec = codec
 
     def __gc_collect__(self):
         self._tasks = {s: t for s, t in self._tasks.items()
@@ -293,7 +296,7 @@ class Handler(_GC, AbstractHandler):
     def accept(self, stream, headers, release_stream):
         self.__gc_step__()
         self._tasks[stream] = self.loop.create_task(
-            request_handler(self.mapping, stream, headers, release_stream)
+            request_handler(self.mapping, stream, headers, release_stream, self._codec)
         )
 
     def cancel(self, stream):
@@ -336,7 +339,7 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
-    def __init__(self, handlers, *, loop):
+    def __init__(self, handlers, *, loop, codec=None):
         """
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
@@ -347,6 +350,7 @@ class Server(_GC, asyncio.AbstractServer):
 
         self._mapping = mapping
         self._loop = loop
+        self._codec = codec or ProtocolBuffersCodec
         self._config = h2.config.H2Configuration(
             client_side=False,
             header_encoding='utf-8',
@@ -361,7 +365,7 @@ class Server(_GC, asyncio.AbstractServer):
 
     def _protocol_factory(self):
         self.__gc_step__()
-        handler = Handler(self._mapping, loop=self._loop)
+        handler = Handler(self._mapping, loop=self._loop, codec=self._codec)
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 
