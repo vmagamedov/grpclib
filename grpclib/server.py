@@ -215,18 +215,29 @@ class Stream(StreamIterator):
 async def request_handler(mapping, _stream, headers, release_stream):
     try:
         headers_map = dict(headers)
+
         h2_method = headers_map[':method']
-        h2_path = headers_map[':path']
+        if h2_method != 'POST':
+            await _stream.send_headers([(':status', '405')], end_stream=True)
+            return
+
         h2_content_type = headers_map['content-type']
+        if h2_content_type not in CONTENT_TYPES:
+            await _stream.send_headers([(':status', '415')], end_stream=True)
+            return
+
+        h2_path = headers_map[':path']
+        method = mapping.get(h2_path)
+        if method is None:
+            await _stream.send_headers([
+                (':status', '200'),
+                ('grpc-status', str(Status.NOT_FOUND.value)),
+                ('grpc-message', 'Method not found'),
+            ], end_stream=True)
+            return
 
         metadata = Metadata.from_headers(headers)
         deadline = Deadline.from_metadata(metadata)
-
-        method = mapping.get(h2_path)
-
-        assert h2_method == 'POST', h2_method
-        assert method is not None, h2_path
-        assert h2_content_type in CONTENT_TYPES, h2_content_type
 
         async with Stream(_stream, method.cardinality,
                           method.request_type, method.reply_type,
