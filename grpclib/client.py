@@ -276,6 +276,7 @@ class Stream(StreamIterator):
                 self._recv_trailing_metadata_done
                 or self._cancel_done
                 or not self._send_request_done
+                or self._stream._connection._transport.is_closing()
             ):
                 return
 
