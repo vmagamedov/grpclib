@@ -353,6 +353,8 @@ class EventsProcessor:
     def close(self):
         self.connection.close()
         self.handler.close()
+        for stream in self.streams.values():
+            stream.__ended__()
 
     def process(self, event):
         try:
