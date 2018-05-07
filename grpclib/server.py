@@ -231,13 +231,21 @@ async def request_handler(mapping, _stream, headers, release_stream):
         if method is None:
             await _stream.send_headers([
                 (':status', '200'),
-                ('grpc-status', str(Status.NOT_FOUND.value)),
+                ('grpc-status', str(Status.UNIMPLEMENTED.value)),
                 ('grpc-message', 'Method not found'),
             ], end_stream=True)
             return
 
         metadata = Metadata.from_headers(headers)
-        deadline = Deadline.from_metadata(metadata)
+        try:
+            deadline = Deadline.from_metadata(metadata)
+        except ValueError:
+            await _stream.send_headers([
+                (':status', '200'),
+                ('grpc-status', str(Status.UNKNOWN.value)),  # FIXME?
+                ('grpc-message', 'Invalid "grpc-timeout" value'),
+            ], end_stream=True)
+            return
 
         async with Stream(_stream, method.cardinality,
                           method.request_type, method.reply_type,
