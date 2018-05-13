@@ -23,6 +23,8 @@ class Wrapper:
     _error = None
     _task = None
 
+    cancelled = None
+
     def __enter__(self):
         if self._task is not None:
             raise RuntimeError('Concurrent call detected')
@@ -42,6 +44,7 @@ class Wrapper:
         self._error = error
         if self._task is not None:
             self._task.cancel()
+        self.cancelled = True
 
 
 class DeadlineWrapper(Wrapper):
@@ -54,7 +57,7 @@ class DeadlineWrapper(Wrapper):
 
         dw = DeadlineWrapper()
 
-        with dw.start(timeout, loop=loop):
+        with dw.start(deadline):
             await handle_request()
 
         # somewhere during request handling:
@@ -65,7 +68,12 @@ class DeadlineWrapper(Wrapper):
 
     """
     @contextmanager
-    def start(self, timeout, *, loop):
+    def start(self, deadline, *, loop=None):
+        loop = loop or asyncio.get_event_loop()
+        timeout = deadline.time_remaining()
+        if not timeout:
+            raise asyncio.TimeoutError('Deadline exceeded')
+
         def callback():
             self.cancel(asyncio.TimeoutError('Deadline exceeded'))
 

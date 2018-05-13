@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from grpclib.metadata import Deadline
 from grpclib.utils import Wrapper, DeadlineWrapper
 
 
@@ -36,10 +37,11 @@ async def test_wrapper(loop):
 
 @pytest.mark.asyncio
 async def test_deadline_wrapper(loop):
+    deadline = Deadline.from_timeout(0.001)
     deadline_wrapper = DeadlineWrapper()
     api = UserAPI(deadline_wrapper)
 
-    with deadline_wrapper.start(0.001, loop=loop):
+    with deadline_wrapper.start(deadline, loop=loop):
         await api.foo(time=0.0001)
 
         with pytest.raises(asyncio.TimeoutError) as err:

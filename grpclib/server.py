@@ -6,8 +6,8 @@ import warnings
 
 import h2.config
 import h2.exceptions
-import async_timeout
 
+from .utils import DeadlineWrapper
 from .const import Status
 from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
 from .stream import StreamIterator
@@ -254,13 +254,17 @@ async def request_handler(mapping, _stream, headers, release_stream):
         async with Stream(_stream, method.cardinality,
                           method.request_type, method.reply_type,
                           metadata=metadata, deadline=deadline) as stream:
-            timeout = None if deadline is None else deadline.time_remaining()
-            timeout_cm = None
+            deadline_wrapper = None
             try:
-                with async_timeout.timeout(timeout) as timeout_cm:
+                if deadline:
+                    deadline_wrapper = DeadlineWrapper()
+                    with deadline_wrapper.start(deadline):
+                        with deadline_wrapper:
+                            await method.func(stream)
+                else:
                     await method.func(stream)
             except asyncio.TimeoutError:
-                if timeout_cm and timeout_cm.expired:
+                if deadline_wrapper and deadline_wrapper.cancelled:
                     log.exception('Deadline exceeded')
                     raise GRPCError(Status.DEADLINE_EXCEEDED)
                 else:
