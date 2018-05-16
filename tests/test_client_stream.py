@@ -164,6 +164,16 @@ async def test_ctx_exit_with_error_and_closed_stream(stub):
 
 
 @pytest.mark.asyncio
+async def test_ctx_exit_with_error_and_closed_connection(stub):
+    with pytest.raises(ClientError):
+        async with stub.stream:
+            await stub.stream.send_request()
+            stub.server.connection.close_connection()
+            stub.server.flush()
+            raise ClientError()
+
+
+@pytest.mark.asyncio
 async def test_outbound_streams_limit(stub, loop):
     stub.server.connection.update_settings({
         SettingCodes.MAX_CONCURRENT_STREAMS: 1,

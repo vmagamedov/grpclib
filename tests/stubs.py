@@ -1,5 +1,7 @@
 import asyncio
 
+from h2.connection import ConnectionState
+
 from grpclib.protocol import AbstractHandler
 
 
@@ -32,6 +34,12 @@ class TransportStub(asyncio.Transport):
             raise exc
         else:
             self._events.extend(self._connection.receive_data(data))
+
+    def is_closing(self):
+        return self._connection.state_machine.state is ConnectionState.CLOSED
+
+    def close(self):
+        pass
 
 
 class DummyHandler(AbstractHandler):
