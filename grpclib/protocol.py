@@ -354,7 +354,7 @@ class EventsProcessor:
         self.connection.close()
         self.handler.close()
         for stream in self.streams.values():
-            stream.__ended__()
+            stream.__ended__()  # FIXME: abort all waiting coroutines instead
 
     def process(self, event):
         try:
