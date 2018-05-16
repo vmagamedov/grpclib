@@ -33,7 +33,14 @@ class WriteError(Exception):
     pass
 
 
+class H2TransportStub:
+
+    def is_closing(self):
+        return False
+
+
 class H2StreamStub:
+    _transport = H2TransportStub()
 
     def __init__(self, *, loop):
         self.__headers__ = Queue(loop=loop)
