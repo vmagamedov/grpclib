@@ -181,7 +181,11 @@ class Stream(StreamIterator):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._send_trailing_metadata_done or self._cancel_done:
+        if (
+            self._send_trailing_metadata_done
+            or self._cancel_done
+            or self._stream._transport.is_closing()
+        ):
             # to suppress exception propagation
             return True
 
