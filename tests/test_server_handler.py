@@ -1,7 +1,11 @@
+import asyncio
+
 import pytest
 
+from grpclib.const import Handler, Cardinality
 from grpclib.server import request_handler
 
+from bombed_pb2 import SavoysRequest, SavoysReply
 from test_server_stream import H2StreamStub, SendHeaders
 
 
@@ -66,5 +70,36 @@ async def test_invalid_grpc_timeout(loop):
             (':status', '200'),
             ('grpc-status', '2'),  # UNKNOWN
             ('grpc-message', 'Invalid "grpc-timeout" value'),
+        ], end_stream=True),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_deadline(loop):
+    stream = H2StreamStub(loop=loop)
+    headers = [
+        (':method', 'POST'),
+        (':path', '/package.Service/Method'),
+        ('content-type', 'application/grpc'),
+        ('grpc-timeout', '10m'),
+    ]
+
+    async def _method(stream_):
+        await asyncio.sleep(1)
+
+    methods = {'/package.Service/Method': Handler(
+        _method,
+        Cardinality.UNARY_UNARY,
+        SavoysRequest,
+        SavoysReply,
+    )}
+    task = loop.create_task(
+        request_handler(methods, stream, headers, release_stream)
+    )
+    await asyncio.wait_for(task, 0.1, loop=loop)
+    assert stream.__events__ == [
+        SendHeaders(headers=[
+            (':status', '200'),
+            ('grpc-status', '4'),  # DEADLINE_EXCEEDED
         ], end_stream=True),
     ]

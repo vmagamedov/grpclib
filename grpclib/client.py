@@ -3,7 +3,6 @@ import asyncio
 import async_timeout
 
 from h2.config import H2Configuration
-from h2.exceptions import StreamClosedError
 
 from .const import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
@@ -95,14 +94,15 @@ class Stream(StreamIterator):
         if self._send_request_done:
             raise ProtocolError('Request is already sent')
 
-        protocol = await self._channel.__connect__()
-        stream = protocol.processor.connection.create_stream()
-        release_stream = await stream.send_request(
-            self._request.to_headers(), _processor=protocol.processor,
-        )
-        self._stream = stream
-        self._release_stream = release_stream
-        self._send_request_done = True
+        async with self._with_deadline():
+            protocol = await self._channel.__connect__()
+            stream = protocol.processor.connection.create_stream()
+            release_stream = await stream.send_request(
+                self._request.to_headers(), _processor=protocol.processor,
+            )
+            self._stream = stream
+            self._release_stream = release_stream
+            self._send_request_done = True
 
     async def send_message(self, message, *, end=False):
         """Coroutine to send message to the server.
@@ -130,10 +130,11 @@ class Stream(StreamIterator):
         if end and self._end_done:
             raise ProtocolError('Stream was already ended')
 
-        await send_message(self._stream, message, self._send_type, end=end)
-        self._send_message_count += 1
-        if end:
-            self._end_done = True
+        async with self._with_deadline():
+            await send_message(self._stream, message, self._send_type, end=end)
+            self._send_message_count += 1
+            if end:
+                self._end_done = True
 
     async def end(self):
         """Coroutine to end stream from the client-side.
@@ -261,32 +262,28 @@ class Stream(StreamIterator):
         if self._cancel_done:
             raise ProtocolError('Stream was already cancelled')
 
-        try:
+        async with self._with_deadline():
             await self._stream.reset()  # TODO: specify error code
-        except StreamClosedError:
-            pass
-        self._cancel_done = True
+            self._cancel_done = True
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self._send_request_done:
+            return
         try:
             if (
-                self._recv_trailing_metadata_done
-                or self._cancel_done
-                or not self._send_request_done
-                or self._stream._transport.is_closing()
+                not self._recv_trailing_metadata_done
+                and not self._cancel_done
+                and not self._stream._transport.is_closing()
+                and not (exc_type or exc_val or exc_tb)
             ):
-                return
-
-            if exc_type or exc_val or exc_tb:
-                await self.cancel()
-            else:
                 await self.recv_trailing_metadata()
         finally:
-            if self._release_stream is not None:
-                self._release_stream()
+            if self._stream.closable:
+                self._stream.reset_nowait()
+            self._release_stream()
 
 
 class Channel:

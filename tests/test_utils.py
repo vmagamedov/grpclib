@@ -37,7 +37,7 @@ async def test_wrapper(loop):
 
 @pytest.mark.asyncio
 async def test_deadline_wrapper(loop):
-    deadline = Deadline.from_timeout(0.001)
+    deadline = Deadline.from_timeout(0.01)
     deadline_wrapper = DeadlineWrapper()
     api = UserAPI(deadline_wrapper)
 

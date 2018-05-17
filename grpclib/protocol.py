@@ -12,7 +12,7 @@ from h2.events import ConnectionTerminated, RemoteSettingsChanged
 from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
 from h2.events import StreamReset, PriorityUpdated
 from h2.settings import SettingCodes
-from h2.connection import H2Connection
+from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError
 
 
@@ -286,14 +286,29 @@ class Stream:
         self._h2_connection.end_stream(self.id)
         self._transport.write(self._h2_connection.data_to_send())
 
+    def end_nowait(self):
+        self._h2_connection.end_stream(self.id)
+
     async def reset(self, error_code=ErrorCodes.NO_ERROR):
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
 
+    def reset_nowait(self, error_code=ErrorCodes.NO_ERROR):
+        self._h2_connection.reset_stream(self.id, error_code=error_code)
+
     def __ended__(self):
         self.__buffer__.eof()
+
+    @property
+    def closable(self):
+        if self._h2_connection.state_machine.state is ConnectionState.CLOSED:
+            return False
+        stream = self._h2_connection.streams.get(self.id)
+        if stream is None:
+            return False
+        return not stream.closed
 
 
 class AbstractHandler(ABC):
