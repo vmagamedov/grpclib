@@ -13,7 +13,7 @@ from grpclib.stream import CONTENT_TYPE
 from grpclib.client import Stream, Handler
 from grpclib.protocol import H2Protocol
 from grpclib.metadata import Request, Deadline
-from grpclib.exceptions import GRPCError
+from grpclib.exceptions import GRPCError, StreamTerminatedError
 
 from stubs import TransportStub
 from bombed_pb2 import SavoysRequest, SavoysReply
@@ -24,6 +24,10 @@ class ClientError(Exception):
 
 
 class TimeoutDetected(Exception):
+    pass
+
+
+class TerminateDetected(Exception):
     pass
 
 
@@ -239,7 +243,7 @@ async def test_outbound_streams_limit(env, loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_waiting_send_request(loop):
+async def test_deadline_during_send_request(loop):
     env = Env(loop=loop, timeout=0.01, connect_time=1)
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -254,7 +258,7 @@ async def test_deadline_waiting_send_request(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_waiting_send_message(loop):
+async def test_deadline_during_send_message(loop):
     env = Env(loop=loop, timeout=0.01)
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -273,7 +277,7 @@ async def test_deadline_waiting_send_message(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_waiting_recv_initial_metadata(loop):
+async def test_deadline_during_recv_initial_metadata(loop):
     env = Env(loop=loop, timeout=0.01)
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -291,7 +295,7 @@ async def test_deadline_waiting_recv_initial_metadata(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_waiting_recv_message(loop):
+async def test_deadline_during_recv_message(loop):
     env = Env(loop=loop, timeout=0.01)
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -318,7 +322,7 @@ async def test_deadline_waiting_recv_message(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_waiting_recv_trailing_metadata(loop):
+async def test_deadline_during_recv_trailing_metadata(loop):
     env = Env(loop=loop, timeout=0.01)
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -353,7 +357,7 @@ async def test_deadline_waiting_recv_trailing_metadata(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_waiting_cancel(loop):
+async def test_deadline_during_cancel(loop):
     env = Env(loop=loop, timeout=0.01)
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -368,3 +372,47 @@ async def test_deadline_waiting_cancel(loop):
                         raise
                     else:
                         raise TimeoutDetected()
+
+
+@pytest.mark.asyncio
+async def test_stream_reset_during_send_message(loop):
+    env = Env(loop=loop)
+    with pytest.raises(TerminateDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+            env.protocol.connection.write_ready.clear()
+            task = loop.create_task(
+                env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                                        end=True)
+            )
+            env.server.connection.reset_stream(stream_id)
+            env.server.flush()
+
+            try:
+                await asyncio.wait_for(task, timeout=1, loop=loop)
+            except StreamTerminatedError:
+                raise TerminateDetected()
+
+
+@pytest.mark.asyncio
+async def test_connection_close_during_send_message(loop):
+    env = Env(loop=loop)
+    with pytest.raises(TerminateDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            env.protocol.connection.write_ready.clear()
+            task = loop.create_task(
+                env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                                        end=True)
+            )
+            env.server.connection.close_connection()
+            env.server.flush()
+
+            try:
+                await asyncio.wait_for(task, timeout=1, loop=loop)
+            except StreamTerminatedError:
+                raise TerminateDetected()

@@ -11,3 +11,7 @@ class GRPCError(Exception):
 
 class ProtocolError(Exception):
     pass
+
+
+class StreamTerminatedError(Exception):
+    pass

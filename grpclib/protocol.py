@@ -15,6 +15,9 @@ from h2.settings import SettingCodes
 from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError
 
+from .utils import Wrapper
+from .exceptions import StreamTerminatedError
+
 
 if hasattr(socket, 'TCP_NODELAY'):
     _sock_type_mask = 0xf if hasattr(socket, 'SOCK_NONBLOCK') else 0xffffffff
@@ -168,9 +171,9 @@ class Connection:
     def resume_writing(self):
         self.write_ready.set()
 
-    def create_stream(self, stream_id=None):
-        return Stream(self, self._connection, self._transport, stream_id,
-                      loop=self._loop)
+    def create_stream(self, *, stream_id=None, wrapper=None):
+        return Stream(self, self._connection, self._transport, loop=self._loop,
+                      stream_id=stream_id, wrapper=wrapper)
 
     def flush(self):
         self._transport.write(self._connection.data_to_send())
@@ -186,12 +189,16 @@ class Stream:
     id = None
     __buffer__ = None
 
-    def __init__(self, connection: Connection, h2_connection: H2Connection,
-                 transport: Transport, stream_id: Optional[int] = None,
-                 *, loop: AbstractEventLoop) -> None:
+    def __init__(
+        self, connection: Connection, h2_connection: H2Connection,
+        transport: Transport, *, loop: AbstractEventLoop,
+        stream_id: Optional[int] = None,
+        wrapper: Optional[Wrapper] = None,
+    ) -> None:
         self._connection = connection
         self._h2_connection = h2_connection
         self._transport = transport
+        self._wrapper = wrapper
         self._loop = loop
 
         if stream_id is not None:
@@ -301,6 +308,10 @@ class Stream:
     def __ended__(self):
         self.__buffer__.eof()
 
+    def __terminated__(self, reason):
+        if self._wrapper is not None:
+            self._wrapper.cancel(StreamTerminatedError(reason))
+
     @property
     def closable(self):
         if self._h2_connection.state_machine.state is ConnectionState.CLOSED:
@@ -369,7 +380,7 @@ class EventsProcessor:
         self.connection.close()
         self.handler.close()
         for stream in self.streams.values():
-            stream.__ended__()  # FIXME: abort all waiting coroutines instead
+            stream.__terminated__('Connection was closed')
 
     def process(self, event):
         try:
@@ -380,7 +391,7 @@ class EventsProcessor:
             proc(event)
 
     def process_request_received(self, event: RequestReceived):
-        stream = self.connection.create_stream(event.stream_id)
+        stream = self.connection.create_stream(stream_id=event.stream_id)
         release_stream = self.register(stream)
         self.handler.accept(stream, event.headers, release_stream)
         # TODO: check EOF
@@ -425,6 +436,8 @@ class EventsProcessor:
     def process_stream_reset(self, event: StreamReset):
         stream = self.streams.get(event.stream_id)
         if stream is not None:
+            stream.__terminated__('Stream reset by remote party'
+                                  if event.remote_reset else 'Protocol error')
             self.handler.cancel(stream)
 
     def process_priority_updated(self, event: PriorityUpdated):

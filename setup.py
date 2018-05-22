@@ -10,7 +10,7 @@ setup(
     packages=find_packages(),
     license='BSD',
     python_requires='>=3.5',
-    install_requires=['h2', 'protobuf', 'async-timeout>=1.3.0', 'multidict'],
+    install_requires=['h2', 'protobuf', 'multidict'],
     entry_points={
         'console_scripts': [
             'protoc-gen-python_grpc=grpclib.plugin.main:main',

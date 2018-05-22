@@ -1,9 +1,6 @@
-import asyncio
-
-import async_timeout
-
 from h2.config import H2Configuration
 
+from .utils import Wrapper, DeadlineWrapper
 from .const import Status
 from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
 from .stream import StreamIterator
@@ -64,6 +61,9 @@ class Stream(StreamIterator):
     _stream = None
     _release_stream = None
 
+    _wrapper = None
+    _wrapper_ctx = None
+
     initial_metadata = None
     trailing_metadata = None
 
@@ -72,15 +72,6 @@ class Stream(StreamIterator):
         self._request = request
         self._send_type = send_type
         self._recv_type = recv_type
-
-    def _with_deadline(self):
-        if self._request.deadline is not None:
-            timeout = self._request.deadline.time_remaining()
-            if not timeout:
-                raise asyncio.TimeoutError('Deadline exceeded')
-        else:
-            timeout = None
-        return async_timeout.timeout(timeout)
 
     async def send_request(self):
         """Coroutine to send request headers with metadata to the server.
@@ -94,9 +85,10 @@ class Stream(StreamIterator):
         if self._send_request_done:
             raise ProtocolError('Request is already sent')
 
-        async with self._with_deadline():
+        with self._wrapper:
             protocol = await self._channel.__connect__()
-            stream = protocol.processor.connection.create_stream()
+            stream = protocol.processor.connection\
+                .create_stream(wrapper=self._wrapper)
             release_stream = await stream.send_request(
                 self._request.to_headers(), _processor=protocol.processor,
             )
@@ -130,7 +122,7 @@ class Stream(StreamIterator):
         if end and self._end_done:
             raise ProtocolError('Stream was already ended')
 
-        async with self._with_deadline():
+        with self._wrapper:
             await send_message(self._stream, message, self._send_type, end=end)
             self._send_message_count += 1
             if end:
@@ -169,7 +161,7 @@ class Stream(StreamIterator):
         if self._recv_initial_metadata_done:
             raise ProtocolError('Initial metadata was already received')
 
-        async with self._with_deadline():
+        with self._wrapper:
             headers = await self._stream.recv_headers()
             self._recv_initial_metadata_done = True
 
@@ -217,7 +209,7 @@ class Stream(StreamIterator):
         if not self._recv_initial_metadata_done:
             await self.recv_initial_metadata()
 
-        async with self._with_deadline():
+        with self._wrapper:
             message = await recv_message(self._stream, self._recv_type)
             self._recv_message_count += 1
             return message
@@ -239,7 +231,7 @@ class Stream(StreamIterator):
         if self._recv_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already received')
 
-        async with self._with_deadline():
+        with self._wrapper:
             headers = await self._stream.recv_headers()
             self._recv_trailing_metadata_done = True
 
@@ -262,11 +254,17 @@ class Stream(StreamIterator):
         if self._cancel_done:
             raise ProtocolError('Stream was already cancelled')
 
-        async with self._with_deadline():
+        with self._wrapper:
             await self._stream.reset()  # TODO: specify error code
             self._cancel_done = True
 
     async def __aenter__(self):
+        if self._request.deadline is None:
+            self._wrapper = Wrapper()
+        else:
+            self._wrapper = DeadlineWrapper()
+            self._wrapper_ctx = self._wrapper.start(self._request.deadline)
+            self._wrapper_ctx.__enter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -284,6 +282,8 @@ class Stream(StreamIterator):
             if self._stream.closable:
                 self._stream.reset_nowait()
             self._release_stream()
+            if self._wrapper_ctx is not None:
+                self._wrapper_ctx.__exit__(exc_type, exc_val, exc_tb)
 
 
 class Channel:
