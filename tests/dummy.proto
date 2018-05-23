@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package dummy;
+
+message DummyRequest {
+  string value = 1;
+}
+
+message DummyReply {
+  string value = 1;
+}
+
+service DummyService {
+  rpc UnaryUnary (DummyRequest) returns (DummyReply) {}
+  rpc UnaryStream (DummyRequest) returns (stream DummyReply) {}
+  rpc StreamUnary (stream DummyRequest) returns (DummyReply) {}
+  rpc StreamStream (stream DummyRequest) returns (stream DummyReply) {}
+}

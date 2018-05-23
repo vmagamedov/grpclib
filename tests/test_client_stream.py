@@ -16,7 +16,7 @@ from grpclib.metadata import Request, Deadline
 from grpclib.exceptions import GRPCError, StreamTerminatedError
 
 from stubs import TransportStub
-from bombed_pb2 import SavoysRequest, SavoysReply
+from dummy_pb2 import DummyRequest, DummyReply
 
 
 class ClientError(Exception):
@@ -39,7 +39,7 @@ def _broken_stream():
             raise IOError('Intentionally broken connection')
 
     request = Request('POST', 'http', '/foo/bar', authority='test.com')
-    return Stream(BrokenChannel(), request, SavoysRequest, SavoysReply)
+    return Stream(BrokenChannel(), request, DummyRequest, DummyReply)
 
 
 def encode_message(message):
@@ -90,7 +90,7 @@ class Env:
                                deadline=deadline)
 
         self.stream = Stream(self.channel, self.request,
-                             SavoysRequest, SavoysReply)
+                             DummyRequest, DummyReply)
         self.server = ServerStub(self.protocol)
 
 
@@ -102,8 +102,7 @@ def env_fixture(loop, ):
 @pytest.mark.asyncio
 async def test_unary_unary(env):
     async with env.stream:
-        await env.stream.send_message(SavoysRequest(kyler='bhatta'),
-                                      end=True)
+        await env.stream.send_message(DummyRequest(value='ping'), end=True)
 
         events = env.server.events()
         stream_id = events[-1].stream_id
@@ -114,7 +113,7 @@ async def test_unary_unary(env):
         )
         env.server.connection.send_data(
             stream_id,
-            encode_message(SavoysReply(benito='giselle')),
+            encode_message(DummyReply(value='pong')),
         )
         env.server.connection.send_headers(
             stream_id,
@@ -124,7 +123,7 @@ async def test_unary_unary(env):
         env.server.flush()
 
         assert await env.stream.recv_message() == \
-            SavoysReply(benito='giselle')
+            DummyReply(value='pong')
 
 
 @pytest.mark.asyncio
@@ -145,7 +144,7 @@ async def test_connection_error(broken_stream):
 async def test_method_unimplemented(env):
     with pytest.raises(GRPCError) as err:
         async with env.stream:
-            await env.stream.send_message(SavoysRequest(kyler='bhatta'),
+            await env.stream.send_message(DummyRequest(value='ping'),
                                           end=True)
 
             events = env.server.events()
@@ -158,7 +157,7 @@ async def test_method_unimplemented(env):
             )
             env.server.connection.send_data(
                 stream_id,
-                encode_message(SavoysReply(benito='giselle')),
+                encode_message(DummyReply(value='pong')),
             )
             env.server.connection.send_headers(
                 stream_id,
@@ -202,16 +201,16 @@ async def test_outbound_streams_limit(env, loop):
     request = Request('POST', 'http', '/foo/bar', authority='test.com')
 
     async def worker1():
-        s1 = Stream(env.channel, request, SavoysRequest, SavoysReply)
+        s1 = Stream(env.channel, request, DummyRequest, DummyReply)
         async with s1:
-            await s1.send_message(SavoysRequest(kyler='bhatta'), end=True)
-            assert await s1.recv_message() == SavoysReply(benito='giselle')
+            await s1.send_message(DummyRequest(value='ping'), end=True)
+            assert await s1.recv_message() == DummyReply(value='pong')
 
     async def worker2():
-        s2 = Stream(env.channel, request, SavoysRequest, SavoysReply)
+        s2 = Stream(env.channel, request, DummyRequest, DummyReply)
         async with s2:
-            await s2.send_message(SavoysRequest(kyler='bhatta'), end=True)
-            assert await s2.recv_message() == SavoysReply(benito='giselle')
+            await s2.send_message(DummyRequest(value='ping'), end=True)
+            assert await s2.recv_message() == DummyReply(value='pong')
 
     def send_response(stream_id):
         env.server.connection.send_headers(
@@ -220,7 +219,7 @@ async def test_outbound_streams_limit(env, loop):
         )
         env.server.connection.send_data(
             stream_id,
-            encode_message(SavoysReply(benito='giselle')),
+            encode_message(DummyReply(value='pong')),
         )
         env.server.connection.send_headers(
             stream_id,
@@ -267,7 +266,7 @@ async def test_deadline_during_send_message(loop):
 
                 env.protocol.connection.write_ready.clear()
                 try:
-                    await env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                    await env.stream.send_message(DummyRequest(value='ping'),
                                                   end=True)
                 except asyncio.TimeoutError:
                     if safety_timeout.expired:
@@ -282,7 +281,7 @@ async def test_deadline_during_recv_initial_metadata(loop):
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
-                await env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                await env.stream.send_message(DummyRequest(value='ping'),
                                               end=True)
 
                 try:
@@ -300,7 +299,7 @@ async def test_deadline_during_recv_message(loop):
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
-                await env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                await env.stream.send_message(DummyRequest(value='ping'),
                                               end=True)
 
                 events = env.server.events()
@@ -327,7 +326,7 @@ async def test_deadline_during_recv_trailing_metadata(loop):
     with pytest.raises(TimeoutDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
-                await env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                await env.stream.send_message(DummyRequest(value='ping'),
                                               end=True)
 
                 events = env.server.events()
@@ -342,7 +341,7 @@ async def test_deadline_during_recv_trailing_metadata(loop):
 
                 env.server.connection.send_data(
                     stream_id,
-                    encode_message(SavoysReply(benito='giselle')),
+                    encode_message(DummyReply(value='pong')),
                 )
                 env.server.flush()
                 await env.stream.recv_message()
@@ -385,7 +384,7 @@ async def test_stream_reset_during_send_message(loop):
             stream_id = events[-1].stream_id
             env.protocol.connection.write_ready.clear()
             task = loop.create_task(
-                env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                env.stream.send_message(DummyRequest(value='ping'),
                                         end=True)
             )
             env.server.connection.reset_stream(stream_id)
@@ -406,7 +405,7 @@ async def test_connection_close_during_send_message(loop):
 
             env.protocol.connection.write_ready.clear()
             task = loop.create_task(
-                env.stream.send_message(SavoysRequest(kyler='bhatta'),
+                env.stream.send_message(DummyRequest(value='ping'),
                                         end=True)
             )
             env.server.connection.close_connection()

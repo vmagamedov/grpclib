@@ -13,7 +13,7 @@ clean:
 
 proto: clean
 	cd example; python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --python_grpc_out=. helloworld/helloworld.proto
-	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. bombed.proto
+	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. dummy.proto
 
 server:
 	@PYTHONPATH=example python3 -m helloworld.server

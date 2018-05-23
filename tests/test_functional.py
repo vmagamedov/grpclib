@@ -5,38 +5,37 @@ import pytest
 from grpclib.client import Channel, _to_list
 from grpclib.server import Server
 
-from bombed_pb2 import SavoysRequest, SavoysReply
-from bombed_pb2 import UnyoungChunk, GoowyChunk
-from bombed_grpc import BombedBase, BombedStub
+from dummy_pb2 import DummyRequest, DummyReply
+from dummy_grpc import DummyServiceBase, DummyServiceStub
 
 
-class Bombed(BombedBase):
+class DummyService(DummyServiceBase):
 
     def __init__(self):
         self.log = []
 
-    async def Plaster(self, stream):
+    async def UnaryUnary(self, stream):
         request = await stream.recv_message()
         self.log.append(request)
-        await stream.send_message(SavoysReply(benito='bebops'))
+        await stream.send_message(DummyReply(value='pong'))
 
-    async def Benzine(self, stream):
+    async def UnaryStream(self, stream):
         request = await stream.recv_message()
         self.log.append(request)
         assert await stream.recv_message() is None
-        await stream.send_message(GoowyChunk(biomes='papists'))
-        await stream.send_message(GoowyChunk(biomes='tip'))
-        await stream.send_message(GoowyChunk(biomes='off'))
+        await stream.send_message(DummyReply(value='pong1'))
+        await stream.send_message(DummyReply(value='pong2'))
+        await stream.send_message(DummyReply(value='pong3'))
 
-    async def Anginal(self, stream):
+    async def StreamUnary(self, stream):
         async for request in stream:
             self.log.append(request)
-        await stream.send_message(SavoysReply(benito='anagogy'))
+        await stream.send_message(DummyReply(value='pong'))
 
-    async def Devilry(self, stream):
+    async def StreamStream(self, stream):
         async for request in stream:
             self.log.append(request)
-            await stream.send_message(GoowyChunk(biomes=request.whome))
+            await stream.send_message(DummyReply(value=request.value))
 
 
 class ClientServer:
@@ -52,14 +51,14 @@ class ClientServer:
             s.bind(('127.0.0.1', 0))
             _, port = s.getsockname()
 
-        bombed = Bombed()
+        dummy_service = DummyService()
 
-        self.server = Server([bombed], loop=self.loop)
+        self.server = Server([dummy_service], loop=self.loop)
         await self.server.start(host, port)
 
         self.channel = Channel(host=host, port=port, loop=self.loop)
-        stub = BombedStub(self.channel)
-        return bombed, stub
+        dummy_stub = DummyServiceStub(self.channel)
+        return dummy_service, dummy_stub
 
     async def __aexit__(self, *exc_info):
         self.server.close()
@@ -76,97 +75,97 @@ async def test_close_empty_channel(loop):
 @pytest.mark.asyncio
 async def test_unary_unary_simple(loop):
     async with ClientServer(loop=loop) as (handler, stub):
-        reply = await stub.Plaster(SavoysRequest(kyler='huizhou'))
-        assert reply == SavoysReply(benito='bebops')
-        assert handler.log == [SavoysRequest(kyler='huizhou')]
+        reply = await stub.UnaryUnary(DummyRequest(value='ping'))
+        assert reply == DummyReply(value='pong')
+        assert handler.log == [DummyRequest(value='ping')]
 
 
 @pytest.mark.asyncio
 async def test_unary_unary_advanced(loop):
     async with ClientServer(loop=loop) as (handler, stub):
-        async with stub.Plaster.open() as stream:
-            await stream.send_message(SavoysRequest(kyler='huizhou'))
+        async with stub.UnaryUnary.open() as stream:
+            await stream.send_message(DummyRequest(value='ping'))
             reply = await stream.recv_message()
-        assert reply == SavoysReply(benito='bebops')
-        assert handler.log == [SavoysRequest(kyler='huizhou')]
+        assert reply == DummyReply(value='pong')
+        assert handler.log == [DummyRequest(value='ping')]
 
 
 @pytest.mark.asyncio
 async def test_unary_stream_simple(loop):
     async with ClientServer(loop=loop) as (handler, stub):
-        replies = await stub.Benzine(SavoysRequest(kyler='eediot'))
-        assert handler.log == [SavoysRequest(kyler='eediot')]
-        assert replies == [GoowyChunk(biomes='papists'),
-                           GoowyChunk(biomes='tip'),
-                           GoowyChunk(biomes='off')]
+        replies = await stub.UnaryStream(DummyRequest(value='ping'))
+        assert handler.log == [DummyRequest(value='ping')]
+        assert replies == [DummyReply(value='pong1'),
+                           DummyReply(value='pong2'),
+                           DummyReply(value='pong3')]
 
 
 @pytest.mark.asyncio
 async def test_unary_stream_advanced(loop):
     async with ClientServer(loop=loop) as (handler, stub):
-        async with stub.Benzine.open() as stream:
-            await stream.send_message(SavoysRequest(kyler='eediot'), end=True)
+        async with stub.UnaryStream.open() as stream:
+            await stream.send_message(DummyRequest(value='ping'), end=True)
             replies = await _to_list(stream)
-        assert handler.log == [SavoysRequest(kyler='eediot')]
-        assert replies == [GoowyChunk(biomes='papists'),
-                           GoowyChunk(biomes='tip'),
-                           GoowyChunk(biomes='off')]
+        assert handler.log == [DummyRequest(value='ping')]
+        assert replies == [DummyReply(value='pong1'),
+                           DummyReply(value='pong2'),
+                           DummyReply(value='pong3')]
 
 
 @pytest.mark.asyncio
 async def test_stream_unary_simple(loop):
     async with ClientServer(loop=loop) as (handler, stub):
-        reply = await stub.Anginal([
-            UnyoungChunk(whome='canopy'),
-            UnyoungChunk(whome='iver'),
-            UnyoungChunk(whome='part'),
+        reply = await stub.StreamUnary([
+            DummyRequest(value='ping1'),
+            DummyRequest(value='ping2'),
+            DummyRequest(value='ping3'),
         ])
-        assert reply == SavoysReply(benito='anagogy')
-        assert handler.log == [UnyoungChunk(whome='canopy'),
-                               UnyoungChunk(whome='iver'),
-                               UnyoungChunk(whome='part')]
+        assert reply == DummyReply(value='pong')
+        assert handler.log == [DummyRequest(value='ping1'),
+                               DummyRequest(value='ping2'),
+                               DummyRequest(value='ping3')]
 
 
 @pytest.mark.asyncio
 async def test_stream_unary_advanced(loop):
     async with ClientServer(loop=loop) as (handler, stub):
-        async with stub.Anginal.open() as stream:
-            await stream.send_message(UnyoungChunk(whome='canopy'))
-            await stream.send_message(UnyoungChunk(whome='iver'))
-            await stream.send_message(UnyoungChunk(whome='part'), end=True)
+        async with stub.StreamUnary.open() as stream:
+            await stream.send_message(DummyRequest(value='ping1'))
+            await stream.send_message(DummyRequest(value='ping2'))
+            await stream.send_message(DummyRequest(value='ping3'), end=True)
             reply = await stream.recv_message()
-        assert reply == SavoysReply(benito='anagogy')
-        assert handler.log == [UnyoungChunk(whome='canopy'),
-                               UnyoungChunk(whome='iver'),
-                               UnyoungChunk(whome='part')]
+        assert reply == DummyReply(value='pong')
+        assert handler.log == [DummyRequest(value='ping1'),
+                               DummyRequest(value='ping2'),
+                               DummyRequest(value='ping3')]
 
 
 @pytest.mark.asyncio
 async def test_stream_stream_simple(loop):
     async with ClientServer(loop=loop) as (_, stub):
-        replies = await stub.Devilry([
-            UnyoungChunk(whome='guv'),
-            UnyoungChunk(whome='lactic'),
-            UnyoungChunk(whome='scrawn'),
+        replies = await stub.StreamStream([
+            DummyRequest(value='foo'),
+            DummyRequest(value='bar'),
+            DummyRequest(value='baz'),
         ])
         assert replies == [
-            GoowyChunk(biomes='guv'),
-            GoowyChunk(biomes='lactic'),
-            GoowyChunk(biomes='scrawn'),
+            DummyReply(value='foo'),
+            DummyReply(value='bar'),
+            DummyReply(value='baz'),
         ]
 
 
 @pytest.mark.asyncio
 async def test_stream_stream_advanced(loop):
     async with ClientServer(loop=loop) as (_, stub):
-        async with stub.Devilry.open() as stream:
-            await stream.send_message(UnyoungChunk(whome='guv'))
-            assert await stream.recv_message() == GoowyChunk(biomes='guv')
+        async with stub.StreamStream.open() as stream:
+            await stream.send_message(DummyRequest(value='foo'))
+            assert await stream.recv_message() == DummyReply(value='foo')
 
-            await stream.send_message(UnyoungChunk(whome='lactic'))
-            assert await stream.recv_message() == GoowyChunk(biomes='lactic')
+            await stream.send_message(DummyRequest(value='bar'))
+            assert await stream.recv_message() == DummyReply(value='bar')
 
-            await stream.send_message(UnyoungChunk(whome='scrawn'), end=True)
-            assert await stream.recv_message() == GoowyChunk(biomes='scrawn')
+            await stream.send_message(DummyRequest(value='baz'), end=True)
+            assert await stream.recv_message() == DummyReply(value='baz')
 
             assert await stream.recv_message() is None

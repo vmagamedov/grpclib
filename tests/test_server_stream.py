@@ -15,7 +15,7 @@ from grpclib.metadata import Metadata, Request
 from grpclib.exceptions import ProtocolError
 
 from stubs import TransportStub, DummyHandler
-from bombed_pb2 import SavoysRequest, SavoysReply
+from dummy_pb2 import DummyRequest, DummyReply
 from test_protocol import create_connections
 
 
@@ -75,13 +75,13 @@ def _stub(loop):
 
 @pytest.fixture(name='stream')
 def _stream(stub):
-    return Stream(stub, Cardinality.UNARY_UNARY, SavoysRequest, SavoysReply,
+    return Stream(stub, Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
                   metadata=Metadata([]))
 
 
 @pytest.fixture(name='stream_streaming')
 def _stream_streaming(stub):
-    return Stream(stub, Cardinality.UNARY_STREAM, SavoysRequest, SavoysReply,
+    return Stream(stub, Cardinality.UNARY_STREAM, DummyRequest, DummyReply,
                   metadata=Metadata([]))
 
 
@@ -118,28 +118,28 @@ async def test_send_initial_metadata_twice(stream):
 @pytest.mark.asyncio
 async def test_send_message_twice(stream):
     async with stream:
-        await stream.send_message(SavoysReply(benito='aimee'))
+        await stream.send_message(DummyReply(value='pong1'))
         with pytest.raises(ProtocolError) as err:
-            await stream.send_message(SavoysReply(benito='amaya'))
+            await stream.send_message(DummyReply(value='pong2'))
     err.match('Server should send exactly one message in response')
 
 
 @pytest.mark.asyncio
 async def test_send_message_twice_ok(stream_streaming, stub):
     async with stream_streaming:
-        await stream_streaming.send_message(SavoysReply(benito='aimee'))
-        await stream_streaming.send_message(SavoysReply(benito='amaya'))
+        await stream_streaming.send_message(DummyReply(value='pong1'))
+        await stream_streaming.send_message(DummyReply(value='pong2'))
     assert stub.__events__ == [
         SendHeaders(
             [(':status', '200'), ('content-type', CONTENT_TYPE)],
             end_stream=False,
         ),
         SendData(
-            encode_message(SavoysReply(benito='aimee')),
+            encode_message(DummyReply(value='pong1')),
             end_stream=False,
         ),
         SendData(
-            encode_message(SavoysReply(benito='amaya')),
+            encode_message(DummyReply(value='pong2')),
             end_stream=False,
         ),
         SendHeaders(
@@ -210,7 +210,7 @@ async def test_error_after_send_initial_metadata(stream, stub):
 @pytest.mark.asyncio
 async def test_error_after_send_message(stream, stub):
     async with stream:
-        await stream.send_message(SavoysReply(benito='aimee'))
+        await stream.send_message(DummyReply(value='pong'))
         raise Exception()
     assert stub.__events__ == [
         SendHeaders(
@@ -218,7 +218,7 @@ async def test_error_after_send_message(stream, stub):
             end_stream=False,
         ),
         SendData(
-            encode_message(SavoysReply(benito='aimee')),
+            encode_message(DummyReply(value='pong')),
             end_stream=False,
         ),
         SendHeaders(
@@ -232,7 +232,7 @@ async def test_error_after_send_message(stream, stub):
 @pytest.mark.asyncio
 async def test_error_after_send_trailing_metadata(stream, stub):
     async with stream:
-        await stream.send_message(SavoysReply(benito='aimee'))
+        await stream.send_message(DummyReply(value='pong'))
         await stream.send_trailing_metadata()
         raise Exception()
     assert stub.__events__ == [
@@ -241,7 +241,7 @@ async def test_error_after_send_trailing_metadata(stream, stub):
             end_stream=False,
         ),
         SendData(
-            encode_message(SavoysReply(benito='aimee')),
+            encode_message(DummyReply(value='pong')),
             end_stream=False,
         ),
         SendHeaders(
@@ -282,15 +282,15 @@ async def test_exit_and_stream_was_closed(loop):
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)
 
-    request = SavoysRequest(kyler='cloth')
-    await send_message(client_h2_stream, request, SavoysRequest, end=True)
+    request = DummyRequest(value='ping')
+    await send_message(client_h2_stream, request, DummyRequest, end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
     request_metadata = Metadata.from_headers(server_proc.handler.headers)
 
     async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
-                      SavoysRequest, SavoysReply,
+                      DummyRequest, DummyReply,
                       metadata=request_metadata) as server_stream:
         await server_stream.recv_message()
 
@@ -317,15 +317,15 @@ async def test_exit_and_connection_was_closed(loop):
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)
 
-    request = SavoysRequest(kyler='cloth')
-    await send_message(client_h2_stream, request, SavoysRequest, end=True)
+    request = DummyRequest(value='ping')
+    await send_message(client_h2_stream, request, DummyRequest, end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
     request_metadata = Metadata.from_headers(server_proc.handler.headers)
 
     async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
-                      SavoysRequest, SavoysReply,
+                      DummyRequest, DummyReply,
                       metadata=request_metadata) as server_stream:
         await server_stream.recv_message()
         client_h2c.close_connection()
@@ -352,8 +352,8 @@ async def test_exit_and_connection_was_broken(loop):
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)
 
-    request = SavoysRequest(kyler='cloth')
-    await send_message(client_h2_stream, request, SavoysRequest, end=True)
+    request = DummyRequest(value='ping')
+    await send_message(client_h2_stream, request, DummyRequest, end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
@@ -361,7 +361,7 @@ async def test_exit_and_connection_was_broken(loop):
 
     with pytest.raises(WriteError):
         async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
-                          SavoysRequest, SavoysReply,
+                          DummyRequest, DummyReply,
                           metadata=request_metadata) as server_stream:
             await server_stream.recv_message()
 

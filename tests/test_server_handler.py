@@ -5,7 +5,7 @@ import pytest
 from grpclib.const import Handler, Cardinality
 from grpclib.server import request_handler
 
-from bombed_pb2 import SavoysRequest, SavoysReply
+from dummy_pb2 import DummyRequest, DummyReply
 from test_server_stream import H2StreamStub, SendHeaders
 
 
@@ -90,8 +90,8 @@ async def test_deadline(loop):
     methods = {'/package.Service/Method': Handler(
         _method,
         Cardinality.UNARY_UNARY,
-        SavoysRequest,
-        SavoysReply,
+        DummyRequest,
+        DummyReply,
     )}
     task = loop.create_task(
         request_handler(methods, stream, headers, release_stream)
