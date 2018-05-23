@@ -13,7 +13,7 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 class Greeter(helloworld_pb2_grpc.GreeterServicer):
 
-    def SayHello(self, request, context):
+    def UnaryUnaryGreeting(self, request, context):
         return helloworld_pb2.HelloReply(message='Hello, %s!' % request.name)
 
 
