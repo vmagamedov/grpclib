@@ -4,6 +4,7 @@ import asyncio
 import pytest
 import async_timeout
 
+from faker import Faker
 from h2.config import H2Configuration
 from h2.settings import SettingCodes
 from h2.connection import H2Connection
@@ -19,15 +20,14 @@ from stubs import TransportStub
 from dummy_pb2 import DummyRequest, DummyReply
 
 
+fake = Faker()
+
+
 class ClientError(Exception):
     pass
 
 
-class TimeoutDetected(Exception):
-    pass
-
-
-class TerminateDetected(Exception):
+class ErrorDetected(Exception):
     pass
 
 
@@ -141,36 +141,6 @@ async def test_connection_error(broken_stream):
 
 
 @pytest.mark.asyncio
-async def test_method_unimplemented(env):
-    with pytest.raises(GRPCError) as err:
-        async with env.stream:
-            await env.stream.send_message(DummyRequest(value='ping'),
-                                          end=True)
-
-            events = env.server.events()
-            stream_id = events[-1].stream_id
-
-            env.server.connection.send_headers(
-                stream_id,
-                [(':status', '200'),
-                 ('grpc-status', str(Status.UNIMPLEMENTED.value))],
-            )
-            env.server.connection.send_data(
-                stream_id,
-                encode_message(DummyReply(value='pong')),
-            )
-            env.server.connection.send_headers(
-                stream_id,
-                [('grpc-status', str(Status.OK.value))],
-                end_stream=True,
-            )
-            env.server.flush()
-
-            assert await env.stream.recv_message()
-    err.match('UNIMPLEMENTED')
-
-
-@pytest.mark.asyncio
 async def test_ctx_exit_with_error_and_closed_stream(env):
     with pytest.raises(ClientError):
         async with env.stream:
@@ -244,7 +214,7 @@ async def test_outbound_streams_limit(env, loop):
 @pytest.mark.asyncio
 async def test_deadline_during_send_request(loop):
     env = Env(loop=loop, timeout=0.01, connect_time=1)
-    with pytest.raises(TimeoutDetected):
+    with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
                 try:
@@ -253,13 +223,13 @@ async def test_deadline_during_send_request(loop):
                     if safety_timeout.expired:
                         raise
                     else:
-                        raise TimeoutDetected()
+                        raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_deadline_during_send_message(loop):
     env = Env(loop=loop, timeout=0.01)
-    with pytest.raises(TimeoutDetected):
+    with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
                 await env.stream.send_request()
@@ -272,13 +242,13 @@ async def test_deadline_during_send_message(loop):
                     if safety_timeout.expired:
                         raise
                     else:
-                        raise TimeoutDetected()
+                        raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_deadline_during_recv_initial_metadata(loop):
     env = Env(loop=loop, timeout=0.01)
-    with pytest.raises(TimeoutDetected):
+    with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
                 await env.stream.send_message(DummyRequest(value='ping'),
@@ -290,13 +260,13 @@ async def test_deadline_during_recv_initial_metadata(loop):
                     if safety_timeout.expired:
                         raise
                     else:
-                        raise TimeoutDetected()
+                        raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_deadline_during_recv_message(loop):
     env = Env(loop=loop, timeout=0.01)
-    with pytest.raises(TimeoutDetected):
+    with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
                 await env.stream.send_message(DummyRequest(value='ping'),
@@ -317,13 +287,13 @@ async def test_deadline_during_recv_message(loop):
                     if safety_timeout.expired:
                         raise
                     else:
-                        raise TimeoutDetected()
+                        raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_deadline_during_recv_trailing_metadata(loop):
     env = Env(loop=loop, timeout=0.01)
-    with pytest.raises(TimeoutDetected):
+    with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
                 await env.stream.send_message(DummyRequest(value='ping'),
@@ -352,13 +322,13 @@ async def test_deadline_during_recv_trailing_metadata(loop):
                     if safety_timeout.expired:
                         raise
                     else:
-                        raise TimeoutDetected()
+                        raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_deadline_during_cancel(loop):
     env = Env(loop=loop, timeout=0.01)
-    with pytest.raises(TimeoutDetected):
+    with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
             async with env.stream:
                 await env.stream.send_request()
@@ -370,13 +340,13 @@ async def test_deadline_during_cancel(loop):
                     if safety_timeout.expired:
                         raise
                     else:
-                        raise TimeoutDetected()
+                        raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_stream_reset_during_send_message(loop):
     env = Env(loop=loop)
-    with pytest.raises(TerminateDetected):
+    with pytest.raises(ErrorDetected):
         async with env.stream:
             await env.stream.send_request()
 
@@ -393,13 +363,13 @@ async def test_stream_reset_during_send_message(loop):
             try:
                 await asyncio.wait_for(task, timeout=1, loop=loop)
             except StreamTerminatedError:
-                raise TerminateDetected()
+                raise ErrorDetected()
 
 
 @pytest.mark.asyncio
 async def test_connection_close_during_send_message(loop):
     env = Env(loop=loop)
-    with pytest.raises(TerminateDetected):
+    with pytest.raises(ErrorDetected):
         async with env.stream:
             await env.stream.send_request()
 
@@ -414,4 +384,299 @@ async def test_connection_close_during_send_message(loop):
             try:
                 await asyncio.wait_for(task, timeout=1, loop=loop)
             except StreamTerminatedError:
-                raise TerminateDetected()
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+async def test_unimplemented_error(loop):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('grpc-status', str(Status.UNIMPLEMENTED.value)),
+            ], end_stream=True)
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc and exc.status == Status.UNIMPLEMENTED
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+async def test_unimplemented_error_with_stream_reset(loop):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('grpc-status', str(Status.UNIMPLEMENTED.value)),
+            ], end_stream=True)
+            env.server.connection.reset_stream(stream_id)
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc and exc.status == Status.UNIMPLEMENTED
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status, grpc_status', [
+    ('401', Status.UNAUTHENTICATED),
+    ('404', Status.UNIMPLEMENTED),
+    ('429', Status.UNAVAILABLE),
+    ('508', Status.UNKNOWN),
+])
+async def test_non_ok_status(loop, status, grpc_status):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', status),
+            ], end_stream=True)
+            env.server.connection.reset_stream(stream_id)
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == grpc_status
+                assert exc.message == 'Received :status = {!r}'.format(status)
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+async def test_missing_grpc_status(loop):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('content-type', CONTENT_TYPE),
+            ])
+            env.server.connection.send_data(
+                stream_id,
+                encode_message(DummyReply(value='pong')),
+            )
+            env.server.connection.send_headers(stream_id, [
+                ('foo', 'bar'),
+            ], end_stream=True)
+            env.server.flush()
+
+            await env.stream.recv_initial_metadata()
+            await env.stream.recv_message()
+            try:
+                await env.stream.recv_trailing_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.UNKNOWN
+                assert exc.message == 'Missing grpc-status header'
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grpc_status', ['invalid_number', '-42'])
+async def test_invalid_grpc_status_in_headers(loop, grpc_status):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('grpc-status', grpc_status),
+            ], end_stream=True)
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.UNKNOWN
+                assert exc.message == ('Invalid grpc-status: {!r}'
+                                       .format(grpc_status))
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grpc_status', ['invalid_number', '-42'])
+async def test_invalid_grpc_status_in_trailers(loop, grpc_status):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('content-type', CONTENT_TYPE),
+            ])
+            env.server.connection.send_data(
+                stream_id,
+                encode_message(DummyReply(value='pong')),
+            )
+            env.server.connection.send_headers(stream_id, [
+                ('grpc-status', grpc_status),
+            ], end_stream=True)
+            env.server.flush()
+
+            await env.stream.recv_initial_metadata()
+            await env.stream.recv_message()
+            try:
+                await env.stream.recv_trailing_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.UNKNOWN
+                assert exc.message == ('Invalid grpc-status: {!r}'
+                                       .format(grpc_status))
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grpc_message', [None, fake.pystr()])
+async def test_non_ok_grpc_status_in_headers(loop, grpc_message):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            headers = [
+                (':status', '200'),
+                ('grpc-status', str(Status.DATA_LOSS.value)),
+            ]
+            if grpc_message is not None:
+                headers.append(('grpc-message', grpc_message))
+            env.server.connection.send_headers(stream_id, headers,
+                                               end_stream=True)
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.DATA_LOSS
+                assert exc.message == grpc_message
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grpc_message', [None, fake.pystr()])
+async def test_non_ok_grpc_status_in_trailers(loop, grpc_message):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('content-type', CONTENT_TYPE),
+            ])
+            env.server.connection.send_data(
+                stream_id,
+                encode_message(DummyReply(value='pong')),
+            )
+            headers = [
+                ('grpc-status', str(Status.DATA_LOSS.value)),
+            ]
+            if grpc_message is not None:
+                headers.append(('grpc-message', grpc_message))
+            env.server.connection.send_headers(stream_id, headers,
+                                               end_stream=True)
+            env.server.flush()
+
+            await env.stream.recv_initial_metadata()
+            await env.stream.recv_message()
+            try:
+                await env.stream.recv_trailing_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.DATA_LOSS
+                assert exc.message == grpc_message
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+async def test_missing_content_type(loop):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('grpc-status', str(Status.OK.value)),
+            ])
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.UNKNOWN
+                assert exc.message == "Missing content-type header"
+                raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+async def test_invalid_content_type(loop):
+    env = Env(loop=loop)
+    with pytest.raises(ErrorDetected):
+        async with env.stream:
+            await env.stream.send_request()
+
+            events = env.server.events()
+            stream_id = events[-1].stream_id
+
+            env.server.connection.send_headers(stream_id, [
+                (':status', '200'),
+                ('grpc-status', str(Status.OK.value)),
+                ('content-type', 'text/invalid'),
+            ])
+            env.server.flush()
+
+            try:
+                await env.stream.recv_initial_metadata()
+            except GRPCError as exc:
+                assert exc
+                assert exc.status == Status.UNKNOWN
+                assert exc.message == "Invalid content-type: 'text/invalid'"
+                raise ErrorDetected()

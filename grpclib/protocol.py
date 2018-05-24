@@ -3,7 +3,8 @@ import socket
 from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict  # noqa
-from asyncio import Transport, Protocol, Event, Queue, AbstractEventLoop
+from asyncio import Transport, Protocol, Event, AbstractEventLoop
+from asyncio import Queue, QueueEmpty
 
 from h2.errors import ErrorCodes
 from h2.config import H2Configuration
@@ -212,6 +213,12 @@ class Stream:
 
     async def recv_headers(self):
         return await self.__headers__.get()
+
+    def recv_headers_nowait(self):
+        try:
+            return self.__headers__.get_nowait()
+        except QueueEmpty:
+            return None
 
     async def recv_data(self, size):
         return await self.__buffer__.read(size)

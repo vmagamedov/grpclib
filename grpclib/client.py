@@ -1,3 +1,5 @@
+import http
+
 from h2.config import H2Configuration
 
 from .utils import Wrapper, DeadlineWrapper
@@ -6,7 +8,30 @@ from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Metadata, Request, Deadline
-from .exceptions import GRPCError, ProtocolError
+from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
+
+
+_H2_OK = '200'
+
+# https://github.com/grpc/grpc/blob/master/doc/http-grpc-status-mapping.md
+_H2_TO_GRPC_STATUS_MAP = {
+    # 400
+    str(http.HTTPStatus.BAD_REQUEST.value): Status.INTERNAL,
+    # 401
+    str(http.HTTPStatus.UNAUTHORIZED.value): Status.UNAUTHENTICATED,
+    # 403
+    str(http.HTTPStatus.FORBIDDEN.value): Status.PERMISSION_DENIED,
+    # 404
+    str(http.HTTPStatus.NOT_FOUND.value): Status.UNIMPLEMENTED,
+    # 502
+    str(http.HTTPStatus.BAD_GATEWAY.value): Status.UNAVAILABLE,
+    # 503
+    str(http.HTTPStatus.SERVICE_UNAVAILABLE.value): Status.UNAVAILABLE,
+    # 504
+    str(http.HTTPStatus.GATEWAY_TIMEOUT.value): Status.UNAVAILABLE,
+    # 429
+    str(http.HTTPStatus.TOO_MANY_REQUESTS.value): Status.UNAVAILABLE,
+}
 
 
 async def _to_list(stream):
@@ -144,6 +169,32 @@ class Stream(StreamIterator):
         await self._stream.end()
         self._end_done = True
 
+    def _raise_for_status(self, headers_map):
+        status = headers_map[':status']
+        if status is not None and status != _H2_OK:
+            grpc_status = _H2_TO_GRPC_STATUS_MAP.get(status, Status.UNKNOWN)
+            raise GRPCError(grpc_status,
+                            'Received :status = {!r}'.format(status))
+
+    def _raise_for_grpc_status(self, headers_map, *, optional=False):
+        grpc_status = headers_map.get('grpc-status')
+        if grpc_status is None:
+            if optional:
+                return
+            else:
+                raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
+
+        try:
+            grpc_status_enum = Status(int(grpc_status))
+        except ValueError:
+            raise GRPCError(Status.UNKNOWN,
+                            'Invalid grpc-status: {!r}'
+                            .format(grpc_status))
+        else:
+            if grpc_status_enum is not Status.OK:
+                status_message = headers_map.get('grpc-message')
+                raise GRPCError(grpc_status_enum, status_message)
+
     async def recv_initial_metadata(self):
         """Coroutine to wait for headers with initial metadata from the server.
 
@@ -161,24 +212,39 @@ class Stream(StreamIterator):
         if self._recv_initial_metadata_done:
             raise ProtocolError('Initial metadata was already received')
 
-        with self._wrapper:
-            headers = await self._stream.recv_headers()
-            self._recv_initial_metadata_done = True
+        try:
+            with self._wrapper:
+                headers = await self._stream.recv_headers()
+                self._recv_initial_metadata_done = True
 
-            self.initial_metadata = Metadata.from_headers(headers)
+                self.initial_metadata = Metadata.from_headers(headers)
 
-            headers_map = dict(headers)
-            assert headers_map[':status'] == '200', headers_map[':status']
+                headers_map = dict(headers)
+                self._raise_for_status(headers_map)
+                self._raise_for_grpc_status(headers_map, optional=True)
 
-            status_code = headers_map.get('grpc-status')
-            if status_code is not None:
-                status = Status(int(status_code))
-                if status is not Status.OK:
-                    status_message = headers_map.get('grpc-message')
-                    raise GRPCError(status, status_message)
-
-            assert headers_map['content-type'] in CONTENT_TYPES, \
-                headers_map['content-type']
+                content_type = headers_map.get('content-type')
+                if content_type is None:
+                    raise GRPCError(Status.UNKNOWN,
+                                    'Missing content-type header')
+                elif content_type not in CONTENT_TYPES:
+                    raise GRPCError(Status.UNKNOWN,
+                                    'Invalid content-type: {!r}'
+                                    .format(content_type))
+        except StreamTerminatedError:
+            # Server can send RST_STREAM frame right after sending trailers-only
+            # response, so we have to check received headers and probably raise
+            # more descriptive error
+            headers = self._stream.recv_headers_nowait()
+            if headers is None:
+                raise
+            else:
+                headers_map = dict(headers)
+                self._raise_for_status(headers_map)
+                self._raise_for_grpc_status(headers_map, optional=True)
+                # If there are no errors in the headers, just reraise original
+                # StreamTerminatedError
+                raise
 
     async def recv_message(self):
         """Coroutine to receive incoming message from the server.
@@ -237,12 +303,7 @@ class Stream(StreamIterator):
 
             self.trailing_metadata = Metadata.from_headers(headers)
 
-            headers_map = dict(headers)
-            status_code = headers_map['grpc-status']
-            status_message = headers_map.get('grpc-message')
-            status = Status(int(status_code))
-            if status is not Status.OK:
-                raise GRPCError(status, status_message)
+            self._raise_for_grpc_status(dict(headers))
 
     async def cancel(self):
         """Coroutine to cancel this request/stream.
