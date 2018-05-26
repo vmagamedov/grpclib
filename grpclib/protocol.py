@@ -194,7 +194,7 @@ class Stream:
         self, connection: Connection, h2_connection: H2Connection,
         transport: Transport, *, loop: AbstractEventLoop,
         stream_id: Optional[int] = None,
-        wrapper: Optional[Wrapper] = None,
+        wrapper: Optional[Wrapper] = None
     ) -> None:
         self._connection = connection
         self._h2_connection = h2_connection
