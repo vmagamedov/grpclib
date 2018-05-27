@@ -300,9 +300,6 @@ class Stream:
         self._h2_connection.end_stream(self.id)
         self._transport.write(self._h2_connection.data_to_send())
 
-    def end_nowait(self):
-        self._h2_connection.end_stream(self.id)
-
     async def reset(self, error_code=ErrorCodes.NO_ERROR):
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
@@ -311,6 +308,8 @@ class Stream:
 
     def reset_nowait(self, error_code=ErrorCodes.NO_ERROR):
         self._h2_connection.reset_stream(self.id, error_code=error_code)
+        if self._connection.write_ready.is_set():
+            self._transport.write(self._h2_connection.data_to_send())
 
     def __ended__(self):
         self.__buffer__.eof()
