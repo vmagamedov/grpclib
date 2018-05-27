@@ -164,6 +164,9 @@ class Stream(StreamIterator):
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True
 
+        if status != Status.OK:
+            self._stream.reset_nowait()
+
     async def cancel(self):
         """Coroutine to cancel this request/stream.
 
@@ -222,12 +225,28 @@ async def request_handler(mapping, _stream, headers, release_stream):
 
         h2_method = headers_map[':method']
         if h2_method != 'POST':
-            await _stream.send_headers([(':status', '405')], end_stream=True)
+            await _stream.send_headers([
+                (':status', '405'),
+            ], end_stream=True)
+            _stream.reset_nowait()
             return
 
-        h2_content_type = headers_map['content-type']
-        if h2_content_type not in CONTENT_TYPES:
-            await _stream.send_headers([(':status', '415')], end_stream=True)
+        h2_content_type = headers_map.get('content-type')
+        if h2_content_type is None:
+            await _stream.send_headers([
+                (':status', '415'),
+                ('grpc-status', str(Status.UNKNOWN.value)),
+                ('grpc-message', 'Missing content-type header'),
+            ], end_stream=True)
+            _stream.reset_nowait()
+            return
+        elif h2_content_type not in CONTENT_TYPES:
+            await _stream.send_headers([
+                (':status', '415'),
+                ('grpc-status', str(Status.UNKNOWN.value)),
+                ('grpc-message', 'Unacceptable content-type header'),
+            ], end_stream=True)
+            _stream.reset_nowait()
             return
 
         h2_path = headers_map[':path']
@@ -238,6 +257,7 @@ async def request_handler(mapping, _stream, headers, release_stream):
                 ('grpc-status', str(Status.UNIMPLEMENTED.value)),
                 ('grpc-message', 'Method not found'),
             ], end_stream=True)
+            _stream.reset_nowait()
             return
 
         metadata = Metadata.from_headers(headers)
@@ -246,9 +266,10 @@ async def request_handler(mapping, _stream, headers, release_stream):
         except ValueError:
             await _stream.send_headers([
                 (':status', '200'),
-                ('grpc-status', str(Status.UNKNOWN.value)),  # FIXME?
-                ('grpc-message', 'Invalid "grpc-timeout" value'),
+                ('grpc-status', str(Status.UNKNOWN.value)),
+                ('grpc-message', 'Invalid grpc-timeout header'),
             ], end_stream=True)
+            _stream.reset_nowait()
             return
 
         async with Stream(_stream, method.cardinality,

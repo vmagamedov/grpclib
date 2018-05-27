@@ -67,6 +67,9 @@ class H2StreamStub:
     async def reset(self, error_code=ErrorCodes.NO_ERROR):
         self.__events__.append(Reset(error_code))
 
+    def reset_nowait(self, error_code=ErrorCodes.NO_ERROR):
+        self.__events__.append(Reset(error_code))
+
 
 @pytest.fixture(name='stub')
 def _stub(loop):
@@ -103,6 +106,7 @@ async def test_no_response(stream, stub):
              ('grpc-message', 'Empty response')],
             end_stream=True,
         ),
+        Reset(ErrorCodes.NO_ERROR),
     ]
 
 
@@ -186,6 +190,7 @@ async def test_error_before_send_initial_metadata(stream, stub):
              ('grpc-message', 'Internal Server Error')],
             end_stream=True,
         ),
+        Reset(ErrorCodes.NO_ERROR),
     ]
 
 
@@ -204,6 +209,7 @@ async def test_error_after_send_initial_metadata(stream, stub):
              ('grpc-message', 'Internal Server Error')],
             end_stream=True,
         ),
+        Reset(ErrorCodes.NO_ERROR),
     ]
 
 
@@ -226,6 +232,7 @@ async def test_error_after_send_message(stream, stub):
              ('grpc-message', 'Internal Server Error')],
             end_stream=True,
         ),
+        Reset(ErrorCodes.NO_ERROR),
     ]
 
 
@@ -261,6 +268,7 @@ async def test_grpc_error(stream, stub):
              ('grpc-status', str(Status.DEADLINE_EXCEEDED.value))],
             end_stream=True,
         ),
+        Reset(ErrorCodes.NO_ERROR),
     ]
 
 
