@@ -4,6 +4,8 @@ Changelog
 0.1.1
 ~~~~~
 
+  - Fixed critical issue on the client-side with hanging coroutines in case of
+    connection lost or stream reset
   - Replaced ``async-timeout`` dependency with custom utilities, refactored
     deadlines implementation
   - Improved connection lost handling; pull request courtesy Michael
