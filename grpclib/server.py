@@ -165,7 +165,13 @@ class Stream(StreamIterator):
         self._send_trailing_metadata_done = True
 
         if status != Status.OK:
-            self._stream.reset_nowait()
+            # If a stream was already closed on the client-side, there is
+            # no need to reset it, that's why we are catching StreamClosedError
+            # here for such cases
+            try:
+                self._stream.reset_nowait()
+            except h2.exceptions.StreamClosedError:
+                pass
 
     async def cancel(self):
         """Coroutine to cancel this request/stream.
