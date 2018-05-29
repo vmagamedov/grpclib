@@ -2,7 +2,8 @@ __default__:
 	@echo "Please specify a target to make"
 
 release:
-	@./scripts/release_check.sh
+	./scripts/release_check.sh
+	rm -rf grpclib.egg-info
 	python setup.py sdist
 
 clean:
