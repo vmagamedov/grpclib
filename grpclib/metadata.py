@@ -90,7 +90,7 @@ class Request(namedtuple('Request', [
     __slots__ = tuple()
 
     def __new__(cls, method, scheme, path, *, authority,
-                content_type=None, message_type=None, message_encoding=None,
+                content_type, message_type=None, message_encoding=None,
                 message_accept_encoding=None, user_agent=None,
                 metadata=None, deadline=None):
         return super().__new__(cls, method, scheme, path, authority,
@@ -111,9 +111,7 @@ class Request(namedtuple('Request', [
             result.append(('grpc-timeout', encode_timeout(timeout)))
 
         result.append(('te', 'trailers'))
-
-        if self.content_type is not None:
-            result.append(('content-type', self.content_type))
+        result.append(('content-type', self.content_type))
 
         if self.message_type is not None:
             result.append(('grpc-message-type', self.message_type))

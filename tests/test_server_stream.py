@@ -290,7 +290,9 @@ async def test_exit_and_stream_was_closed(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/', authority='test.com')
+    request = Request('POST', 'http', '/',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)
@@ -326,7 +328,9 @@ async def test_exit_and_connection_was_closed(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/', authority='test.com')
+    request = Request('POST', 'http', '/',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)
@@ -362,7 +366,9 @@ async def test_exit_and_connection_was_broken(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/', authority='test.com')
+    request = Request('POST', 'http', '/',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)
@@ -398,7 +404,9 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/', authority='test.com')
+    request = Request('POST', 'http', '/',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(request.to_headers(),
                                         _processor=client_proc)

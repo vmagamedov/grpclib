@@ -38,7 +38,9 @@ def _broken_stream():
         def __connect__(self):
             raise IOError('Intentionally broken connection')
 
-    request = Request('POST', 'http', '/foo/bar', authority='test.com')
+    request = Request('POST', 'http', '/foo/bar',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
     return Stream(BrokenChannel(), request, ProtoCodec(),
                   DummyRequest, DummyReply)
 
@@ -87,7 +89,9 @@ class Env:
         self.channel = ChannelStub(self.protocol, connect_time=connect_time)
 
         deadline = timeout and Deadline.from_timeout(timeout)
-        self.request = Request('POST', 'http', '/foo/bar', authority='test.com',
+        self.request = Request('POST', 'http', '/foo/bar',
+                               content_type='application/grpc+proto',
+                               authority='test.com',
                                deadline=deadline)
 
         self.stream = Stream(self.channel, self.request, ProtoCodec(),
@@ -170,7 +174,9 @@ async def test_outbound_streams_limit(env, loop):
     })
     env.server.flush()
 
-    request = Request('POST', 'http', '/foo/bar', authority='test.com')
+    request = Request('POST', 'http', '/foo/bar',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
 
     async def worker1():
         s1 = Stream(env.channel, request, ProtoCodec(),
