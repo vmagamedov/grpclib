@@ -6,6 +6,7 @@ from h2.errors import ErrorCodes
 
 from grpclib.const import Handler, Cardinality
 from grpclib.server import request_handler
+from grpclib.encoding.proto import ProtoCodec
 
 from dummy_pb2 import DummyRequest, DummyReply
 from test_server_stream import H2StreamStub, SendHeaders, Reset
@@ -19,7 +20,7 @@ def release_stream():
 async def test_invalid_method(loop):
     stream = H2StreamStub(loop=loop)
     headers = [(':method', 'GET')]
-    await request_handler({}, stream, headers, release_stream)
+    await request_handler({}, stream, headers, ProtoCodec(), release_stream)
     assert stream.__events__ == [
         SendHeaders(headers=[(':status', '405')], end_stream=True),
         Reset(ErrorCodes.NO_ERROR),
@@ -32,7 +33,7 @@ async def test_missing_content_type(loop):
     headers = [
         (':method', 'POST'),
     ]
-    await request_handler({}, stream, headers, release_stream)
+    await request_handler({}, stream, headers, ProtoCodec(), release_stream)
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '415'),
@@ -44,13 +45,15 @@ async def test_missing_content_type(loop):
 
 
 @pytest.mark.asyncio
-async def test_invalid_content_type(loop):
+@pytest.mark.parametrize('content_type',
+                         ['text/invalid', 'application/grpc+invalid'])
+async def test_invalid_content_type(content_type, loop):
     stream = H2StreamStub(loop=loop)
     headers = [
         (':method', 'POST'),
-        ('content-type', 'text/plain'),
+        ('content-type', content_type),
     ]
-    await request_handler({}, stream, headers, release_stream)
+    await request_handler({}, stream, headers, ProtoCodec(), release_stream)
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '415'),
@@ -69,7 +72,7 @@ async def test_missing_method(loop):
         (':path', '/missing.Service/MissingMethod'),
         ('content-type', 'application/grpc'),
     ]
-    await request_handler({}, stream, headers, release_stream)
+    await request_handler({}, stream, headers, ProtoCodec(), release_stream)
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '200'),
@@ -90,7 +93,8 @@ async def test_invalid_grpc_timeout(loop):
         ('grpc-timeout', 'invalid'),
     ]
     methods = {'/package.Service/Method': object()}
-    await request_handler(methods, stream, headers, release_stream)
+    await request_handler(methods, stream, headers, ProtoCodec(),
+                          release_stream)
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '200'),
@@ -121,7 +125,7 @@ async def test_deadline(loop):
         DummyReply,
     )}
     task = loop.create_task(
-        request_handler(methods, stream, headers, release_stream)
+        request_handler(methods, stream, headers, ProtoCodec(), release_stream)
     )
     await asyncio.wait_for(task, 0.1, loop=loop)
     assert stream.__events__ == [

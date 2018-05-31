@@ -10,11 +10,11 @@ from h2.settings import SettingCodes
 from h2.connection import H2Connection
 
 from grpclib.const import Status
-from grpclib.stream import CONTENT_TYPE
 from grpclib.client import Stream, Handler
 from grpclib.protocol import H2Protocol
 from grpclib.metadata import Request, Deadline
 from grpclib.exceptions import GRPCError, StreamTerminatedError
+from grpclib.encoding.proto import ProtoCodec
 
 from stubs import TransportStub
 from dummy_pb2 import DummyRequest, DummyReply
@@ -39,7 +39,8 @@ def _broken_stream():
             raise IOError('Intentionally broken connection')
 
     request = Request('POST', 'http', '/foo/bar', authority='test.com')
-    return Stream(BrokenChannel(), request, DummyRequest, DummyReply)
+    return Stream(BrokenChannel(), request, ProtoCodec(),
+                  DummyRequest, DummyReply)
 
 
 def encode_message(message):
@@ -89,7 +90,7 @@ class Env:
         self.request = Request('POST', 'http', '/foo/bar', authority='test.com',
                                deadline=deadline)
 
-        self.stream = Stream(self.channel, self.request,
+        self.stream = Stream(self.channel, self.request, ProtoCodec(),
                              DummyRequest, DummyReply)
         self.server = ServerStub(self.protocol)
 
@@ -109,7 +110,8 @@ async def test_unary_unary(env):
 
         env.server.connection.send_headers(
             stream_id,
-            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
         )
         env.server.connection.send_data(
             stream_id,
@@ -171,13 +173,15 @@ async def test_outbound_streams_limit(env, loop):
     request = Request('POST', 'http', '/foo/bar', authority='test.com')
 
     async def worker1():
-        s1 = Stream(env.channel, request, DummyRequest, DummyReply)
+        s1 = Stream(env.channel, request, ProtoCodec(),
+                    DummyRequest, DummyReply)
         async with s1:
             await s1.send_message(DummyRequest(value='ping'), end=True)
             assert await s1.recv_message() == DummyReply(value='pong')
 
     async def worker2():
-        s2 = Stream(env.channel, request, DummyRequest, DummyReply)
+        s2 = Stream(env.channel, request, ProtoCodec(),
+                    DummyRequest, DummyReply)
         async with s2:
             await s2.send_message(DummyRequest(value='ping'), end=True)
             assert await s2.recv_message() == DummyReply(value='pong')
@@ -185,7 +189,8 @@ async def test_outbound_streams_limit(env, loop):
     def send_response(stream_id):
         env.server.connection.send_headers(
             stream_id,
-            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
         )
         env.server.connection.send_data(
             stream_id,
@@ -276,7 +281,8 @@ async def test_deadline_during_recv_message(loop):
                 stream_id = events[-1].stream_id
                 env.server.connection.send_headers(
                     stream_id,
-                    [(':status', '200'), ('content-type', CONTENT_TYPE)],
+                    [(':status', '200'),
+                     ('content-type', 'application/grpc+proto')],
                 )
                 env.server.flush()
                 await env.stream.recv_initial_metadata()
@@ -304,7 +310,8 @@ async def test_deadline_during_recv_trailing_metadata(loop):
 
                 env.server.connection.send_headers(
                     stream_id,
-                    [(':status', '200'), ('content-type', CONTENT_TYPE)],
+                    [(':status', '200'),
+                     ('content-type', 'application/grpc+proto')],
                 )
                 env.server.flush()
                 await env.stream.recv_initial_metadata()
@@ -477,7 +484,7 @@ async def test_missing_grpc_status(loop):
 
             env.server.connection.send_headers(stream_id, [
                 (':status', '200'),
-                ('content-type', CONTENT_TYPE),
+                ('content-type', 'application/grpc+proto'),
             ])
             env.server.connection.send_data(
                 stream_id,
@@ -539,7 +546,7 @@ async def test_invalid_grpc_status_in_trailers(loop, grpc_status):
 
             env.server.connection.send_headers(stream_id, [
                 (':status', '200'),
-                ('content-type', CONTENT_TYPE),
+                ('content-type', 'application/grpc+proto'),
             ])
             env.server.connection.send_data(
                 stream_id,
@@ -605,7 +612,7 @@ async def test_non_ok_grpc_status_in_trailers(loop, grpc_message):
 
             env.server.connection.send_headers(stream_id, [
                 (':status', '200'),
-                ('content-type', CONTENT_TYPE),
+                ('content-type', 'application/grpc+proto'),
             ])
             env.server.connection.send_data(
                 stream_id,

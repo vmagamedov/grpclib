@@ -4,11 +4,13 @@ from h2.config import H2Configuration
 
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status
-from .stream import CONTENT_TYPES, CONTENT_TYPE, send_message, recv_message
+from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Metadata, Request, Deadline
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
+from .encoding.base import GRPC_CONTENT_TYPE
+from .encoding.proto import ProtoCodec
 
 
 _H2_OK = '200'
@@ -92,9 +94,10 @@ class Stream(StreamIterator):
     initial_metadata = None
     trailing_metadata = None
 
-    def __init__(self, channel, request, send_type, recv_type):
+    def __init__(self, channel, request, codec, send_type, recv_type):
         self._channel = channel
         self._request = request
+        self._codec = codec
         self._send_type = send_type
         self._recv_type = recv_type
 
@@ -148,7 +151,8 @@ class Stream(StreamIterator):
             raise ProtocolError('Stream was already ended')
 
         with self._wrapper:
-            await send_message(self._stream, message, self._send_type, end=end)
+            await send_message(self._stream, self._codec, message,
+                               self._send_type, end=end)
             self._send_message_count += 1
             if end:
                 self._end_done = True
@@ -227,7 +231,13 @@ class Stream(StreamIterator):
                 if content_type is None:
                     raise GRPCError(Status.UNKNOWN,
                                     'Missing content-type header')
-                elif content_type not in CONTENT_TYPES:
+
+                base_content_type, _, sub_type = content_type.partition('+')
+                sub_type = sub_type or ProtoCodec.__content_subtype__
+                if (
+                    base_content_type != GRPC_CONTENT_TYPE
+                    or sub_type != self._codec.__content_subtype__
+                ):
                     raise GRPCError(Status.UNKNOWN,
                                     'Invalid content-type: {!r}'
                                     .format(content_type))
@@ -276,7 +286,8 @@ class Stream(StreamIterator):
             await self.recv_initial_metadata()
 
         with self._wrapper:
-            message = await recv_message(self._stream, self._recv_type)
+            message = await recv_message(self._stream, self._codec,
+                                         self._recv_type)
             self._recv_message_count += 1
             return message
 
@@ -368,10 +379,11 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host='127.0.0.1', port=50051, *, loop):
+    def __init__(self, host='127.0.0.1', port=50051, *, loop, codec=None):
         self._host = host
         self._port = port
         self._loop = loop
+        self._codec = codec or ProtoCodec()
 
         self._config = H2Configuration(client_side=True,
                                        header_encoding='utf-8')
@@ -397,12 +409,13 @@ class Channel:
             deadline = None
 
         request = Request('POST', 'http', name, authority=self._authority,
-                          content_type=CONTENT_TYPE,
+                          content_type=(GRPC_CONTENT_TYPE + '+'
+                                        + self._codec.__content_subtype__),
                           # TODO: specify versions
                           user_agent='grpc-python-grpclib',
                           metadata=metadata, deadline=deadline)
 
-        return Stream(self, request, request_type, reply_type)
+        return Stream(self, request, self._codec, request_type, reply_type)
 
     def close(self):
         """Closes connection to the server.

@@ -2,11 +2,7 @@ import abc
 import struct
 
 
-CONTENT_TYPE = 'application/grpc+proto'
-CONTENT_TYPES = {'application/grpc', 'application/grpc+proto'}
-
-
-async def recv_message(stream, message_type):
+async def recv_message(stream, codec, message_type):
     meta = await stream.recv_data(5)
     if not meta:
         return
@@ -19,13 +15,12 @@ async def recv_message(stream, message_type):
     message_bin = await stream.recv_data(message_len)
     assert len(message_bin) == message_len, \
         '{} != {}'.format(len(message_bin), message_len)
-    message = message_type.FromString(message_bin)
+    message = codec.decode(message_bin, message_type)
     return message
 
 
-async def send_message(stream, message, message_type, *, end=False):
-    assert isinstance(message, message_type), type(message)
-    reply_bin = message.SerializeToString()
+async def send_message(stream, codec, message, message_type, *, end=False):
+    reply_bin = codec.encode(message, message_type)
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))
                   + reply_bin)

@@ -9,11 +9,13 @@ import h2.exceptions
 
 from .utils import DeadlineWrapper
 from .const import Status
-from .stream import CONTENT_TYPE, CONTENT_TYPES, send_message, recv_message
+from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .metadata import Metadata, Deadline
 from .protocol import H2Protocol, AbstractHandler
 from .exceptions import GRPCError, ProtocolError
+from .encoding.base import GRPC_CONTENT_TYPE
+from .encoding.proto import ProtoCodec
 
 
 log = logging.getLogger(__name__)
@@ -42,10 +44,11 @@ class Stream(StreamIterator):
     _send_trailing_metadata_done = False
     _cancel_done = False
 
-    def __init__(self, stream, cardinality, recv_type, send_type,
+    def __init__(self, stream, cardinality, codec, recv_type, send_type,
                  *, metadata, deadline=None):
         self._stream = stream
         self._cardinality = cardinality
+        self._codec = codec
         self._recv_type = recv_type
         self._send_type = send_type
         self.metadata = metadata
@@ -76,7 +79,7 @@ class Stream(StreamIterator):
 
         :returns: protobuf message
         """
-        return await recv_message(self._stream, self._recv_type)
+        return await recv_message(self._stream, self._codec, self._recv_type)
 
     async def send_initial_metadata(self):
         """Coroutine to send headers with initial metadata to the client.
@@ -94,8 +97,11 @@ class Stream(StreamIterator):
         if self._send_initial_metadata_done:
             raise ProtocolError('Initial metadata was already sent')
 
-        await self._stream.send_headers([(':status', '200'),
-                                         ('content-type', CONTENT_TYPE)])
+        await self._stream.send_headers([
+            (':status', '200'),
+            ('content-type', (GRPC_CONTENT_TYPE + '+'
+                              + self._codec.__content_subtype__)),
+        ])
         self._send_initial_metadata_done = True
 
     async def send_message(self, message, **kwargs):
@@ -123,7 +129,7 @@ class Stream(StreamIterator):
                 raise ProtocolError('Server should send exactly one message '
                                     'in response')
 
-        await send_message(self._stream, message, self._send_type)
+        await send_message(self._stream, self._codec, message, self._send_type)
         self._send_message_count += 1
 
         if end:
@@ -225,20 +231,19 @@ class Stream(StreamIterator):
         return True
 
 
-async def request_handler(mapping, _stream, headers, release_stream):
+async def request_handler(mapping, _stream, headers, codec, release_stream):
     try:
         headers_map = dict(headers)
 
-        h2_method = headers_map[':method']
-        if h2_method != 'POST':
+        if headers_map[':method'] != 'POST':
             await _stream.send_headers([
                 (':status', '405'),
             ], end_stream=True)
             _stream.reset_nowait()
             return
 
-        h2_content_type = headers_map.get('content-type')
-        if h2_content_type is None:
+        content_type = headers_map.get('content-type')
+        if content_type is None:
             await _stream.send_headers([
                 (':status', '415'),
                 ('grpc-status', str(Status.UNKNOWN.value)),
@@ -246,7 +251,13 @@ async def request_handler(mapping, _stream, headers, release_stream):
             ], end_stream=True)
             _stream.reset_nowait()
             return
-        elif h2_content_type not in CONTENT_TYPES:
+
+        base_content_type, _, sub_type = content_type.partition('+')
+        sub_type = sub_type or ProtoCodec.__content_subtype__
+        if (
+            base_content_type != GRPC_CONTENT_TYPE
+            or sub_type != codec.__content_subtype__
+        ):
             await _stream.send_headers([
                 (':status', '415'),
                 ('grpc-status', str(Status.UNKNOWN.value)),
@@ -278,7 +289,7 @@ async def request_handler(mapping, _stream, headers, release_stream):
             _stream.reset_nowait()
             return
 
-        async with Stream(_stream, method.cardinality,
+        async with Stream(_stream, method.cardinality, codec,
                           method.request_type, method.reply_type,
                           metadata=metadata, deadline=deadline) as stream:
             deadline_wrapper = None
@@ -332,8 +343,9 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    def __init__(self, mapping, *, loop):
+    def __init__(self, mapping, codec, *, loop):
         self.mapping = mapping
+        self.codec = codec
         self.loop = loop
         self._tasks = {}
         self._cancelled = set()
@@ -347,7 +359,8 @@ class Handler(_GC, AbstractHandler):
     def accept(self, stream, headers, release_stream):
         self.__gc_step__()
         self._tasks[stream] = self.loop.create_task(
-            request_handler(self.mapping, stream, headers, release_stream)
+            request_handler(self.mapping, stream, headers, self.codec,
+                            release_stream)
         )
 
     def cancel(self, stream):
@@ -390,7 +403,7 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
-    def __init__(self, handlers, *, loop):
+    def __init__(self, handlers, *, loop, codec=None):
         """
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
@@ -401,6 +414,7 @@ class Server(_GC, asyncio.AbstractServer):
 
         self._mapping = mapping
         self._loop = loop
+        self._codec = codec or ProtoCodec()
         self._config = h2.config.H2Configuration(
             client_side=False,
             header_encoding='utf-8',
@@ -415,7 +429,7 @@ class Server(_GC, asyncio.AbstractServer):
 
     def _protocol_factory(self):
         self.__gc_step__()
-        handler = Handler(self._mapping, loop=self._loop)
+        handler = Handler(self._mapping, self._codec, loop=self._loop)
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 

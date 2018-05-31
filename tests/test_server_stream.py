@@ -8,11 +8,12 @@ import pytest
 from h2.errors import ErrorCodes
 
 from grpclib.const import Status, Cardinality
-from grpclib.stream import CONTENT_TYPE, send_message
+from grpclib.stream import send_message
 from grpclib.server import Stream, GRPCError
 from grpclib.protocol import Connection, EventsProcessor
 from grpclib.metadata import Metadata, Request
 from grpclib.exceptions import ProtocolError
+from grpclib.encoding.proto import ProtoCodec
 
 from stubs import TransportStub, DummyHandler
 from dummy_pb2 import DummyRequest, DummyReply
@@ -78,14 +79,14 @@ def _stub(loop):
 
 @pytest.fixture(name='stream')
 def _stream(stub):
-    return Stream(stub, Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
-                  metadata=Metadata([]))
+    return Stream(stub, Cardinality.UNARY_UNARY, ProtoCodec(),
+                  DummyRequest, DummyReply, metadata=Metadata([]))
 
 
 @pytest.fixture(name='stream_streaming')
 def _stream_streaming(stub):
-    return Stream(stub, Cardinality.UNARY_STREAM, DummyRequest, DummyReply,
-                  metadata=Metadata([]))
+    return Stream(stub, Cardinality.UNARY_STREAM, ProtoCodec(),
+                  DummyRequest, DummyReply, metadata=Metadata([]))
 
 
 def encode_message(message):
@@ -135,7 +136,8 @@ async def test_send_message_twice_ok(stream_streaming, stub):
         await stream_streaming.send_message(DummyReply(value='pong2'))
     assert stub.__events__ == [
         SendHeaders(
-            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
             end_stream=False,
         ),
         SendData(
@@ -201,7 +203,8 @@ async def test_error_after_send_initial_metadata(stream, stub):
         raise Exception()
     assert stub.__events__ == [
         SendHeaders(
-            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
             end_stream=False,
         ),
         SendHeaders(
@@ -220,7 +223,8 @@ async def test_error_after_send_message(stream, stub):
         raise Exception()
     assert stub.__events__ == [
         SendHeaders(
-            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
             end_stream=False,
         ),
         SendData(
@@ -244,7 +248,8 @@ async def test_error_after_send_trailing_metadata(stream, stub):
         raise Exception()
     assert stub.__events__ == [
         SendHeaders(
-            [(':status', '200'), ('content-type', CONTENT_TYPE)],
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
             end_stream=False,
         ),
         SendData(
@@ -291,13 +296,14 @@ async def test_exit_and_stream_was_closed(loop):
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
-    await send_message(client_h2_stream, request, DummyRequest, end=True)
+    await send_message(client_h2_stream, ProtoCodec(), request, DummyRequest,
+                       end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
     request_metadata = Metadata.from_headers(server_proc.handler.headers)
 
-    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
+    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
                       DummyRequest, DummyReply,
                       metadata=request_metadata) as server_stream:
         await server_stream.recv_message()
@@ -326,13 +332,14 @@ async def test_exit_and_connection_was_closed(loop):
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
-    await send_message(client_h2_stream, request, DummyRequest, end=True)
+    await send_message(client_h2_stream, ProtoCodec(), request, DummyRequest,
+                       end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
     request_metadata = Metadata.from_headers(server_proc.handler.headers)
 
-    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
+    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
                       DummyRequest, DummyReply,
                       metadata=request_metadata) as server_stream:
         await server_stream.recv_message()
@@ -361,7 +368,8 @@ async def test_exit_and_connection_was_broken(loop):
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
-    await send_message(client_h2_stream, request, DummyRequest, end=True)
+    await send_message(client_h2_stream, ProtoCodec(), request, DummyRequest,
+                       end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
@@ -369,7 +377,7 @@ async def test_exit_and_connection_was_broken(loop):
 
     with pytest.raises(WriteError):
         async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
-                          DummyRequest, DummyReply,
+                          ProtoCodec(), DummyRequest, DummyReply,
                           metadata=request_metadata) as server_stream:
             await server_stream.recv_message()
 
@@ -396,14 +404,15 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
-    await send_message(client_h2_stream, request, DummyRequest, end=True)
+    await send_message(client_h2_stream, ProtoCodec(), request, DummyRequest,
+                       end=True)
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
     request_metadata = Metadata.from_headers(server_proc.handler.headers)
 
     send_trailing_metadata_done = False
-    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
+    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
                       DummyRequest, DummyReply,
                       metadata=request_metadata) as server_stream:
         await server_stream.send_trailing_metadata(status=Status.UNKNOWN)
