@@ -57,3 +57,15 @@ class DummyHandler(AbstractHandler):
 
     def close(self):
         pass
+
+
+class ChannelStub:
+
+    def __init__(self, protocol, *, connect_time=None):
+        self.__protocol__ = protocol
+        self.__connect_time = connect_time
+
+    async def __connect__(self):
+        if self.__connect_time is not None:
+            await asyncio.sleep(self.__connect_time)
+        return self.__protocol__
