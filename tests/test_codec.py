@@ -5,7 +5,7 @@ import pytest
 import grpclib.const
 import grpclib.server
 
-from grpclib.client import Channel, UnaryUnaryMethod
+from grpclib.client import UnaryUnaryMethod
 from grpclib.exceptions import GRPCError
 from grpclib.encoding.base import CodecBase
 
@@ -43,7 +43,7 @@ class PingServiceHandler:
 
 class PingServiceStub:
 
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, channel):
         self.UnaryUnary = UnaryUnaryMethod(
             channel,
             '/ping.PingService/UnaryUnary',

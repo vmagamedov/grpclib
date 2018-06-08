@@ -9,4 +9,5 @@ User's Guide
   overview
   client
   server
+  encoding
   changelog/index
