@@ -4,6 +4,8 @@ Changelog
 0.1.1
 ~~~~~
 
+  - Dropped protobuf requirement, now it's optional
+  - New feature to specify custom message serialization/deserialization codec
   - Fixed critical issue on the client-side with hanging coroutines in case of
     connection lost or stream reset
   - Replaced ``async-timeout`` dependency with custom utilities, refactored

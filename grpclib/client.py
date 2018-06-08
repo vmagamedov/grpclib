@@ -279,7 +279,7 @@ class Stream(StreamIterator):
         HTTP/2 has flow control mechanism, so client will acknowledge received
         DATA frames as a message only after user consumes this coroutine.
 
-        :returns: protobuf message
+        :returns: message
         """
         # TODO: check that messages were sent for non-stream-stream requests
         if not self._recv_initial_metadata_done:
@@ -463,10 +463,10 @@ class UnaryUnaryMethod(ServiceMethod):
     async def __call__(self, message, *, timeout=None, metadata=None):
         """Coroutine to perform defined call.
 
-        :param message: protobuf message
+        :param message: message
         :param float timeout: request timeout (seconds)
         :param dict metadata: request metadata
-        :return: protobuf message
+        :return: message
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send_message(message, end=True)
@@ -484,10 +484,10 @@ class UnaryStreamMethod(ServiceMethod):
     async def __call__(self, message, *, timeout=None, metadata=None):
         """Coroutine to perform defined call.
 
-        :param message: protobuf message
+        :param message: message
         :param float timeout: request timeout (seconds)
         :param dict metadata: request metadata
-        :return: sequence of protobuf messages
+        :return: sequence of messages
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send_message(message, end=True)
@@ -505,10 +505,10 @@ class StreamUnaryMethod(ServiceMethod):
     async def __call__(self, messages, *, timeout=None, metadata=None):
         """Coroutine to perform defined call.
 
-        :param messages: sequence of protobuf messages
+        :param messages: sequence of messages
         :param float timeout: request timeout (seconds)
         :param dict metadata: request metadata
-        :return: protobuf message
+        :return: message
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             for message in messages[:-1]:
@@ -531,10 +531,10 @@ class StreamStreamMethod(ServiceMethod):
     async def __call__(self, messages, *, timeout=None, metadata=None):
         """Coroutine to perform defined call.
 
-        :param messages: sequence of protobuf messages
+        :param messages: sequence of messages
         :param float timeout: request timeout (seconds)
         :param dict metadata: request metadata
-        :return: sequence of protobuf messages
+        :return: sequence of messages
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             for message in messages[:-1]:

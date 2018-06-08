@@ -77,7 +77,7 @@ class Stream(StreamIterator):
         HTTP/2 has flow control mechanism, so server will acknowledge received
         DATA frames as a message only after user consumes this coroutine.
 
-        :returns: protobuf message
+        :returns: message
         """
         return await recv_message(self._stream, self._codec, self._recv_type)
 
@@ -111,7 +111,7 @@ class Stream(StreamIterator):
         once. If server sends STREAM response, then you can call this coroutine
         as many times as you need.
 
-        :param message: protobuf message object
+        :param message: message object
         """
         if 'end' in kwargs:
             warnings.warn('"end" argument is deprecated, use '
