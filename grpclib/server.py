@@ -170,14 +170,8 @@ class Stream(StreamIterator):
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True
 
-        if status != Status.OK:
-            # If a stream was already closed on the client-side, there is
-            # no need to reset it, that's why we are catching StreamClosedError
-            # here for such cases
-            try:
-                self._stream.reset_nowait()
-            except h2.exceptions.StreamClosedError:
-                pass
+        if status != Status.OK and self._stream.closable:
+            self._stream.reset_nowait()
 
     async def cancel(self):
         """Coroutine to cancel this request/stream.
@@ -239,7 +233,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
             await _stream.send_headers([
                 (':status', '405'),
             ], end_stream=True)
-            _stream.reset_nowait()
+            if _stream.closable:
+                _stream.reset_nowait()
             return
 
         content_type = headers_map.get('content-type')
@@ -249,7 +244,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                 ('grpc-status', str(Status.UNKNOWN.value)),
                 ('grpc-message', 'Missing content-type header'),
             ], end_stream=True)
-            _stream.reset_nowait()
+            if _stream.closable:
+                _stream.reset_nowait()
             return
 
         base_content_type, _, sub_type = content_type.partition('+')
@@ -263,7 +259,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                 ('grpc-status', str(Status.UNKNOWN.value)),
                 ('grpc-message', 'Unacceptable content-type header'),
             ], end_stream=True)
-            _stream.reset_nowait()
+            if _stream.closable:
+                _stream.reset_nowait()
             return
 
         h2_path = headers_map[':path']
@@ -274,7 +271,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                 ('grpc-status', str(Status.UNIMPLEMENTED.value)),
                 ('grpc-message', 'Method not found'),
             ], end_stream=True)
-            _stream.reset_nowait()
+            if _stream.closable:
+                _stream.reset_nowait()
             return
 
         metadata = Metadata.from_headers(headers)
@@ -286,7 +284,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                 ('grpc-status', str(Status.UNKNOWN.value)),
                 ('grpc-message', 'Invalid grpc-timeout header'),
             ], end_stream=True)
-            _stream.reset_nowait()
+            if _stream.closable:
+                _stream.reset_nowait()
             return
 
         async with Stream(_stream, method.cardinality, codec,

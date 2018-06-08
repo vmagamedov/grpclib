@@ -5,16 +5,24 @@ from h2.config import H2Configuration
 from h2.connection import H2Connection
 
 from grpclib import client, server
+from grpclib.const import Cardinality
 from grpclib.protocol import H2Protocol
 from grpclib.encoding.proto import ProtoCodec
 
-from stubs import TransportStub, ChannelStub
+from stubs import TransportStub, ChannelStub, DummyHandler
 
 
 def grpc_encode(message, message_type=None, codec=ProtoCodec()):
     message_bin = codec.encode(message, message_type)
     header = struct.pack('?', False) + struct.pack('>I', len(message_bin))
     return header + message_bin
+
+
+def grpc_decode(message_bin, message_type=None, codec=ProtoCodec()):
+    message_len = struct.unpack('>I', message_bin[1:5])[0]
+    assert len(message_bin) == message_len + 5
+    message = codec.decode(message_bin[5:], message_type)
+    return message
 
 
 class ClientConn:
@@ -26,7 +34,8 @@ class ClientConn:
 
         self.to_server_transport = TransportStub(self.server_h2c)
 
-        client_config = H2Configuration(header_encoding='utf-8')
+        client_config = H2Configuration(client_side=True,
+                                        header_encoding='utf-8')
         self.client_proto = H2Protocol(client.Handler(), client_config,
                                        loop=loop)
         self.client_proto.connection_made(self.to_server_transport)
@@ -50,6 +59,64 @@ class ClientStream:
         )
         self.client_stream._channel = ChannelStub(self.client_conn.client_proto,
                                                   connect_time=connect_time)
+
+
+class ServerConn:
+
+    def __init__(self, *, loop):
+        client_config = H2Configuration(client_side=True,
+                                        header_encoding='utf-8')
+        self.client_h2c = H2Connection(client_config)
+
+        self.to_client_transport = TransportStub(self.client_h2c)
+        self.client_h2c.initiate_connection()
+
+        server_config = H2Configuration(client_side=False,
+                                        header_encoding='utf-8')
+        self.server_proto = H2Protocol(DummyHandler(), server_config,
+                                       loop=loop)
+        self.server_proto.connection_made(self.to_client_transport)
+
+        # complete settings exchange and clear events buffer
+        self.client_flush()
+        self.to_client_transport.events()
+
+    def client_flush(self):
+        self.server_proto.data_received(self.client_h2c.data_to_send())
+
+
+class ServerStream:
+
+    def __init__(self, *, loop, server_conn=None,
+                 recv_type=None, send_type=None, path='/foo/bar',
+                 content_type='application/grpc+proto',
+                 codec=ProtoCodec(), deadline=None, metadata=None):
+        self.server_conn = server_conn or ServerConn(loop=loop)
+
+        self.stream_id = (self.server_conn.client_h2c
+                          .get_next_available_stream_id())
+        self.server_conn.client_h2c.send_headers(self.stream_id, [
+            (':method', 'POST'),
+            (':scheme', 'http'),
+            (':path', path),
+            (':authority', 'test.com'),
+            ('te', 'trailers'),
+            ('content-type', content_type),
+        ])
+        self.server_conn.client_flush()
+
+        self.server_h2s = self.server_conn.server_proto.processor.handler.stream
+        assert self.server_h2s
+
+        self.server_stream = server.Stream(
+            self.server_h2s,
+            Cardinality.UNARY_UNARY,
+            codec,
+            recv_type,
+            send_type,
+            metadata=metadata or {},
+            deadline=deadline,
+        )
 
 
 class ClientServer:

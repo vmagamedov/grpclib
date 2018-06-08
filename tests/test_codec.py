@@ -5,10 +5,12 @@ import pytest
 import grpclib.const
 import grpclib.server
 
-from conn import ClientStream, ClientServer, grpc_encode
 from grpclib.client import Channel, UnaryUnaryMethod
 from grpclib.exceptions import GRPCError
 from grpclib.encoding.base import CodecBase
+
+from conn import ClientStream, ClientServer, ServerStream
+from conn import grpc_encode, grpc_decode
 
 
 class JSONCodec(CodecBase):
@@ -60,7 +62,7 @@ async def test_rpc_call(loop):
 
 
 @pytest.mark.asyncio
-async def test_client_stream(loop):
+async def test_client_receive_json(loop):
     cs = ClientStream(loop=loop, codec=JSONCodec())
 
     async with cs.client_stream as stream:
@@ -95,7 +97,7 @@ async def test_client_stream(loop):
 
 
 @pytest.mark.asyncio
-async def test_client_stream_and_invalid_content_type(loop):
+async def test_client_receive_invalid(loop):
     cs = ClientStream(loop=loop, codec=JSONCodec())
     with pytest.raises(GRPCError) as exc:
         async with cs.client_stream as stream:
@@ -127,3 +129,89 @@ async def test_client_stream_and_invalid_content_type(loop):
 
             await stream.recv_message()
     exc.match("Invalid content-type: 'application/grpc\+proto'")
+
+
+@pytest.mark.asyncio
+async def test_server_receive_json(loop):
+    handler = PingServiceHandler()
+    mapping = handler.__mapping__()
+    path = next(iter(mapping.keys()))
+    ss = ServerStream(loop=loop, codec=JSONCodec(), path=path,
+                      content_type='application/grpc+json')
+    ss.server_conn.client_h2c.send_data(
+        ss.stream_id,
+        grpc_encode({'value': 'ping'}, None, JSONCodec()),
+        end_stream=True,
+    )
+    ss.server_conn.client_flush()
+    await grpclib.server.request_handler(
+        handler.__mapping__(),
+        ss.server_h2s,
+        ss.server_conn.server_proto.processor.handler.headers,
+        JSONCodec(),
+        lambda: None,
+    )
+    response_received, data_received, trailers_received, _ = \
+        ss.server_conn.to_client_transport.events()
+
+    assert dict(response_received.headers)[':status'] == '200'
+    assert dict(response_received.headers)['content-type'] == \
+        'application/grpc+json'
+
+    reply = grpc_decode(data_received.data, None, JSONCodec())
+    assert reply == {'value': 'pong'}
+
+    assert dict(trailers_received.headers)['grpc-status'] == '0'
+
+
+@pytest.mark.asyncio
+async def test_server_receive_invalid(loop):
+    handler = PingServiceHandler()
+    mapping = handler.__mapping__()
+    path = next(iter(mapping.keys()))
+    ss = ServerStream(loop=loop, codec=JSONCodec(), path=path,
+                      content_type='application/grpc+invalid')
+    ss.server_conn.client_h2c.send_data(
+        ss.stream_id,
+        grpc_encode({'value': 'ping'}, None, JSONCodec()),
+        end_stream=True,
+    )
+    ss.server_conn.client_flush()
+    await grpclib.server.request_handler(
+        handler.__mapping__(),
+        ss.server_h2s,
+        ss.server_conn.server_proto.processor.handler.headers,
+        JSONCodec(),
+        lambda: None,
+    )
+    response_received, _ = ss.server_conn.to_client_transport.events()
+
+    assert dict(response_received.headers)[':status'] == '415'
+    assert dict(response_received.headers)['grpc-status'] == '2'
+    assert dict(response_received.headers)['grpc-message'] == \
+        'Unacceptable content-type header'
+
+
+@pytest.mark.asyncio
+async def test_server_return_json(loop):
+    ss = ServerStream(loop=loop, codec=JSONCodec())
+    ss.server_conn.client_h2c.send_data(
+        ss.stream_id,
+        grpc_encode({'value': 'ping'}, None, JSONCodec()),
+        end_stream=True,
+    )
+    ss.server_conn.client_flush()
+
+    message = await ss.server_stream.recv_message()
+    assert message == {'value': 'ping'}
+
+    await ss.server_stream.send_initial_metadata()
+    response_received, = ss.server_conn.to_client_transport.events()
+    content_type = dict(response_received.headers)['content-type']
+    assert content_type == 'application/grpc+json'
+
+    await ss.server_stream.send_message({'value': 'pong'})
+    data_received, = ss.server_conn.to_client_transport.events()
+
+    reply = grpc_decode(data_received.data, None, JSONCodec())
+    assert reply == {'value': 'pong'}

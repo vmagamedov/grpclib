@@ -68,6 +68,10 @@ class H2StreamStub:
     async def reset(self, error_code=ErrorCodes.NO_ERROR):
         self.__events__.append(Reset(error_code))
 
+    @property
+    def closable(self):
+        return True
+
     def reset_nowait(self, error_code=ErrorCodes.NO_ERROR):
         self.__events__.append(Reset(error_code))
 
