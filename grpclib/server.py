@@ -263,6 +263,16 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                 _stream.reset_nowait()
             return
 
+        if headers_map.get('te') != 'trailers':
+            await _stream.send_headers([
+                (':status', '400'),
+                ('grpc-status', str(Status.UNKNOWN.value)),
+                ('grpc-message', 'Required "te: trailers" header is missing'),
+            ], end_stream=True)
+            if _stream.closable:
+                _stream.reset_nowait()
+            return
+
         h2_path = headers_map[':path']
         method = mapping.get(h2_path)
         if method is None:

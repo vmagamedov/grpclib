@@ -28,6 +28,24 @@ async def test_invalid_method(loop):
 
 
 @pytest.mark.asyncio
+async def test_missing_te_header(loop):
+    stream = H2StreamStub(loop=loop)
+    headers = [
+        (':method', 'POST'),
+        ('content-type', 'application/grpc'),
+    ]
+    await request_handler({}, stream, headers, ProtoCodec(), release_stream)
+    assert stream.__events__ == [
+        SendHeaders(headers=[
+            (':status', '400'),
+            ('grpc-status', '2'),  # UNKNOWN
+            ('grpc-message', 'Required "te: trailers" header is missing'),
+        ], end_stream=True),
+        Reset(ErrorCodes.NO_ERROR),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_missing_content_type(loop):
     stream = H2StreamStub(loop=loop)
     headers = [
@@ -70,6 +88,7 @@ async def test_missing_method(loop):
     headers = [
         (':method', 'POST'),
         (':path', '/missing.Service/MissingMethod'),
+        ('te', 'trailers'),
         ('content-type', 'application/grpc'),
     ]
     await request_handler({}, stream, headers, ProtoCodec(), release_stream)
@@ -89,6 +108,7 @@ async def test_invalid_grpc_timeout(loop):
     headers = [
         (':method', 'POST'),
         (':path', '/package.Service/Method'),
+        ('te', 'trailers'),
         ('content-type', 'application/grpc'),
         ('grpc-timeout', 'invalid'),
     ]
@@ -111,6 +131,7 @@ async def test_deadline(loop):
     headers = [
         (':method', 'POST'),
         (':path', '/package.Service/Method'),
+        ('te', 'trailers'),
         ('content-type', 'application/grpc'),
         ('grpc-timeout', '10m'),
     ]
