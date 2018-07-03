@@ -15,7 +15,7 @@ Installation
 
 .. code-block:: shell
 
-    $ pip3 install grpclib
+    $ pip3 install grpclib protobuf
 
 For the code generation you will also need a ``protoc`` compiler, which can be
 installed with ``protobuf`` system package:
@@ -23,12 +23,17 @@ installed with ``protobuf`` system package:
 .. code-block:: shell
 
     $ brew install protobuf  # example for macOS users
+    $ protoc --version
+    libprotoc ...
+
 
 **Or** you can use ``protoc`` compiler from the ``grpcio-tools`` Python package:
 
 .. code-block:: shell
 
     $ pip3 install grpcio-tools
+    $ python3 -m grpc_tools.protoc --version
+    libprotoc ...
 
 **Note:** ``grpcio`` and ``grpcio-tools`` packages are **not required in
 runtime**, ``grpcio-tools`` package will be used only during code generation.
