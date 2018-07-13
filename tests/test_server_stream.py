@@ -431,3 +431,42 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
         send_trailing_metadata_done = True
 
     assert send_trailing_metadata_done
+
+
+@pytest.mark.asyncio
+async def test_lookahead(loop):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    to_server_transport = TransportStub(server_h2c)
+
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    server_proc = EventsProcessor(DummyHandler(), server_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+
+    request = Request('POST', 'http', '/',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
+    client_h2_stream = client_conn.create_stream()
+    await client_h2_stream.send_request(request.to_headers(),
+                                        _processor=client_proc)
+
+    request = DummyRequest(value='ping')
+    await send_message(client_h2_stream, ProtoCodec(), request, DummyRequest,
+                       end=True)
+    to_server_transport.process(server_proc)
+
+    server_h2_stream = server_proc.handler.stream
+    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+
+    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
+                      ProtoCodec(), DummyRequest, DummyReply,
+                      metadata=request_metadata) as server_stream:
+
+        lookahead_messages = await server_stream.lookahead_messages()
+        assert len(lookahead_messages) == 1
+
+        received_message = await server_stream.recv_message()
+        assert received_message
