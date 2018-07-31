@@ -1,5 +1,10 @@
 import http
 
+try:
+    import ssl
+except ImportError:
+    ssl = None
+
 from h2.config import H2Configuration
 
 from .utils import Wrapper, DeadlineWrapper
@@ -395,7 +400,8 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host=None, port=None, *, loop,  path=None, codec=None):
+    def __init__(self, host=None, port=None, *, loop,  path=None, codec=None,
+                 ssl=None):
         """Initialize connection to the server
 
         :param host: server host name.
@@ -426,6 +432,12 @@ class Channel:
                                        header_encoding='ascii')
         self._authority = '{}:{}'.format(self._host, self._port)
 
+        if ssl is True:
+            ssl = self._get_default_ssl_context()
+
+        self._ssl = ssl or None
+        self._scheme = 'https' if self._ssl else 'http'
+
     def _protocol_factory(self):
         return H2Protocol(Handler(), self._config, loop=self._loop)
 
@@ -437,11 +449,28 @@ class Channel:
         if self._protocol is None or self._protocol.handler.connection_lost:
             if self._path is not None:
                 _, self._protocol = await self._loop.create_unix_connection(
-                    self._protocol_factory, self._path)
+                    self._protocol_factory, self._path, ssl=self._ssl)
             else:
                 _, self._protocol = await self._loop.create_connection(
-                    self._protocol_factory, self._host, self._port)
+                    self._protocol_factory, self._host, self._port,
+                    ssl=self._ssl)
         return self._protocol
+
+    # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
+    def _get_default_ssl_context(self):
+        if not ssl:
+            raise RuntimeError('SSL is not supported.')
+
+        ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+        ctx.options |= (ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1)
+        ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
+        ctx.set_alpn_protocols(['h2'])
+        try:
+            ctx.set_npn_protocols(['h2'])
+        except NotImplementedError:
+            pass
+
+        return ctx
 
     def request(self, name, request_type, reply_type, *, timeout=None,
                 deadline=None, metadata=None):
@@ -457,7 +486,7 @@ class Channel:
 
         request = Request(
             method='POST',
-            scheme='http',
+            scheme=self._scheme,
             path=name,
             authority=self._authority,
             content_type=self._content_type,
