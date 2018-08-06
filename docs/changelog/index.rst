@@ -1,6 +1,11 @@
 Changelog
 =========
 
+master
+~~~~~~
+
+  - Implemented sending custom metadata from the server-side
+
 0.1.1
 ~~~~~
 

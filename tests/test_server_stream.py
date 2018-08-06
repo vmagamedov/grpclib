@@ -101,6 +101,39 @@ def encode_message(message):
 
 
 @pytest.mark.asyncio
+async def test_send_custom_metadata(stream, stub):
+    async with stream:
+        await stream.send_initial_metadata(metadata={
+            'foo': 'foo-value',
+        })
+        await stream.send_message(DummyReply(value='pong'))
+        await stream.send_trailing_metadata(metadata={
+            'bar': 'bar-value',
+        })
+    assert stub.__events__ == [
+        SendHeaders(
+            [
+                (':status', '200'),
+                ('content-type', 'application/grpc+proto'),
+                ('foo', 'foo-value'),
+            ],
+            end_stream=False,
+        ),
+        SendData(
+            encode_message(DummyReply(value='pong')),
+            end_stream=False,
+        ),
+        SendHeaders(
+            [
+                ('grpc-status', str(Status.OK.value)),
+                ('bar', 'bar-value'),
+            ],
+            end_stream=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_no_response(stream, stub):
     async with stream:
         pass

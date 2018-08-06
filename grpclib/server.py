@@ -81,7 +81,7 @@ class Stream(StreamIterator):
         """
         return await recv_message(self._stream, self._codec, self._recv_type)
 
-    async def send_initial_metadata(self):
+    async def send_initial_metadata(self, *, metadata=None):
         """Coroutine to send headers with initial metadata to the client.
 
         In gRPC you can send initial metadata as soon as possible, because
@@ -93,15 +93,21 @@ class Stream(StreamIterator):
         .. note:: This coroutine will be called implicitly during first
             :py:meth:`send_message` coroutine call, if not called before
             explicitly.
+
+        :param metadata: custom initial metadata
         """
         if self._send_initial_metadata_done:
             raise ProtocolError('Initial metadata was already sent')
 
-        await self._stream.send_headers([
+        headers = [
             (':status', '200'),
             ('content-type', (GRPC_CONTENT_TYPE + '+'
                               + self._codec.__content_subtype__)),
-        ])
+        ]
+        if metadata is not None:
+            headers.extend(metadata.items())
+
+        await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
 
     async def send_message(self, message, **kwargs):
@@ -136,7 +142,7 @@ class Stream(StreamIterator):
             await self.send_trailing_metadata()
 
     async def send_trailing_metadata(self, *, status=Status.OK,
-                                     status_message=None):
+                                     status_message=None, metadata=None):
         """Coroutine to send trailers with trailing metadata to the client.
 
         This coroutine allows sending trailers-only responses, in case of some
@@ -149,6 +155,7 @@ class Stream(StreamIterator):
 
         :param status: resulting status of this coroutine call
         :param status_message: description for a status
+        :param metadata: custom trailing metadata
         """
         if self._send_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already sent')
@@ -166,6 +173,8 @@ class Stream(StreamIterator):
         headers.append(('grpc-status', str(status.value)))
         if status_message is not None:
             headers.append(('grpc-message', status_message))
+        if metadata is not None:
+            headers.extend(metadata.items())
 
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True
