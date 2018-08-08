@@ -2,8 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from grpclib.metadata import encode_timeout, decode_timeout, Deadline
-from grpclib.metadata import Metadata, Request
+from grpclib.metadata import encode_timeout, decode_timeout, Deadline, Request
 
 
 @pytest.mark.parametrize('value, expected', [
@@ -49,10 +48,11 @@ def test_headers_with_deadline():
     deadline = Mock()
     deadline.time_remaining.return_value = 0.1
 
-    metadata = Metadata([('dominic', 'lovech')])
+    metadata = [('dominic', 'lovech')]
 
     assert Request(
-        'briana', 'dismal', 'dost', authority='lemnos', content_type='gazebos',
+        method='briana', scheme='dismal', path='dost', authority='lemnos',
+        content_type='gazebos',
         metadata=metadata, deadline=deadline,
     ).to_headers() == [
         (':method', 'briana'),
@@ -66,7 +66,8 @@ def test_headers_with_deadline():
     ]
 
     assert Request(
-        'briana', 'dismal', 'dost', authority='edges', content_type='gazebos',
+        method='briana', scheme='dismal', path='dost', authority='edges',
+        content_type='gazebos',
         message_type='dobson', message_encoding='patera',
         message_accept_encoding='shakers', user_agent='dowlin',
         metadata=metadata, deadline=deadline,
@@ -87,10 +88,11 @@ def test_headers_with_deadline():
 
 
 def test_headers_without_deadline():
-    metadata = Metadata([('chagga', 'chrome')])
+    metadata = [('chagga', 'chrome')]
 
     assert Request(
-        'flysch', 'plains', 'slaps', authority='darrin', content_type='pemako',
+        method='flysch', scheme='plains', path='slaps', authority='darrin',
+        content_type='pemako',
         metadata=metadata,
     ).to_headers() == [
         (':method', 'flysch'),
@@ -103,7 +105,8 @@ def test_headers_without_deadline():
     ]
 
     assert Request(
-        'flysch', 'plains', 'slaps', authority='sleev', content_type='pemako',
+        method='flysch', scheme='plains', path='slaps', authority='sleev',
+        content_type='pemako',
         message_type='deltic', message_encoding='eutexia',
         message_accept_encoding='glyptic', user_agent='chrisom',
         metadata=metadata,

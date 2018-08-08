@@ -67,7 +67,7 @@ async def test_no_request(cs: ClientStream):
 
 @pytest.mark.asyncio
 async def test_connection_error():
-    request = Request('POST', 'http', '/foo/bar',
+    request = Request(method='POST', scheme='http', path='/foo/bar',
                       content_type='application/grpc+proto',
                       authority='test.com')
 

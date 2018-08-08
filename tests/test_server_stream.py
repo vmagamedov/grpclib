@@ -11,7 +11,7 @@ from grpclib.const import Status, Cardinality
 from grpclib.stream import send_message
 from grpclib.server import Stream, GRPCError
 from grpclib.protocol import Connection, EventsProcessor
-from grpclib.metadata import Metadata, Request
+from grpclib.metadata import Metadata, Request, decode_metadata
 from grpclib.exceptions import ProtocolError
 from grpclib.encoding.proto import ProtoCodec
 
@@ -327,7 +327,7 @@ async def test_exit_and_stream_was_closed(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
     client_h2_stream = client_conn.create_stream()
@@ -340,7 +340,7 @@ async def test_exit_and_stream_was_closed(loop):
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
-    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+    request_metadata = decode_metadata(server_proc.handler.headers)
 
     async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
                       DummyRequest, DummyReply,
@@ -365,7 +365,7 @@ async def test_exit_and_connection_was_closed(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
     client_h2_stream = client_conn.create_stream()
@@ -378,7 +378,7 @@ async def test_exit_and_connection_was_closed(loop):
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
-    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+    request_metadata = decode_metadata(server_proc.handler.headers)
 
     async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
                       DummyRequest, DummyReply,
@@ -403,7 +403,7 @@ async def test_exit_and_connection_was_broken(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
     client_h2_stream = client_conn.create_stream()
@@ -416,7 +416,7 @@ async def test_exit_and_connection_was_broken(loop):
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
-    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+    request_metadata = decode_metadata(server_proc.handler.headers)
 
     with pytest.raises(WriteError):
         async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
@@ -441,7 +441,7 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
     client_h2_stream = client_conn.create_stream()
@@ -454,7 +454,7 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream
-    request_metadata = Metadata.from_headers(server_proc.handler.headers)
+    request_metadata = decode_metadata(server_proc.handler.headers)
 
     send_trailing_metadata_done = False
     async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),

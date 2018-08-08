@@ -7,7 +7,8 @@ from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
-from .metadata import Metadata, Request, Deadline
+from .metadata import Request, Deadline, USER_AGENT, decode_grpc_message
+from .metadata import encode_metadata, decode_metadata
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE
 from .encoding.proto import ProtoCodec
@@ -197,6 +198,8 @@ class Stream(StreamIterator):
         else:
             if grpc_status_enum is not Status.OK:
                 status_message = headers_map.get('grpc-message')
+                if status_message is not None:
+                    status_message = decode_grpc_message(status_message)
                 raise GRPCError(grpc_status_enum, status_message)
 
     async def recv_initial_metadata(self):
@@ -221,7 +224,7 @@ class Stream(StreamIterator):
                 headers = await self._stream.recv_headers()
                 self._recv_initial_metadata_done = True
 
-                self.initial_metadata = Metadata.from_headers(headers)
+                self.initial_metadata = decode_metadata(headers)
 
                 headers_map = dict(headers)
                 self._raise_for_status(headers_map)
@@ -312,7 +315,7 @@ class Stream(StreamIterator):
             headers = await self._stream.recv_headers()
             self._recv_trailing_metadata_done = True
 
-            self.trailing_metadata = Metadata.from_headers(headers)
+            self.trailing_metadata = decode_metadata(headers)
 
             self._raise_for_grpc_status(dict(headers))
 
@@ -386,11 +389,15 @@ class Channel:
         self._codec = codec or ProtoCodec()
 
         self._config = H2Configuration(client_side=True,
-                                       header_encoding='utf-8')
+                                       header_encoding='ascii')
         self._authority = '{}:{}'.format(self._host, self._port)
 
     def _protocol_factory(self):
         return H2Protocol(Handler(), self._config, loop=self._loop)
+
+    @property
+    def _content_type(self):
+        return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
     async def __connect__(self):
         if self._protocol is None or self._protocol.handler.connection_lost:
@@ -408,12 +415,19 @@ class Channel:
         else:
             deadline = None
 
-        request = Request('POST', 'http', name, authority=self._authority,
-                          content_type=(GRPC_CONTENT_TYPE + '+'
-                                        + self._codec.__content_subtype__),
-                          # TODO: specify versions
-                          user_agent='grpc-python-grpclib',
-                          metadata=metadata, deadline=deadline)
+        if metadata is not None:
+            metadata = encode_metadata(metadata)
+
+        request = Request(
+            method='POST',
+            scheme='http',
+            path=name,
+            authority=self._authority,
+            content_type=self._content_type,
+            user_agent=USER_AGENT,
+            metadata=metadata,
+            deadline=deadline,
+        )
 
         return Stream(self, request, self._codec, request_type, reply_type)
 

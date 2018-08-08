@@ -15,7 +15,7 @@ from stubs import TransportStub, DummyHandler
 def create_connections(*, connection_window=None, stream_window=None,
                        max_frame_size=None):
     server_conn = H2Connection(H2Configuration(client_side=False,
-                                               header_encoding='utf-8'))
+                                               header_encoding='ascii'))
     server_conn.initiate_connection()
 
     if connection_window is not None:
@@ -39,7 +39,7 @@ def create_connections(*, connection_window=None, stream_window=None,
         })
 
     client_conn = H2Connection(H2Configuration(client_side=True,
-                                               header_encoding='utf-8'))
+                                               header_encoding='ascii'))
     client_conn.initiate_connection()
 
     client_conn.receive_data(server_conn.data_to_send())
@@ -83,7 +83,7 @@ async def test_send_data_larger_than_frame_size(loop):
     conn = Connection(client_h2c, transport, loop=loop)
     stream = conn.create_stream()
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
     processor = EventsProcessor(DummyHandler(), conn)
@@ -105,7 +105,7 @@ async def test_recv_data_larger_than_window_size(loop):
     client_processor = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
     await client_stream.send_request(request.to_headers(),
@@ -164,7 +164,7 @@ async def test_stream_release(loop):
 
     server_processor = EventsProcessor(DummyHandler(), server_conn)
 
-    request = Request('POST', 'http', '/',
+    request = Request(method='POST', scheme='http', path='/',
                       content_type='application/grpc+proto',
                       authority='test.com')
 

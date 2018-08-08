@@ -1,10 +1,15 @@
 import re
 import time
 
+from base64 import b64encode, b64decode
 from collections import namedtuple
+from urllib.parse import quote, unquote
 
 from multidict import MultiDict
 
+
+# TODO: specify versions
+USER_AGENT = 'grpc-python-grpclib'
 
 _UNITS = {
     'H': 60 * 60,
@@ -26,7 +31,7 @@ def decode_timeout(value):
     return int(timeout) * _UNITS[unit]
 
 
-def encode_timeout(timeout):
+def encode_timeout(timeout: float) -> str:
     if timeout > 10:
         return '{}S'.format(int(timeout))
     elif timeout > 0.01:
@@ -55,9 +60,9 @@ class Deadline:
         return self._timestamp == other._timestamp
 
     @classmethod
-    def from_metadata(cls, metadata):
+    def from_headers(cls, headers):
         timeout = min(map(decode_timeout,
-                          metadata.getall('grpc-timeout', [])),
+                          (v for k, v in headers if k == 'grpc-timeout')),
                       default=None)
         if timeout is not None:
             return cls.from_timeout(timeout)
@@ -73,12 +78,7 @@ class Deadline:
 
 
 class Metadata(MultiDict):
-    _headers = {'content-type', 'te'}
-
-    @classmethod
-    def from_headers(cls, headers):
-        return cls([(key, value) for key, value in headers
-                    if not key.startswith(':') and key not in cls._headers])
+    pass
 
 
 class Request(namedtuple('Request', [
@@ -89,7 +89,7 @@ class Request(namedtuple('Request', [
 ])):
     __slots__ = tuple()
 
-    def __new__(cls, method, scheme, path, *, authority,
+    def __new__(cls, *, method, scheme, path, authority,
                 content_type, message_type=None, message_encoding=None,
                 message_accept_encoding=None, user_agent=None,
                 metadata=None, deadline=None):
@@ -121,12 +121,62 @@ class Request(namedtuple('Request', [
 
         if self.message_accept_encoding is not None:
             result.append(('grpc-accept-encoding',
-                           self.message_accept_encoding))
+                          self.message_accept_encoding))
 
         if self.user_agent is not None:
             result.append(('user-agent', self.user_agent))
 
         if self.metadata is not None:
-            result.extend((k, v) for k, v in self.metadata.items()
-                          if k != 'grpc-timeout')
+            result.extend(self.metadata)
+
         return result
+
+
+_UNQUOTED = ''.join([chr(i) for i in range(0x20, 0x24 + 1)]
+                    + [chr(i) for i in range(0x26, 0x7E + 1)])
+
+
+def encode_grpc_message(message: str) -> str:
+    return quote(message, safe=_UNQUOTED, encoding='utf-8')
+
+
+def decode_grpc_message(value: str) -> str:
+    return unquote(value, encoding='utf-8', errors='replace')
+
+
+_KEY_RE = re.compile('^[0-9a-z_.\-]+$')
+_VALUE_RE = re.compile('^[ !-~]+$')
+_SPECIAL = {
+    'te',
+    'content-type',
+    'user-agent',
+}
+
+
+def decode_metadata(headers):
+    metadata = Metadata()
+    for key, value in headers:
+        if key.startswith((':', 'grpc-')) or key in _SPECIAL:
+            continue
+        elif key.endswith('-bin'):
+            metadata.add(key, b64decode(value.encode('ascii')
+                                        + (b'=' * (len(value) % 4))))
+        else:
+            metadata.add(key, value)
+    return metadata
+
+
+def encode_metadata(metadata):
+    if hasattr(metadata, 'items'):
+        metadata = metadata.items()
+    result = []
+    for key, value in metadata:
+        if key in _SPECIAL or key.startswith('grpc-') or not _KEY_RE.match(key):
+            raise ValueError('Invalid metadata key: {!r}'.format(key))
+        if key.endswith('-bin'):
+            result.append((key, b64encode(value).rstrip('=')))
+        else:
+            if not _VALUE_RE.match(value):
+                raise ValueError('Invalid metadata value: {!r}'.format(value))
+            result.append((key, value))
+    return result

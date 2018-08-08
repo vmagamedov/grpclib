@@ -11,7 +11,8 @@ from .utils import DeadlineWrapper
 from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
-from .metadata import Metadata, Deadline
+from .metadata import Deadline, encode_grpc_message
+from .metadata import encode_metadata, decode_metadata
 from .protocol import H2Protocol, AbstractHandler
 from .exceptions import GRPCError, ProtocolError
 from .encoding.base import GRPC_CONTENT_TYPE
@@ -53,6 +54,10 @@ class Stream(StreamIterator):
         self._send_type = send_type
         self.metadata = metadata
         self.deadline = deadline
+
+    @property
+    def _content_type(self):
+        return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
     async def recv_message(self):
         """Coroutine to receive incoming message from the client.
@@ -101,11 +106,10 @@ class Stream(StreamIterator):
 
         headers = [
             (':status', '200'),
-            ('content-type', (GRPC_CONTENT_TYPE + '+'
-                              + self._codec.__content_subtype__)),
+            ('content-type', self._content_type),
         ]
         if metadata is not None:
-            headers.extend(metadata.items())
+            headers.extend(encode_metadata(metadata))
 
         await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
@@ -172,9 +176,10 @@ class Stream(StreamIterator):
 
         headers.append(('grpc-status', str(status.value)))
         if status_message is not None:
-            headers.append(('grpc-message', status_message))
+            headers.append(('grpc-message',
+                            encode_grpc_message(status_message)))
         if metadata is not None:
-            headers.extend(metadata.items())
+            headers.extend(encode_metadata(metadata))
 
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True
@@ -294,9 +299,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                 _stream.reset_nowait()
             return
 
-        metadata = Metadata.from_headers(headers)
         try:
-            deadline = Deadline.from_metadata(metadata)
+            deadline = Deadline.from_headers(headers)
         except ValueError:
             await _stream.send_headers([
                 (':status', '200'),
@@ -306,6 +310,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
             if _stream.closable:
                 _stream.reset_nowait()
             return
+
+        metadata = decode_metadata(headers)
 
         async with Stream(_stream, method.cardinality, codec,
                           method.request_type, method.reply_type,
@@ -435,7 +441,7 @@ class Server(_GC, asyncio.AbstractServer):
         self._codec = codec or ProtoCodec()
         self._config = h2.config.H2Configuration(
             client_side=False,
-            header_encoding='utf-8',
+            header_encoding='ascii',
         )
 
         self._tcp_server = None

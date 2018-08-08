@@ -29,13 +29,13 @@ class ClientConn:
 
     def __init__(self, *, loop):
         server_config = H2Configuration(client_side=False,
-                                        header_encoding='utf-8')
+                                        header_encoding='ascii')
         self.server_h2c = H2Connection(server_config)
 
         self.to_server_transport = TransportStub(self.server_h2c)
 
         client_config = H2Configuration(client_side=True,
-                                        header_encoding='utf-8')
+                                        header_encoding='ascii')
         self.client_proto = H2Protocol(client.Handler(), client_config,
                                        loop=loop)
         self.client_proto.connection_made(self.to_server_transport)
@@ -65,14 +65,14 @@ class ServerConn:
 
     def __init__(self, *, loop):
         client_config = H2Configuration(client_side=True,
-                                        header_encoding='utf-8')
+                                        header_encoding='ascii')
         self.client_h2c = H2Connection(client_config)
 
         self.to_client_transport = TransportStub(self.client_h2c)
         self.client_h2c.initiate_connection()
 
         server_config = H2Configuration(client_side=False,
-                                        header_encoding='utf-8')
+                                        header_encoding='ascii')
         self.server_proto = H2Protocol(DummyHandler(), server_config,
                                        loop=loop)
         self.server_proto.connection_made(self.to_client_transport)
