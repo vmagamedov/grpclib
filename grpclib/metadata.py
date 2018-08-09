@@ -145,7 +145,7 @@ def decode_grpc_message(value: str) -> str:
 
 
 _KEY_RE = re.compile('^[0-9a-z_.\-]+$')
-_VALUE_RE = re.compile('^[ !-~]+$')
+_VALUE_RE = re.compile('^[ !-~]+$')  # 0x20-0x7E - space and printable ASCII
 _SPECIAL = {
     'te',
     'content-type',
@@ -174,8 +174,14 @@ def encode_metadata(metadata):
         if key in _SPECIAL or key.startswith('grpc-') or not _KEY_RE.match(key):
             raise ValueError('Invalid metadata key: {!r}'.format(key))
         if key.endswith('-bin'):
-            result.append((key, b64encode(value).rstrip('=')))
+            if not isinstance(value, bytes):
+                raise TypeError('Invalid metadata value type, bytes expected: '
+                                '{!r}'.format(value))
+            result.append((key, b64encode(value).rstrip(b'=').decode('ascii')))
         else:
+            if not isinstance(value, str):
+                raise TypeError('Invalid metadata value type, str expected: '
+                                '{!r}'.format(value))
             if not _VALUE_RE.match(value):
                 raise ValueError('Invalid metadata value: {!r}'.format(value))
             result.append((key, value))

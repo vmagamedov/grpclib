@@ -1,9 +1,16 @@
 Changelog
 =========
 
-master
-~~~~~~
+Unreleased
+~~~~~~~~~~
 
+  - **BREAKING:** Fixed metadata encoding. Previously grpclib were using
+    utf-8 to encode metadata, and now grpclib encodes metadata according to the
+    gRPC wire protocol specification: ascii for regular values and base64 for
+    binary values
+  - **BREAKING:** Fixed "grpc-message" header encoding: unicode string -> utf-8
+    -> percent-encoding (RFC 3986, ascii subset). Previously solely utf-8 were
+    used, which now will fail to decode, if you send non-ascii characters
   - Implemented sending custom metadata from the server-side
 
 0.1.1
@@ -18,7 +25,7 @@ master
   - Improved connection lost handling; pull request courtesy Michael
     Elsdörfer
   - Improved error responses and errors handling
-  - deprecated ``end`` keyword-only argument in the
+  - Deprecated ``end`` keyword-only argument in the
     :py:meth:`grpclib.server.Stream.send_message` method on the server-side
 
 0.1.0
