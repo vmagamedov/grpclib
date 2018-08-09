@@ -92,7 +92,14 @@ class Stream(StreamIterator):
     _wrapper = None
     _wrapper_ctx = None
 
+    #: This property contains initial metadata, received with headers from
+    #: the server. It equals to ``None`` initially, and to a multi-dict object
+    #: after :py:meth:`recv_initial_metadata` coroutine succeeds.
     initial_metadata = None
+
+    #: This property contains trailing metadata, received with trailers from
+    #: the server. It equals to ``None`` initially, and to a multi-dict object
+    #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata = None
 
     def __init__(self, channel, request, codec, send_type, recv_type):
@@ -212,6 +219,9 @@ class Stream(StreamIterator):
         May raise :py:class:`~grpclib.exceptions.GRPCError` if server returned
         non-:py:attr:`Status.OK <grpclib.const.Status.OK>` in trailers-only
         response.
+
+        When this coroutine finishes, you can access received initial metadata
+        by using :py:attr:`initial_metadata` attribute.
         """
         if not self._send_request_done:
             raise ProtocolError('Request was not sent yet')
@@ -303,6 +313,9 @@ class Stream(StreamIterator):
 
         May raise :py:class:`~grpclib.exceptions.GRPCError` if server returned
         non-:py:attr:`Status.OK <grpclib.const.Status.OK>` in trailers.
+
+        When this coroutine finishes, you can access received trailing metadata
+        by using :py:attr:`trailing_metadata` attribute.
         """
         if not self._recv_message_count:
             raise ProtocolError('No messages were received before waiting '
@@ -458,7 +471,7 @@ class ServiceMethod:
         or :py:meth:`Stream.send_message` coroutine call.
 
         :param float timeout: request timeout (seconds)
-        :param dict metadata: request metadata
+        :param metadata: custom request metadata, dict or list of pairs
         :return: :py:class:`Stream` object
         """
         return self.channel.request(self.name, self.request_type,
@@ -479,7 +492,7 @@ class UnaryUnaryMethod(ServiceMethod):
 
         :param message: message
         :param float timeout: request timeout (seconds)
-        :param dict metadata: request metadata
+        :param metadata: custom request metadata, dict or list of pairs
         :return: message
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
@@ -500,7 +513,7 @@ class UnaryStreamMethod(ServiceMethod):
 
         :param message: message
         :param float timeout: request timeout (seconds)
-        :param dict metadata: request metadata
+        :param metadata: custom request metadata, dict or list of pairs
         :return: sequence of messages
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
@@ -521,7 +534,7 @@ class StreamUnaryMethod(ServiceMethod):
 
         :param messages: sequence of messages
         :param float timeout: request timeout (seconds)
-        :param dict metadata: request metadata
+        :param metadata: custom request metadata, dict or list of pairs
         :return: message
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
@@ -547,7 +560,7 @@ class StreamStreamMethod(ServiceMethod):
 
         :param messages: sequence of messages
         :param float timeout: request timeout (seconds)
-        :param dict metadata: request metadata
+        :param metadata: custom request metadata, dict or list of pairs
         :return: sequence of messages
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:

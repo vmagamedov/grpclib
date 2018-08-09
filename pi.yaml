@@ -18,10 +18,9 @@
   tasks:
   - run: apk add --no-cache ca-certificates
   - run: update-ca-certificates
-  - run: pip3 install --no-cache-dir {{packages|join(" ")}}
-    packages:
-    - sphinx==1.6.5
-    - sphinx_rtd_theme==0.2.5b1
+  - run: pip3 install -U setuptools
+  - run: pip3 install --no-cache-dir -r {{requirements}}
+    requirements: !File docs/requirements.txt
 
 - !Command
   name: server
@@ -44,3 +43,5 @@
   name: build docs
   image: docs
   run: sphinx-build -b html docs build
+  environ:
+    PYTHONPATH: .

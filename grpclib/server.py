@@ -99,7 +99,7 @@ class Stream(StreamIterator):
             :py:meth:`send_message` coroutine call, if not called before
             explicitly.
 
-        :param metadata: custom initial metadata
+        :param metadata: custom initial metadata, dict or list of pairs
         """
         if self._send_initial_metadata_done:
             raise ProtocolError('Initial metadata was already sent')
@@ -159,7 +159,7 @@ class Stream(StreamIterator):
 
         :param status: resulting status of this coroutine call
         :param status_message: description for a status
-        :param metadata: custom trailing metadata
+        :param metadata: custom trailing metadata, dict or list of pairs
         """
         if self._send_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already sent')
