@@ -4,6 +4,7 @@ Changelog
 Unreleased
 ~~~~~~~~~~
 
+  - Implemented server reflection protocol
   - **BREAKING:** Fixed metadata encoding. Previously grpclib were using
     utf-8 to encode metadata, and now grpclib encodes metadata according to the
     gRPC wire protocol specification: ascii for regular values and base64 for

@@ -10,4 +10,5 @@ User's Guide
   client
   server
   encoding
+  reflection
   changelog/index

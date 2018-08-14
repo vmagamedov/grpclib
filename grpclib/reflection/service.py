@@ -1,53 +1,43 @@
-"""
-This code is heavily based on grpcio-reflection reference implementation:
-
-    Copyright 2016 gRPC authors.
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-
-"""
+# This code is heavily based on grpcio-reflection reference implementation:
+#
+#     Copyright 2016 gRPC authors.
+#
+#     Licensed under the Apache License, Version 2.0 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+#
 from google.protobuf import descriptor_pool
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
 
 from ..const import Status
 
-from .v1alpha.reflection_pb2 import ServerReflectionResponse, ErrorResponse
-from .v1alpha.reflection_pb2 import FileDescriptorResponse
-from .v1alpha.reflection_pb2 import ExtensionNumberResponse
-from .v1alpha.reflection_pb2 import ListServiceResponse, ServiceResponse
-from .v1alpha.reflection_grpc import ServerReflectionBase
+from .v1 import reflection_pb2
+from .v1.reflection_grpc import ServerReflectionBase
+
+from .v1alpha import reflection_pb2 as reflection_pb2_v1alpha
+from .v1alpha.reflection_grpc import (
+    ServerReflectionBase as ServerReflectionBaseV1Alpha
+)
 
 
-class ServerReflection(ServerReflectionBase):
+class _ServerReflection:
 
-    def __init__(self, service_names):
+    def __init__(self, pb, service_names):
+        self._pb = pb
         self._service_names = service_names
         self._pool = descriptor_pool.Default()
 
-    @classmethod
-    def extend(cls, services):
-        service_names = []
-        for service in services:
-            methods = service.__mapping__()
-            method_name = next(iter(methods), None)
-            if method_name is not None:
-                _, service_name, _ = method_name.split('/')
-                service_names.append(service_name)
-        return list(services) + [cls(service_names)]
-
     def _not_found_response(self):
-        return ServerReflectionResponse(
-            error_response=ErrorResponse(
+        return self._pb.ServerReflectionResponse(
+            error_response=self._pb.ErrorResponse(
                 error_code=Status.NOT_FOUND.value,
                 error_message='not found',
             ),
@@ -56,8 +46,8 @@ class ServerReflection(ServerReflectionBase):
     def _file_descriptor_response(self, file_descriptor):
         proto = FileDescriptorProto()
         file_descriptor.CopyToProto(proto)
-        return ServerReflectionResponse(
-            file_descriptor_response=FileDescriptorResponse(
+        return self._pb.ServerReflectionResponse(
+            file_descriptor_response=self._pb.FileDescriptorResponse(
                 file_descriptor_proto=[proto.SerializeToString()],
             ),
         )
@@ -95,17 +85,17 @@ class ServerReflection(ServerReflectionBase):
         except KeyError:
             return self._not_found_response()
         else:
-            return ServerReflectionResponse(
-                all_extension_numbers_response=ExtensionNumberResponse(
+            return self._pb.ServerReflectionResponse(
+                all_extension_numbers_response=self._pb.ExtensionNumberResponse(
                     base_type_name=message.full_name,
                     extension_number=[ext.number for ext in extensions],
                 )
             )
 
     def _list_services_response(self):
-        return ServerReflectionResponse(
-            list_services_response=ListServiceResponse(
-                service=[ServiceResponse(name=service_name)
+        return self._pb.ServerReflectionResponse(
+            list_services_response=self._pb.ListServiceResponse(
+                service=[self._pb.ServiceResponse(name=service_name)
                          for service_name in self._service_names],
             )
         )
@@ -132,10 +122,49 @@ class ServerReflection(ServerReflectionBase):
             elif request.HasField('list_services'):
                 response = self._list_services_response()
             else:
-                response = ServerReflectionResponse(
-                    error_response=ErrorResponse(
+                response = self._pb.ServerReflectionResponse(
+                    error_response=self._pb.ErrorResponse(
                         error_code=Status.INVALID_ARGUMENT.value,
                         error_message='invalid argument',
                     )
                 )
             await stream.send_message(response)
+
+
+class ServerReflectionV1Alpha(_ServerReflection, ServerReflectionBaseV1Alpha):
+    pass
+
+
+class ServerReflection(_ServerReflection, ServerReflectionBase):
+    """
+    Implements server reflection protocol.
+    """
+    @classmethod
+    def extend(cls, services):
+        """
+        Extends services list with reflection service:
+
+        .. code-block:: python
+
+            from grpclib.reflection.service import ServerReflection
+
+            services = [Greeter()]
+            services = ServerReflection.extend(services)
+
+            server = Server(services, loop=loop)
+            ...
+
+        Returns new services list with reflection support added.
+        """
+        service_names = []
+        for service in services:
+            methods = service.__mapping__()
+            method_name = next(iter(methods), None)
+            if method_name is not None:
+                _, service_name, _ = method_name.split('/')
+                service_names.append(service_name)
+        services = list(services)
+        services.append(cls(reflection_pb2, service_names))
+        services.append(ServerReflectionV1Alpha(reflection_pb2_v1alpha,
+                                                service_names))
+        return services
