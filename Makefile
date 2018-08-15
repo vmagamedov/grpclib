@@ -21,7 +21,7 @@ release: proto
 	python setup.py sdist
 
 server:
-	@PYTHONPATH=example python3 -m helloworld.server
+	@PYTHONPATH=example python3 -m reflection.server
 
 _server:
 	@PYTHONPATH=example python3 -m helloworld._reference.server
