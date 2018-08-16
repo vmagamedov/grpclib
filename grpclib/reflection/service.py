@@ -18,6 +18,7 @@ from google.protobuf import descriptor_pool
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
 
 from ..const import Status
+from ..utils import _service_name
 
 from .v1 import reflection_pb2
 from .v1.reflection_grpc import ServerReflectionBase
@@ -158,11 +159,7 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
         """
         service_names = []
         for service in services:
-            methods = service.__mapping__()
-            method_name = next(iter(methods), None)
-            if method_name is not None:
-                _, service_name, _ = method_name.split('/')
-                service_names.append(service_name)
+            service_names.append(_service_name(service))
         services = list(services)
         services.append(cls(reflection_pb2, service_names))
         services.append(ServerReflectionV1Alpha(reflection_pb2_v1alpha,
