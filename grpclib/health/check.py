@@ -29,13 +29,16 @@ class CheckBase(abc.ABC):
 
 
 class ServiceCheck(CheckBase):
+    _value = None
     _poll_task = None
+    _last_check = 0.0
 
-    def __init__(self, *, ttl=DEFAULT_CHECK_TTL):
-        self._value = None
+    def __init__(self, *, loop, ttl=DEFAULT_CHECK_TTL):
         self._ttl = ttl
-        self._last_check = 0.0
         self._events = set()
+
+        self._check_lock = asyncio.Event(loop=loop)
+        self._check_lock.set()
 
     @abc.abstractmethod
     async def check(self):
@@ -45,7 +48,16 @@ class ServiceCheck(CheckBase):
         return self._value
 
     async def __check__(self):
-        if time.monotonic() - self._last_check > self._ttl:
+        if time.monotonic() - self._last_check < self._ttl:
+            return self._value
+
+        if not self._check_lock.is_set():
+            # wait until concurrent check succeed
+            await self._check_lock.wait()
+            return self._value
+
+        self._check_lock.clear()
+        try:
             try:
                 self._value = await self.check()
             except asyncio.CancelledError:
@@ -57,7 +69,9 @@ class ServiceCheck(CheckBase):
             # notify all watchers that this check was changed
             for event in self._events:
                 event.set()
-        return self._value
+            return self._value
+        finally:
+            self._check_lock.set()
 
     async def _poll(self):
         while True:
