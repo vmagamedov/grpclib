@@ -3,10 +3,14 @@ import time
 import asyncio
 import logging
 
+from ..utils import DeadlineWrapper
+from ..metadata import Deadline
+
 
 log = logging.getLogger(__name__)
 
 DEFAULT_CHECK_TTL = 30
+DEFAULT_CHECK_TIMEOUT = 10
 
 
 class CheckBase(abc.ABC):
@@ -33,12 +37,17 @@ class ServiceCheck(CheckBase):
     _poll_task = None
     _last_check = 0.0
 
-    def __init__(self, *, loop, ttl=DEFAULT_CHECK_TTL):
-        self._ttl = ttl
+    def __init__(self, *, loop, check_ttl=DEFAULT_CHECK_TTL,
+                 check_timeout=DEFAULT_CHECK_TIMEOUT):
+        self._check_ttl = check_ttl
+        self._check_timeout = check_timeout
+
         self._events = set()
 
         self._check_lock = asyncio.Event(loop=loop)
         self._check_lock.set()
+
+        self._check_wrapper = DeadlineWrapper()
 
     @abc.abstractmethod
     async def check(self):
@@ -48,7 +57,7 @@ class ServiceCheck(CheckBase):
         return self._value
 
     async def __check__(self):
-        if time.monotonic() - self._last_check < self._ttl:
+        if time.monotonic() - self._last_check < self._check_ttl:
             return self._value
 
         if not self._check_lock.is_set():
@@ -58,28 +67,30 @@ class ServiceCheck(CheckBase):
 
         self._check_lock.clear()
         try:
-            try:
+            deadline = Deadline.from_timeout(self._check_timeout)
+            with self._check_wrapper.start(deadline):
                 self._value = await self.check()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                log.exception('Health check failed')
-                self._value = False
-            self._last_check = time.monotonic()
-            # notify all watchers that this check was changed
-            for event in self._events:
-                event.set()
-            return self._value
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception('Health check failed')
+            self._value = False
         finally:
             self._check_lock.set()
+
+        self._last_check = time.monotonic()
+        # notify all watchers that this check was changed
+        for event in self._events:
+            event.set()
+        return self._value
 
     async def _poll(self):
         while True:
             status = await self.__check__()
             if status:
-                await asyncio.sleep(self._ttl)
+                await asyncio.sleep(self._check_ttl)
             else:
-                await asyncio.sleep(self._ttl)  # TODO: change interval?
+                await asyncio.sleep(self._check_ttl)  # TODO: change interval?
 
     async def __subscribe__(self):
         if self._poll_task is None:
