@@ -177,7 +177,9 @@ class Connection:
                       stream_id=stream_id, wrapper=wrapper)
 
     def flush(self):
-        self._transport.write(self._connection.data_to_send())
+        data = self._connection.data_to_send()
+        if data:
+            self._transport.write(data)
 
     def close(self):
         self._transport.close()
