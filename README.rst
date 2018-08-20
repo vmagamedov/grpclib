@@ -46,7 +46,7 @@ plugin provided, which can be used like this:
 
 .. code-block:: shell
 
-    $ python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld.proto
+    $ python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld/helloworld.proto
 
 This command will generate ``helloworld_pb2.py`` and ``helloworld_grpc.py``
 files.
@@ -63,7 +63,7 @@ See ``example`` directory for a full example of the ``helloworld`` service.
 ``example/README.rst`` contains instructions about how to generate
 ``helloworld_pb2.py`` and ``helloworld_grpc.py`` files and how to run example.
 
-Example basically looks like this:
+Example basically looks like this (for Python>=3.7):
 
 .. code-block:: python
 
@@ -75,38 +75,35 @@ Example basically looks like this:
     from .helloworld_pb2 import HelloRequest, HelloReply
     from .helloworld_grpc import GreeterBase, GreeterStub
 
-    loop = asyncio.get_event_loop()
-
-    # Server
 
     class Greeter(GreeterBase):
 
         async def SayHello(self, stream):
             request = await stream.recv_message()
-            message = 'Hello, {}!'.format(request.name)
+            message = f'Hello, {request.name}!'
             await stream.send_message(HelloReply(message=message))
 
-    server = Server([Greeter()], loop=loop)
-    loop.run_until_complete(server.start('127.0.0.1', 50051))
 
-    # Client
+    async def test():
+        loop = asyncio.get_event_loop()
 
-    channel = Channel(loop=loop)
-    stub = GreeterStub(channel)
+        # start server
+        server = Server([Greeter()], loop=loop)
+        await server.start('127.0.0.1', 50051)
 
-    async def make_request():
+        # perform request
+        channel = Channel('127.0.0.1', 50051, loop=loop)
+        stub = GreeterStub(channel)
         response = await stub.SayHello(HelloRequest(name='World'))
-        assert response.message == 'Hello, World!'
+        print(response.message)
 
-    # Test request
+        # shutdown server
+        server.close()
+        await server.wait_closed()
 
-    loop.run_until_complete(make_request())
 
-    # Shutdown
-
-    server.close()
-    loop.run_until_complete(server.wait_closed())
-    loop.close()
+    if __name__ == '__main__':
+        asyncio.run(test())
 
 Where ``helloworld.proto`` contains:
 
@@ -116,16 +113,16 @@ Where ``helloworld.proto`` contains:
 
     package helloworld;
 
-    service Greeter {
-        rpc SayHello (HelloRequest) returns (HelloReply) {}
-    }
-
     message HelloRequest {
-        string name = 1;
+      string name = 1;
     }
 
     message HelloReply {
-        string message = 1;
+      string message = 1;
+    }
+
+    service Greeter {
+      rpc SayHello (HelloRequest) returns (HelloReply) {}
     }
 
 Contributing

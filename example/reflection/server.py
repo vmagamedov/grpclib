@@ -3,18 +3,19 @@ import asyncio
 from grpclib.server import Server
 from grpclib.reflection.service import ServerReflection
 
-from helloworld.server import Greeter, run
+from helloworld.server import Greeter, serve
 
 
-def main():
-    loop = asyncio.get_event_loop()
-
+async def main():
     services = [Greeter()]
     services = ServerReflection.extend(services)
 
-    server = Server(services, loop=loop)
-    run(server, loop=loop)
+    server = Server(services, loop=asyncio.get_event_loop())
+    await serve(server)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

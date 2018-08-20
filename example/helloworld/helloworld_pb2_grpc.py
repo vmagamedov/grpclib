@@ -14,23 +14,8 @@ class GreeterStub(object):
     Args:
       channel: A grpc.Channel.
     """
-    self.UnaryUnaryGreeting = channel.unary_unary(
-        '/helloworld.Greeter/UnaryUnaryGreeting',
-        request_serializer=helloworld_dot_helloworld__pb2.HelloRequest.SerializeToString,
-        response_deserializer=helloworld_dot_helloworld__pb2.HelloReply.FromString,
-        )
-    self.UnaryStreamGreeting = channel.unary_stream(
-        '/helloworld.Greeter/UnaryStreamGreeting',
-        request_serializer=helloworld_dot_helloworld__pb2.HelloRequest.SerializeToString,
-        response_deserializer=helloworld_dot_helloworld__pb2.HelloReply.FromString,
-        )
-    self.StreamUnaryGreeting = channel.stream_unary(
-        '/helloworld.Greeter/StreamUnaryGreeting',
-        request_serializer=helloworld_dot_helloworld__pb2.HelloRequest.SerializeToString,
-        response_deserializer=helloworld_dot_helloworld__pb2.HelloReply.FromString,
-        )
-    self.StreamStreamGreeting = channel.stream_stream(
-        '/helloworld.Greeter/StreamStreamGreeting',
+    self.SayHello = channel.unary_unary(
+        '/helloworld.Greeter/SayHello',
         request_serializer=helloworld_dot_helloworld__pb2.HelloRequest.SerializeToString,
         response_deserializer=helloworld_dot_helloworld__pb2.HelloReply.FromString,
         )
@@ -40,30 +25,9 @@ class GreeterServicer(object):
   # missing associated documentation comment in .proto file
   pass
 
-  def UnaryUnaryGreeting(self, request, context):
-    """A simple RPC
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def UnaryStreamGreeting(self, request, context):
-    """A response streaming RPC
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def StreamUnaryGreeting(self, request_iterator, context):
-    """A request streaming RPC.
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def StreamStreamGreeting(self, request_iterator, context):
-    """A bidirectional streaming RPC
-    """
+  def SayHello(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
@@ -71,23 +35,8 @@ class GreeterServicer(object):
 
 def add_GreeterServicer_to_server(servicer, server):
   rpc_method_handlers = {
-      'UnaryUnaryGreeting': grpc.unary_unary_rpc_method_handler(
-          servicer.UnaryUnaryGreeting,
-          request_deserializer=helloworld_dot_helloworld__pb2.HelloRequest.FromString,
-          response_serializer=helloworld_dot_helloworld__pb2.HelloReply.SerializeToString,
-      ),
-      'UnaryStreamGreeting': grpc.unary_stream_rpc_method_handler(
-          servicer.UnaryStreamGreeting,
-          request_deserializer=helloworld_dot_helloworld__pb2.HelloRequest.FromString,
-          response_serializer=helloworld_dot_helloworld__pb2.HelloReply.SerializeToString,
-      ),
-      'StreamUnaryGreeting': grpc.stream_unary_rpc_method_handler(
-          servicer.StreamUnaryGreeting,
-          request_deserializer=helloworld_dot_helloworld__pb2.HelloRequest.FromString,
-          response_serializer=helloworld_dot_helloworld__pb2.HelloReply.SerializeToString,
-      ),
-      'StreamStreamGreeting': grpc.stream_stream_rpc_method_handler(
-          servicer.StreamStreamGreeting,
+      'SayHello': grpc.unary_unary_rpc_method_handler(
+          servicer.SayHello,
           request_deserializer=helloworld_dot_helloworld__pb2.HelloRequest.FromString,
           response_serializer=helloworld_dot_helloworld__pb2.HelloReply.SerializeToString,
       ),

@@ -11,12 +11,5 @@ message HelloReply {
 }
 
 service Greeter {
-  // A simple RPC
-  rpc UnaryUnaryGreeting (HelloRequest) returns (HelloReply) {}
-  // A response streaming RPC
-  rpc UnaryStreamGreeting (HelloRequest) returns (stream HelloReply) {}
-  // A request streaming RPC.
-  rpc StreamUnaryGreeting (stream HelloRequest) returns (HelloReply) {}
-  // A bidirectional streaming RPC
-  rpc StreamStreamGreeting (stream HelloRequest) returns (stream HelloReply) {}
+  rpc SayHello (HelloRequest) returns (HelloReply) {}
 }
