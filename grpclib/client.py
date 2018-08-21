@@ -395,7 +395,7 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host='127.0.0.1', port=50051, path=None, *, loop, codec=None):
+    def __init__(self, host=None, port=None, *, loop,  path=None, codec=None):
         """Initialize connection to the server
 
         :param host: server host name.
@@ -406,7 +406,14 @@ class Channel:
             omitted (must be None).
         """
         if path is not None and (host is not None or port is not None):
-            raise ValueError("The 'path' parameter can not be used with the 'host' or 'port' parameters.")
+            raise ValueError("The 'path' parameter can not be used with the "
+                             "'host' or 'port' parameters.")
+        else:
+            if host is None:
+                host = '127.0.0.1'
+
+            if port is None:
+                port = 50051
 
         self._host = host
         self._port = port
@@ -429,19 +436,12 @@ class Channel:
     async def __connect__(self):
         if self._protocol is None or self._protocol.handler.connection_lost:
             if self._path is not None:
-                _, self._protocol = await self.__connect_unix__()
+                _, self._protocol = await self._loop.create_unix_connection(
+                    self._protocol_factory, self._path)
             else:
-                _, self._protocol = await self.__connect_tcp__()
+                _, self._protocol = await self._loop.create_connection(
+                    self._protocol_factory, self._host, self._port)
         return self._protocol
-
-    async def __connect_tcp__(self):
-        return await self._loop.create_connection(self._protocol_factory,
-                                                  self._host,
-                                                  self._port)
-
-    async def __connect_unix__(self):
-        return await self._loop.create_unix_connection(self._protocol_factory,
-                                                       self._path)
 
     def request(self, name, request_type, reply_type, *, timeout=None,
                 deadline=None, metadata=None):

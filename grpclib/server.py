@@ -444,7 +444,7 @@ class Server(_GC, asyncio.AbstractServer):
             header_encoding='ascii',
         )
 
-        self._tcp_server = None
+        self._server = None
         self._handlers = set()
 
     def __gc_collect__(self):
@@ -457,7 +457,7 @@ class Server(_GC, asyncio.AbstractServer):
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 
-    async def start(self, host=None, port=None, path=None, *,
+    async def start(self, host=None, port=None, *, path=None,
                     family=socket.AF_UNSPEC, flags=socket.AI_PASSIVE,
                     sock=None, backlog=100, ssl=None, reuse_address=None,
                     reuse_port=None):
@@ -496,19 +496,20 @@ class Server(_GC, asyncio.AbstractServer):
             so long as they all set this flag when being created.
         """
         if path is not None and (host is not None or port is not None):
-            raise ValueError("The 'path' parameter can not be used with the 'host' or 'port' parameters.")
+            raise ValueError("The 'path' parameter can not be used with the "
+                             "'host' or 'port' parameters.")
 
-        if self._tcp_server is not None:
+        if self._server is not None:
             raise RuntimeError('Server is already started')
 
         if path is not None:
-            self._tcp_server = await self._loop.create_unix_server(
+            self._server = await self._loop.create_unix_server(
                 self._protocol_factory, path, sock=sock, backlog=backlog,
                 ssl=ssl
             )
 
         else:
-            self._tcp_server = await self._loop.create_server(
+            self._server = await self._loop.create_server(
                 self._protocol_factory, host, port,
                 family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
                 reuse_address=reuse_address, reuse_port=reuse_port
@@ -519,9 +520,9 @@ class Server(_GC, asyncio.AbstractServer):
         requests. Request handlers are able to handle `CancelledError` and
         exit properly.
         """
-        if self._tcp_server is None:
+        if self._server is None:
             raise RuntimeError('Server is not started')
-        self._tcp_server.close()
+        self._server.close()
         for handler in self._handlers:
             handler.close()
 
@@ -529,9 +530,9 @@ class Server(_GC, asyncio.AbstractServer):
         """Coroutine to wait until all existing request handlers will exit
         properly.
         """
-        if self._tcp_server is None:
+        if self._server is None:
             raise RuntimeError('Server is not started')
-        await self._tcp_server.wait_closed()
+        await self._server.wait_closed()
         if self._handlers:
             await asyncio.wait({h.wait_closed() for h in self._handlers},
                                loop=self._loop)
