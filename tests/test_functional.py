@@ -1,4 +1,6 @@
+import os
 import socket
+import tempfile
 
 import pytest
 
@@ -66,6 +68,38 @@ class ClientServer:
         self.channel.close()
 
 
+class UnixClientServer:
+    temp = None
+    sock = None
+    server = None
+    channel = None
+
+    def __init__(self, *, loop):
+        self.loop = loop
+
+    async def __aenter__(self):
+        self.temp = tempfile.mkdtemp()
+        self.sock = os.path.join(self.temp, 'grpclib.sock')
+
+        dummy_service = DummyService()
+
+        self.server = Server([dummy_service], loop=self.loop)
+        await self.server.start(path=self.sock)
+
+        self.channel = Channel(host=None, port=None, path=self.sock, loop=self.loop)
+        dummy_stub = DummyServiceStub(self.channel)
+        return dummy_service, dummy_stub
+
+    async def __aexit__(self, *exc_info):
+        self.server.close()
+        await self.server.wait_closed()
+        self.channel.close()
+        if os.path.exists(self.sock):
+            os.unlink(self.sock)
+        if os.path.exists(self.temp):
+            os.rmdir(self.temp)
+
+
 @pytest.mark.asyncio
 async def test_close_empty_channel(loop):
     async with ClientServer(loop=loop):
@@ -75,6 +109,14 @@ async def test_close_empty_channel(loop):
 @pytest.mark.asyncio
 async def test_unary_unary_simple(loop):
     async with ClientServer(loop=loop) as (handler, stub):
+        reply = await stub.UnaryUnary(DummyRequest(value='ping'))
+        assert reply == DummyReply(value='pong')
+        assert handler.log == [DummyRequest(value='ping')]
+
+
+@pytest.mark.asyncio
+async def test_unary_unary_simple_unix(loop):
+    async with UnixClientServer(loop=loop) as (handler, stub):
         reply = await stub.UnaryUnary(DummyRequest(value='ping'))
         assert reply == DummyReply(value='pong')
         assert handler.log == [DummyRequest(value='ping')]
