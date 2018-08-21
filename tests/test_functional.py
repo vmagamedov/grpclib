@@ -86,7 +86,7 @@ class UnixClientServer:
         self.server = Server([dummy_service], loop=self.loop)
         await self.server.start(path=self.sock)
 
-        self.channel = Channel(host=None, port=None, path=self.sock, loop=self.loop)
+        self.channel = Channel(path=self.sock, loop=self.loop)
         dummy_stub = DummyServiceStub(self.channel)
         return dummy_service, dummy_stub
 

@@ -468,8 +468,8 @@ class Server(_GC, asyncio.AbstractServer):
 
         :param port: port number.
 
-        :param path: UNIX domain socket path. If specified, host and port should be
-            omitted (must be None).
+        :param path: UNIX domain socket path. If specified, host and port should
+            be omitted (must be None).
 
         :param family: can be set to either :py:data:`python:socket.AF_INET` or
             :py:data:`python:socket.AF_INET6` to force the socket to use IPv4 or
