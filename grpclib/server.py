@@ -444,7 +444,7 @@ class Server(_GC, asyncio.AbstractServer):
             header_encoding='ascii',
         )
 
-        self._tcp_server = None
+        self._server = None
         self._handlers = set()
 
     def __gc_collect__(self):
@@ -457,7 +457,7 @@ class Server(_GC, asyncio.AbstractServer):
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 
-    async def start(self, host=None, port=None, *,
+    async def start(self, host=None, port=None, *, path=None,
                     family=socket.AF_UNSPEC, flags=socket.AI_PASSIVE,
                     sock=None, backlog=100, ssl=None, reuse_address=None,
                     reuse_port=None):
@@ -467,6 +467,9 @@ class Server(_GC, asyncio.AbstractServer):
             If host is None, server will be bound to all available interfaces.
 
         :param port: port number.
+
+        :param path: UNIX domain socket path. If specified, host and port should
+            be omitted (must be None).
 
         :param family: can be set to either :py:data:`python:socket.AF_INET` or
             :py:data:`python:socket.AF_INET6` to force the socket to use IPv4 or
@@ -492,23 +495,34 @@ class Server(_GC, asyncio.AbstractServer):
             to the same port as other existing endpoints are bound to,
             so long as they all set this flag when being created.
         """
-        if self._tcp_server is not None:
+        if path is not None and (host is not None or port is not None):
+            raise ValueError("The 'path' parameter can not be used with the "
+                             "'host' or 'port' parameters.")
+
+        if self._server is not None:
             raise RuntimeError('Server is already started')
 
-        self._tcp_server = await self._loop.create_server(
-            self._protocol_factory, host, port,
-            family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
-            reuse_address=reuse_address, reuse_port=reuse_port
-        )
+        if path is not None:
+            self._server = await self._loop.create_unix_server(
+                self._protocol_factory, path, sock=sock, backlog=backlog,
+                ssl=ssl
+            )
+
+        else:
+            self._server = await self._loop.create_server(
+                self._protocol_factory, host, port,
+                family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
+                reuse_address=reuse_address, reuse_port=reuse_port
+            )
 
     def close(self):
         """Stops accepting new connections, cancels all currently running
         requests. Request handlers are able to handle `CancelledError` and
         exit properly.
         """
-        if self._tcp_server is None:
+        if self._server is None:
             raise RuntimeError('Server is not started')
-        self._tcp_server.close()
+        self._server.close()
         for handler in self._handlers:
             handler.close()
 
@@ -516,9 +530,9 @@ class Server(_GC, asyncio.AbstractServer):
         """Coroutine to wait until all existing request handlers will exit
         properly.
         """
-        if self._tcp_server is None:
+        if self._server is None:
             raise RuntimeError('Server is not started')
-        await self._tcp_server.wait_closed()
+        await self._server.wait_closed()
         if self._handlers:
             await asyncio.wait({h.wait_closed() for h in self._handlers},
                                loop=self._loop)

@@ -395,10 +395,31 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host='127.0.0.1', port=50051, *, loop, codec=None):
+    def __init__(self, host=None, port=None, *, loop,  path=None, codec=None):
+        """Initialize connection to the server
+
+        :param host: server host name.
+
+        :param port: server port number.
+
+        :param path: server socket path. If specified, host and port should be
+            omitted (must be None).
+        """
+        if path is not None and (host is not None or port is not None):
+            raise ValueError("The 'path' parameter can not be used with the "
+                             "'host' or 'port' parameters.")
+        else:
+            if host is None:
+                host = '127.0.0.1'
+
+            if port is None:
+                port = 50051
+
         self._host = host
         self._port = port
         self._loop = loop
+        self._path = path
+
         self._codec = codec or ProtoCodec()
 
         self._config = H2Configuration(client_side=True,
@@ -414,9 +435,12 @@ class Channel:
 
     async def __connect__(self):
         if self._protocol is None or self._protocol.handler.connection_lost:
-            _, self._protocol = await self._loop.create_connection(
-                self._protocol_factory, self._host, self._port
-            )
+            if self._path is not None:
+                _, self._protocol = await self._loop.create_unix_connection(
+                    self._protocol_factory, self._path)
+            else:
+                _, self._protocol = await self._loop.create_connection(
+                    self._protocol_factory, self._host, self._port)
         return self._protocol
 
     def request(self, name, request_type, reply_type, *, timeout=None,
