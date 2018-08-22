@@ -65,6 +65,7 @@ class ServiceCheck(CheckBase):
             await self._check_lock.wait()
             return self._value
 
+        prev_value = self._value
         self._check_lock.clear()
         try:
             deadline = Deadline.from_timeout(self._check_timeout)
@@ -79,9 +80,12 @@ class ServiceCheck(CheckBase):
             self._check_lock.set()
 
         self._last_check = time.monotonic()
-        # notify all watchers that this check was changed
-        for event in self._events:
-            event.set()
+        if self._value != prev_value:
+            log_level = log.info if self._value else log.warning
+            log_level('{!r}: health check status = {!r}', self, self._value)
+            # notify all watchers that this check was changed
+            for event in self._events:
+                event.set()
         return self._value
 
     async def _poll(self):
