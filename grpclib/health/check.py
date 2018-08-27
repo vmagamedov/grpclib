@@ -185,7 +185,7 @@ class ServiceStatus(CheckBase):
         return self._value
 
     async def __subscribe__(self):
-        event = asyncio.Event()
+        event = asyncio.Event(loop=self._loop)
         self._events.add(event)
         return event
 
