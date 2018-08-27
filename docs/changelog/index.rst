@@ -4,6 +4,10 @@ Changelog
 Unreleased
 ~~~~~~~~~~
 
+  - Implemented Health service with additional functionality to help write
+    health checks
+  - Implemented ``channel_for`` helper for writing functional tests
+  - Added support for UNIX sockets; pull request courtesy Andy Kipp
   - Implemented server reflection protocol
   - **BREAKING:** Fixed metadata encoding. Previously grpclib were using
     utf-8 to encode metadata, and now grpclib encodes metadata according to the

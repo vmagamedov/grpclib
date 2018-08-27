@@ -25,6 +25,27 @@ class _InMemoryTransport(Transport):
 
 @contextmanager
 def channel_for(services, *, loop):
+    """Specially initialised :py:class:`~grpclib.client.Channel` with in-memory
+    transport to a :py:class:`~grpclib.server.Server`
+
+    Example:
+
+    .. code-block:: python
+
+        class Greeter(GreeterBase):
+            ...
+
+        greeter = Greeter()
+
+        with channel_for([greeter], loop=loop) as channel:
+            stub = GreeterStub(channel)
+            response = await stub.SayHello(HelloRequest(name='Dr. Strange'))
+            assert response.message == 'Hello, Dr. Strange!'
+
+    :param services: list of services you want to test
+    :param loop: asyncio-compatible event loop
+    :return: context-manager, which returns a channel
+    """
     server = Server(services, loop=loop)
     server_protocol = server._protocol_factory()
 

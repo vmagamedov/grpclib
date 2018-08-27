@@ -11,4 +11,6 @@ User's Guide
   server
   encoding
   reflection
+  health
+  testing
   changelog/index

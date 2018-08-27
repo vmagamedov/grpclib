@@ -11,10 +11,10 @@ from grpclib.health.v1.health_pb2 import HealthCheckRequest, HealthCheckResponse
 from grpclib.health.v1.health_grpc import HealthStub
 
 
-class Check(ServiceCheck):
+class Check:
     __current_status__ = None
 
-    async def check(self):
+    async def __call__(self):
         return self.__current_status__
 
 
@@ -66,9 +66,12 @@ async def test_check_zero_checks(loop):
 ])
 async def test_check_service_check(loop, v1, v2, status):
     svc = Service()
-    c1 = Check(loop=loop, check_ttl=0)
-    c2 = Check(loop=loop, check_ttl=0)
-    health = Health({svc: [c1, c2]})
+    c1 = Check()
+    c2 = Check()
+    health = Health({svc: [
+        ServiceCheck(c1, loop=loop, check_ttl=0),
+        ServiceCheck(c2, loop=loop, check_ttl=0),
+    ]})
     with channel_for([svc, health], loop=loop) as channel:
         stub = HealthStub(channel)
         c1.__current_status__ = v1
@@ -88,8 +91,8 @@ async def test_check_service_check(loop, v1, v2, status):
 ])
 async def test_check_service_status(loop, v1, v2, status):
     svc = Service()
-    s1 = ServiceStatus()
-    s2 = ServiceStatus()
+    s1 = ServiceStatus(loop=loop)
+    s2 = ServiceStatus(loop=loop)
     health = Health({svc: [s1, s2]})
     with channel_for([svc, health], loop=loop) as channel:
         stub = HealthStub(channel)
@@ -149,9 +152,12 @@ async def test_watch_zero_checks(loop):
 @pytest.mark.asyncio
 async def test_watch_service_check(loop):
     svc = Service()
-    c1 = Check(loop=loop, check_ttl=0.001)
-    c2 = Check(loop=loop, check_ttl=0.001)
-    health = Health({svc: [c1, c2]})
+    c1 = Check()
+    c2 = Check()
+    health = Health({svc: [
+        ServiceCheck(c1, loop=loop, check_ttl=0.001),
+        ServiceCheck(c2, loop=loop, check_ttl=0.001),
+    ]})
     with channel_for([svc, health], loop=loop) as channel:
         stub = HealthStub(channel)
         async with stub.Watch.open() as stream:
@@ -191,8 +197,8 @@ async def test_watch_service_check(loop):
 @pytest.mark.asyncio
 async def test_watch_service_status(loop):
     svc = Service()
-    s1 = ServiceStatus()
-    s2 = ServiceStatus()
+    s1 = ServiceStatus(loop=loop)
+    s2 = ServiceStatus(loop=loop)
     health = Health({svc: [s1, s2]})
     with channel_for([svc, health], loop=loop) as channel:
         stub = HealthStub(channel)

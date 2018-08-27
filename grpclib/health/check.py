@@ -3,6 +3,8 @@ import time
 import asyncio
 import logging
 
+from typing import Optional
+
 from ..utils import DeadlineWrapper
 from ..metadata import Deadline
 
@@ -33,12 +35,35 @@ class CheckBase(abc.ABC):
 
 
 class ServiceCheck(CheckBase):
+    """Performs periodic checks
+
+    Example:
+
+    .. code-block:: python
+
+        async def db_test():
+            # raised exceptions are the same as returning False,
+            # except that exceptions will be logged
+            await db.execute('SELECT 1;')
+            return True
+
+        db_check = ServiceCheck(db_test, loop=loop)
+    """
     _value = None
     _poll_task = None
     _last_check = 0.0
 
-    def __init__(self, *, loop, check_ttl=DEFAULT_CHECK_TTL,
+    def __init__(self, func, *, loop, check_ttl=DEFAULT_CHECK_TTL,
                  check_timeout=DEFAULT_CHECK_TIMEOUT):
+        """
+        :param func: callable object which returns awaitable object, where
+            result is one of: ``True`` (healthy), ``False`` (unhealthy), or
+            ``None`` (unknown)
+        :param loop: asyncio-compatible event loop
+        :param check_ttl: how long we can cache result of the previous check
+        :param check_timeout: timeout for this check
+        """
+        self._func = func
         self._check_ttl = check_ttl
         self._check_timeout = check_timeout
 
@@ -48,10 +73,6 @@ class ServiceCheck(CheckBase):
         self._check_lock.set()
 
         self._check_wrapper = DeadlineWrapper()
-
-    @abc.abstractmethod
-    async def check(self):
-        pass
 
     def __status__(self):
         return self._value
@@ -70,7 +91,10 @@ class ServiceCheck(CheckBase):
         try:
             deadline = Deadline.from_timeout(self._check_timeout)
             with self._check_wrapper.start(deadline):
-                self._value = await self.check()
+                value = await self._func()
+            if value is not None and not isinstance(value, bool):
+                raise TypeError('Invalid status type: {!r}'.format(value))
+            self._value = value
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -119,12 +143,34 @@ class ServiceCheck(CheckBase):
 
 
 class ServiceStatus(CheckBase):
+    """Contains status of a proactive check
 
-    def __init__(self):
+    Example:
+
+    .. code-block:: python
+
+        redis_status = ServiceStatus(loop=loop)
+
+        # detected that Redis is available
+        redis_status.set(True)
+
+        # detected that Redis is unavailable
+        redis_status.set(False)
+    """
+    def __init__(self, *, loop):
+        """
+        :param loop: asyncio-compatible event loop
+        """
+        self._loop = loop
         self._value = None
         self._events = set()
 
-    def set(self, value: bool):
+    def set(self, value: Optional[bool]):
+        """Sets current status of a check
+
+        :param value: ``True`` (healthy), ``False`` (unhealthy), or ``None``
+            (unknown)
+        """
         prev_value = self._value
         self._value = value
         if self._value != prev_value:

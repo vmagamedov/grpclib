@@ -29,17 +29,31 @@ def _reset_waits(events, waits):
 
 
 class Health(HealthBase):
-    """
-    Health({
-        auth_service: [redis_check],
-        billing_service: [master_db_check],
-    })
+    """Health-checking service
+
+    Example:
+
+    .. code-block:: python
+
+        from grpclib.health.service import Health
+
+        auth = AuthService()
+        billing = BillingService()
+
+        health = Health({
+            auth: [redis_status],
+            billing: [db_check],
+        })
+
+        server = Server([auth, billing, health], loop=loop)
+
     """
     def __init__(self, checks):
         self._checks = {_service_name(s): list(check_list)
                         for s, check_list in checks.items()}
 
     async def Check(self, stream):
+        """Implements synchronous periodic checks"""
         request = await stream.recv_message()
         checks = self._checks.get(request.service)
         if checks is None:
