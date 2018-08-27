@@ -125,10 +125,12 @@ class ServiceStatus(CheckBase):
         self._events = set()
 
     def set(self, value: bool):
+        prev_value = self._value
         self._value = value
-        # notify all watchers that this check was changed
-        for event in self._events:
-            event.set()
+        if self._value != prev_value:
+            # notify all watchers that this check was changed
+            for event in self._events:
+                event.set()
 
     def __status__(self):
         return self._value

@@ -219,4 +219,14 @@ async def test_watch_service_status(loop):
             assert await stream.recv_message() == HealthCheckResponse(
                 status=HealthCheckResponse.SERVING,
             )
+
+            # check that there are no unnecessary messages if status isn't
+            # changed
+            s1.set(True)
+            try:
+                with async_timeout.timeout(0.01):
+                    assert not await stream.recv_message()
+            except asyncio.TimeoutError:
+                pass
+
             await stream.cancel()
