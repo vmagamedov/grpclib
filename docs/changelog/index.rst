@@ -1,8 +1,8 @@
 Changelog
 =========
 
-Unreleased
-~~~~~~~~~~
+0.2.0rc1
+~~~~~~~~
 
   - Implemented Health service with additional functionality to help write
     health checks
