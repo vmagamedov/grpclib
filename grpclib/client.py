@@ -410,6 +410,9 @@ class Channel:
 
         :param path: server socket path. If specified, host and port should be
             omitted (must be None).
+
+        :param ssl: ``True`` or :py:class:`~python:ssl.SSLContext` object; if
+            ``True``, default SSL context is used.
         """
         if path is not None and (host is not None or port is not None):
             raise ValueError("The 'path' parameter can not be used with the "
