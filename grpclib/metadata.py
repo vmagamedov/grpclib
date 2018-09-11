@@ -20,7 +20,7 @@ _UNITS = {
     'n': 10 ** -9,
 }
 
-_TIMEOUT_RE = re.compile('^(\d+)([{}])$'.format(''.join(_UNITS)))
+_TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
 
 
 def decode_timeout(value):
@@ -144,8 +144,8 @@ def decode_grpc_message(value: str) -> str:
     return unquote(value, encoding='utf-8', errors='replace')
 
 
-_KEY_RE = re.compile('^[0-9a-z_.\-]+$')
-_VALUE_RE = re.compile('^[ !-~]+$')  # 0x20-0x7E - space and printable ASCII
+_KEY_RE = re.compile(r'^[0-9a-z_.\-]+$')
+_VALUE_RE = re.compile(r'^[ !-~]+$')  # 0x20-0x7E - space and printable ASCII
 _SPECIAL = {
     'te',
     'content-type',
