@@ -1,6 +1,13 @@
+import sys
 import asyncio
 
 from contextlib import contextmanager
+
+
+if sys.version_info > (3, 7):
+    _current_task = asyncio.current_task
+else:
+    _current_task = asyncio.Task.current_task
 
 
 class Wrapper:
@@ -32,7 +39,7 @@ class Wrapper:
         if self._error is not None:
             raise self._error
 
-        self._task = asyncio.Task.current_task()
+        self._task = _current_task()
         assert self._task is not None, 'Called not inside a task'
 
     def __exit__(self, exc_type, exc_val, exc_tb):
