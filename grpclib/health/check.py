@@ -106,7 +106,8 @@ class ServiceCheck(CheckBase):
         self._last_check = time.monotonic()
         if self._value != prev_value:
             log_level = log.info if self._value else log.warning
-            log_level('{!r}: health check status = {!r}', self, self._value)
+            log_level('Health check %r status changed to %r',
+                      self._func, self._value)
             # notify all watchers that this check was changed
             for event in self._events:
                 event.set()
