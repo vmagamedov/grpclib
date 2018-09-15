@@ -1,11 +1,19 @@
-from asyncio import Transport
-from contextlib import contextmanager
+import asyncio
 
 from .client import Channel
 from .server import Server
 
 
-class _InMemoryTransport(Transport):
+class _Server(asyncio.AbstractServer):
+
+    def close(self):
+        pass
+
+    async def wait_closed(self):
+        pass
+
+
+class _InMemoryTransport(asyncio.Transport):
 
     def __init__(self, protocol, *, loop):
         super().__init__()
@@ -23,10 +31,9 @@ class _InMemoryTransport(Transport):
         pass
 
 
-@contextmanager
-def channel_for(services, *, loop):
-    """Specially initialised :py:class:`~grpclib.client.Channel` with in-memory
-    transport to a :py:class:`~grpclib.server.Server`
+class ChannelFor:
+    """Manages specially initialised :py:class:`~grpclib.client.Channel`
+    with an in-memory transport to a :py:class:`~grpclib.server.Server`
 
     Example:
 
@@ -37,29 +44,46 @@ def channel_for(services, *, loop):
 
         greeter = Greeter()
 
-        with channel_for([greeter], loop=loop) as channel:
+        async with ChannelFor([greeter]) as channel:
             stub = GreeterStub(channel)
             response = await stub.SayHello(HelloRequest(name='Dr. Strange'))
             assert response.message == 'Hello, Dr. Strange!'
-
-    :param services: list of services you want to test
-    :param loop: asyncio-compatible event loop
-    :return: context-manager, which returns a channel
     """
-    server = Server(services, loop=loop)
-    server_protocol = server._protocol_factory()
+    _channel = None
+    _server = None
+    _server_protocol = None
 
-    channel = Channel(loop=loop)
-    channel._protocol = channel._protocol_factory()
+    def __init__(self, services):
+        """
+        :param services: list of services you want to test
+        """
+        self._services = services
 
-    to_client_transport = _InMemoryTransport(channel._protocol, loop=loop)
-    to_server_transport = _InMemoryTransport(server_protocol, loop=loop)
+    async def __aenter__(self):
+        """
+        :return: :py:class:`~grpclib.client.Channel`
+        """
+        loop = asyncio.get_event_loop()
 
-    channel._protocol.connection_made(to_server_transport)
-    server_protocol.connection_made(to_client_transport)
+        self._server = Server(self._services, loop=loop)
+        self._server._server = _Server()
+        self._server_protocol = self._server._protocol_factory()
 
-    try:
-        yield channel
-    finally:
-        server_protocol.connection_lost(None)
-        channel._protocol.connection_lost(None)
+        self._channel = Channel(loop=loop)
+        self._channel._protocol = self._channel._protocol_factory()
+
+        self._channel._protocol.connection_made(
+            _InMemoryTransport(self._server_protocol, loop=loop)
+        )
+        self._server_protocol.connection_made(
+            _InMemoryTransport(self._channel._protocol, loop=loop)
+        )
+        return self._channel
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self._channel._protocol.connection_lost(None)
+        self._channel.close()
+
+        self._server_protocol.connection_lost(None)
+        self._server.close()
+        await self._server.wait_closed()

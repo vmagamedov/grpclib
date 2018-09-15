@@ -3,7 +3,7 @@ import asyncio
 import pytest
 import async_timeout
 
-from grpclib.testing import channel_for
+from grpclib.testing import ChannelFor
 from grpclib.exceptions import GRPCError
 from grpclib.health.check import ServiceCheck, ServiceStatus
 from grpclib.health.service import Health
@@ -30,10 +30,10 @@ class Service:
 
 
 @pytest.mark.asyncio
-async def test_check_unknown_service(loop):
+async def test_check_unknown_service():
     svc = Service()
     health = Health({svc: []})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
 
         with pytest.raises(GRPCError):
@@ -44,10 +44,10 @@ async def test_check_unknown_service(loop):
 
 
 @pytest.mark.asyncio
-async def test_check_zero_checks(loop):
+async def test_check_zero_checks():
     svc = Service()
     health = Health({svc: []})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         response = await stub.Check(HealthCheckRequest(
             service=Service.__name__,
@@ -72,7 +72,7 @@ async def test_check_service_check(loop, v1, v2, status):
         ServiceCheck(c1, loop=loop, check_ttl=0),
         ServiceCheck(c2, loop=loop, check_ttl=0),
     ]})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         c1.__current_status__ = v1
         c2.__current_status__ = v2
@@ -94,7 +94,7 @@ async def test_check_service_status(loop, v1, v2, status):
     s1 = ServiceStatus(loop=loop)
     s2 = ServiceStatus(loop=loop)
     health = Health({svc: [s1, s2]})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         s1.set(v1)
         s2.set(v2)
@@ -109,10 +109,10 @@ async def test_check_service_status(loop, v1, v2, status):
     HealthCheckRequest(),
     HealthCheckRequest(service='Unknown'),
 ])
-async def test_watch_unknown_service(loop, request):
+async def test_watch_unknown_service(request):
     svc = Service()
     health = Health({svc: []})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         async with stub.Watch.open() as stream:
             await stream.send_message(request, end=True)
@@ -128,10 +128,10 @@ async def test_watch_unknown_service(loop, request):
 
 
 @pytest.mark.asyncio
-async def test_watch_zero_checks(loop):
+async def test_watch_zero_checks():
     svc = Service()
     health = Health({svc: []})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         async with stub.Watch.open() as stream:
             await stream.send_message(HealthCheckRequest(
@@ -158,7 +158,7 @@ async def test_watch_service_check(loop):
         ServiceCheck(c1, loop=loop, check_ttl=0.001),
         ServiceCheck(c2, loop=loop, check_ttl=0.001),
     ]})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         async with stub.Watch.open() as stream:
             await stream.send_message(HealthCheckRequest(
@@ -200,7 +200,7 @@ async def test_watch_service_status(loop):
     s1 = ServiceStatus(loop=loop)
     s2 = ServiceStatus(loop=loop)
     health = Health({svc: [s1, s2]})
-    with channel_for([svc, health], loop=loop) as channel:
+    async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
         async with stub.Watch.open() as stream:
             await stream.send_message(HealthCheckRequest(

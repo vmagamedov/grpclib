@@ -1,19 +1,15 @@
 import pytest
 
-from grpclib.testing import channel_for
+from grpclib.testing import ChannelFor
 
 from dummy_pb2 import DummyRequest, DummyReply
 from dummy_grpc import DummyServiceStub
 from test_functional import DummyService
 
 
-@pytest.fixture(name='stub')
-def stub_fixture(loop):
-    with channel_for([DummyService()], loop=loop) as channel:
-        yield DummyServiceStub(channel)
-
-
 @pytest.mark.asyncio
-async def test(stub: DummyServiceStub):
-    reply = await stub.UnaryUnary(DummyRequest(value='ping'))
-    assert reply == DummyReply(value='pong')
+async def test():
+    async with ChannelFor([DummyService()]) as channel:
+        stub = DummyServiceStub(channel)
+        reply = await stub.UnaryUnary(DummyRequest(value='ping'))
+        assert reply == DummyReply(value='pong')
