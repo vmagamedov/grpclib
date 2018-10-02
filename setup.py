@@ -2,8 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='grpclib',
-    version='0.2.0rc1',
-    description='Pure-Python gRPC implementation, based on asyncio and hyper-h2',
+    version='0.2.0rc2',
+    description='Pure-Python gRPC implementation, based on asyncio and '
+                'hyper-h2',
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',
     url='https://github.com/vmagamedov/grpclib',

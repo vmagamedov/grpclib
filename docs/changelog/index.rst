@@ -4,10 +4,15 @@ Changelog
 Unreleased
 ~~~~~~~~~~
 
+  - Fixed possibility of the infinite loop when we reach max outbound streams
+    limit and wait for a closed stream during
+    :py:meth:`grpclib.protocol.Stream.send_request` method call
+  - Added support for secure channels through SSL/TLS; pull request courtesy
+    Michael P. Nitowski @mnito
   - Implemented Health service with additional functionality to help write
     health checks
   - Implemented ``ChannelFor`` helper for writing functional tests
-  - Added support for UNIX sockets; pull request courtesy Andy Kipp
+  - Added support for UNIX sockets; pull request courtesy Andy Kipp @kippandrew
   - Implemented server reflection protocol
   - **BREAKING:** Fixed metadata encoding. Previously grpclib were using
     utf-8 to encode metadata, and now grpclib encodes metadata according to the
@@ -28,7 +33,7 @@ Unreleased
   - Replaced ``async-timeout`` dependency with custom utilities, refactored
     deadlines implementation
   - Improved connection lost handling; pull request courtesy Michael
-    Elsdörfer
+    Elsdörfer @miracle2k
   - Improved error responses and errors handling
   - Deprecated ``end`` keyword-only argument in the
     :py:meth:`grpclib.server.Stream.send_message` method on the server-side
