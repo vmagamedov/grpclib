@@ -12,7 +12,6 @@ from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
 from h2.events import ConnectionTerminated, RemoteSettingsChanged
 from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
 from h2.events import StreamReset, PriorityUpdated
-from h2.settings import SettingCodes
 from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError
 
@@ -161,7 +160,7 @@ class Connection:
         self.write_ready = Event(loop=self._loop)
         self.write_ready.set()
 
-        self.outbound_streams_limit = StreamsLimit(loop=self._loop)
+        self.stream_close_waiter = Event(loop=self._loop)
 
     def feed(self, data):
         return self._connection.receive_data(data)
@@ -234,13 +233,6 @@ class Stream:
             if not self._connection.write_ready.is_set():
                 await self._connection.write_ready.wait()
 
-            if self._connection.outbound_streams_limit.reached():
-                await self._connection.outbound_streams_limit.wait()
-                # while we were trying to create a new stream, write buffer
-                # can became full, so we need to repeat checks from checking
-                # if we can write() data
-                continue
-
             # `get_next_available_stream_id()` should be as close to
             # `connection.send_headers()` as possible, without any async
             # interruptions in between, see the docs on the
@@ -250,9 +242,19 @@ class Stream:
                 self._h2_connection.send_headers(stream_id, headers,
                                                  end_stream=end_stream)
             except TooManyStreamsError:
+                # we're going to wait until any of currently opened streams will
+                # be closed, and we will be able to open a new one
+                # TODO: maybe implement FIFO for waiters, but this limit
+                #       shouldn't be reached in a normal case, so why bother
+                # TODO: maybe we should raise an exception here instead of
+                #       waiting, if timeout wasn't set for the current request
+                self._connection.stream_close_waiter.clear()
+                await self._connection.stream_close_waiter.wait()
+                # while we were trying to create a new stream, write buffer
+                # can became full, so we need to repeat checks from checking
+                # if we can write() data
                 continue
             else:
-                self._connection.outbound_streams_limit.acquire()
                 self.id = stream_id
                 self.__buffer__ = Buffer(self.id, self._connection,
                                          self._h2_connection, loop=self._loop)
@@ -381,6 +383,7 @@ class EventsProcessor:
 
         def release_stream(*, _streams=self.streams, _id=stream.id):
             _streams.pop(_id)
+            self.connection.stream_close_waiter.set()
 
         return release_stream
 
@@ -410,11 +413,7 @@ class EventsProcessor:
             stream.__headers__.put_nowait(event.headers)
 
     def process_remote_settings_changed(self, event: RemoteSettingsChanged):
-        if SettingCodes.MAX_CONCURRENT_STREAMS in event.changed_settings:
-            max_concurrent_streams = \
-                event.changed_settings[SettingCodes.MAX_CONCURRENT_STREAMS]
-            self.connection.outbound_streams_limit.set(max_concurrent_streams
-                                                       .new_value)
+        pass
 
     def process_settings_acknowledged(self, event: SettingsAcknowledged):
         pass
@@ -439,7 +438,6 @@ class EventsProcessor:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.__ended__()
-        self.connection.outbound_streams_limit.release()
 
     def process_stream_reset(self, event: StreamReset):
         stream = self.streams.get(event.stream_id)
