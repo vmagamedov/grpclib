@@ -172,6 +172,8 @@ def main():
                 ))
             services.append(Service(service.name,
                                     methods=methods))
+        if not services:
+            continue
 
         out = response.file.add()
         out.name = file_to_generate.replace('.proto', SUFFIX)
