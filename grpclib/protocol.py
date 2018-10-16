@@ -12,6 +12,7 @@ from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
 from h2.events import ConnectionTerminated, RemoteSettingsChanged
 from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
 from h2.events import StreamReset, PriorityUpdated
+from h2.settings import SettingCodes
 from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError
 
@@ -351,6 +352,8 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
+    _initial_window_size_changed = False
+
     def __init__(self, handler: AbstractHandler,
                  connection: Connection) -> None:
         self.handler = handler
@@ -413,7 +416,8 @@ class EventsProcessor:
             stream.__headers__.put_nowait(event.headers)
 
     def process_remote_settings_changed(self, event: RemoteSettingsChanged):
-        pass
+        if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
+            self._initial_window_size_changed = True
 
     def process_settings_acknowledged(self, event: SettingsAcknowledged):
         pass
@@ -424,10 +428,18 @@ class EventsProcessor:
             stream.__buffer__.append(event.data)
 
     def process_window_updated(self, event: WindowUpdated):
-        stream = self.streams.get(event.stream_id)
-        # this check also ignores event when stream_id == 0
-        if stream is not None:
-            stream.__window_updated__.set()
+        if event.stream_id == 0:
+            # It is possible to increase window size for all streams
+            # by increasing INITIAL_WINDOW_SIZE setting and by increasing
+            # connection's window size
+            if self._initial_window_size_changed:
+                for stream in self.streams.values():
+                    stream.__window_updated__.set()
+                self._initial_window_size_changed = False
+        else:
+            stream = self.streams.get(event.stream_id)
+            if stream is not None:
+                stream.__window_updated__.set()
 
     def process_trailers_received(self, event: TrailersReceived):
         stream = self.streams.get(event.stream_id)
@@ -442,8 +454,12 @@ class EventsProcessor:
     def process_stream_reset(self, event: StreamReset):
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.__terminated__('Stream reset by remote party'
-                                  if event.remote_reset else 'Protocol error')
+            if event.remote_reset:
+                msg = ('Stream reset by remote party, error_code: {}'
+                       .format(event.error_code))
+            else:
+                msg = 'Protocol error'
+            stream.__terminated__(msg)
             self.handler.cancel(stream)
 
     def process_priority_updated(self, event: PriorityUpdated):
