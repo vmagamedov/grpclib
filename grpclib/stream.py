@@ -45,7 +45,7 @@ class StreamIterator(abc.ABC):
         def __aiter__(self):
             return self
     else:
-        # See https://www.python.org/dev/peps/pep-0492/#why-aiter-does-not-return-an-awaitable
+        # noqa; See https://www.python.org/dev/peps/pep-0492/#why-aiter-does-not-return-an-awaitable
         def __aiter__(self):
             return _ident(self)
 

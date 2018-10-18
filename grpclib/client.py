@@ -1,4 +1,5 @@
 import http
+import asyncio
 
 try:
     import ssl
@@ -440,23 +441,31 @@ class Channel:
 
         self._ssl = ssl or None
         self._scheme = 'https' if self._ssl else 'http'
+        self._connect_lock = asyncio.Lock(loop=self._loop)
 
     def _protocol_factory(self):
         return H2Protocol(Handler(), self._config, loop=self._loop)
 
+    async def _create_connection(self):
+        if self._path is not None:
+            _, protocol = await self._loop.create_unix_connection(
+                self._protocol_factory, self._path, ssl=self._ssl)
+        else:
+            _, protocol = await self._loop.create_connection(
+                self._protocol_factory, self._host, self._port,
+                ssl=self._ssl)
+        return protocol
+
     @property
-    def _content_type(self):
-        return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
+    def _connected(self):
+        return (self._protocol is not None
+                and not self._protocol.handler.connection_lost)
 
     async def __connect__(self):
-        if self._protocol is None or self._protocol.handler.connection_lost:
-            if self._path is not None:
-                _, self._protocol = await self._loop.create_unix_connection(
-                    self._protocol_factory, self._path, ssl=self._ssl)
-            else:
-                _, self._protocol = await self._loop.create_connection(
-                    self._protocol_factory, self._host, self._port,
-                    ssl=self._ssl)
+        if not self._connected:
+            async with self._connect_lock:
+                if not self._connected:
+                    self._protocol = await self._create_connection()
         return self._protocol
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
@@ -474,6 +483,10 @@ class Channel:
             pass
 
         return ctx
+
+    @property
+    def _content_type(self):
+        return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
     def request(self, name, request_type, reply_type, *, timeout=None,
                 deadline=None, metadata=None):
