@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 
 import pytest
 
@@ -35,4 +35,4 @@ async def test_concurrent_connect(loop):
             tasks = [loop.create_task(stub.UnaryUnary(req)) for req in reqs]
             replies = await asyncio.gather(*tasks)
     assert replies == reps
-    po.assert_called_once()
+    po.assert_called_once_with(ANY, '127.0.0.1', 50051, ssl=None)
