@@ -1,0 +1,5 @@
+protobuf
+pytest
+pytest-asyncio
+async_timeout<3.0.0
+faker

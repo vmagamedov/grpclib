@@ -1,15 +1,18 @@
 - !Image
   name: env36
-  from: !DockerImage alpine:3.6
+  from: !DockerImage python:3.6-slim
   repository: localhost/grpclib/env36
   tasks:
-  - run: apk add --no-cache python3
-  - run: pip3 install --no-cache-dir {{packages|join(" ")}}
-    packages:
-    - h2==3.0.1
-    - protobuf==3.4.0
-    - async-timeout==2.0.0
-    - multidict==3.3.0
+  - run: pip3 install --no-cache-dir -r {{reqs}}
+    reqs: !File "requirements.txt"
+
+- !Image
+  name: env35
+  from: !DockerImage python:3.5.1-slim
+  repository: localhost/grpclib/env35
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{reqs}}
+    reqs: !File "requirements.txt"
 
 - !Image
   name: docs
@@ -43,5 +46,19 @@
   name: build docs
   image: docs
   run: sphinx-build -b html docs build
+  environ:
+    PYTHONPATH: .
+
+- !Command
+  name: test36
+  image: env36
+  run: py.test
+  environ:
+    PYTHONPATH: .
+
+- !Command
+  name: test35
+  image: env35
+  run: py.test
   environ:
     PYTHONPATH: .
