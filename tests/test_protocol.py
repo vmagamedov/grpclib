@@ -5,6 +5,7 @@ from h2.config import H2Configuration
 from h2.events import StreamEnded, WindowUpdated
 from h2.settings import SettingCodes
 from h2.connection import H2Connection
+from h2.exceptions import StreamClosedError
 
 from grpclib.metadata import Request
 from grpclib.protocol import _slice, Connection, EventsProcessor
@@ -248,3 +249,32 @@ async def test_initial_window_size_update(loop):
     await asyncio.wait([send_task], timeout=0.01)
 
     assert send_task.done()
+
+
+@pytest.mark.asyncio
+async def test_send_headers_into_closed_stream(loop):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+
+    client_processor = EventsProcessor(DummyHandler(), client_conn)
+    client_stream = client_conn.create_stream()
+
+    server_processor = EventsProcessor(DummyHandler(), server_conn)
+
+    request = Request(method='POST', scheme='http', path='/',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
+    await client_stream.send_request(request.to_headers(),
+                                     _processor=client_processor)
+
+    to_server_transport.process(server_processor)
+
+    server_stream, = server_processor.streams.values()
+    server_stream._h2_connection.streams.pop(server_stream.id)
+    with pytest.raises(StreamClosedError):
+        await server_stream.send_headers([(':status', '200')])

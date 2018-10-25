@@ -14,7 +14,7 @@ from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
 from h2.events import StreamReset, PriorityUpdated
 from h2.settings import SettingCodes
 from h2.connection import H2Connection, ConnectionState
-from h2.exceptions import ProtocolError, TooManyStreamsError
+from h2.exceptions import ProtocolError, TooManyStreamsError, StreamClosedError
 
 from .utils import Wrapper
 from .exceptions import StreamTerminatedError
@@ -267,6 +267,12 @@ class Stream:
         assert self.id is not None
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
+
+        # Workaround for the H2Connection.send_headers method, which will try
+        # to create a new stream if it was removed earlier from the
+        # H2Connection.streams, and therefore will raise StreamIDTooLowError
+        if self.id not in self._h2_connection.streams:
+            raise StreamClosedError(self.id)
 
         self._h2_connection.send_headers(self.id, headers,
                                          end_stream=end_stream)
