@@ -206,7 +206,7 @@ async def test_send_trailing_metadata_and_empty_response(stream):
     async with stream:
         with pytest.raises(ProtocolError) as err:
             await stream.send_trailing_metadata()
-    err.match('<Status\.OK: 0> requires non-empty response')
+    err.match(r'<Status\.OK: 0> requires non-empty response')
 
 
 @pytest.mark.asyncio
