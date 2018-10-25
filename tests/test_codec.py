@@ -128,7 +128,7 @@ async def test_client_receive_invalid(loop):
             cs.client_conn.server_flush()
 
             await stream.recv_message()
-    exc.match("Invalid content-type: 'application/grpc\+proto'")
+    exc.match(r"Invalid content-type: 'application/grpc\+proto'")
 
 
 @pytest.mark.asyncio
