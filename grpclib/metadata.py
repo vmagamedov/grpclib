@@ -1,5 +1,6 @@
 import re
 import time
+import platform
 
 from base64 import b64encode, b64decode
 from collections import namedtuple
@@ -7,9 +8,19 @@ from urllib.parse import quote, unquote
 
 from multidict import MultiDict
 
+from . import __version__
 
-# TODO: specify versions
-USER_AGENT = 'grpc-python-grpclib'
+
+USER_AGENT = (
+    'grpc-python-grpclib/{lib_ver} ({sys}; {py}/{py_ver})'
+    .format(
+        lib_ver=__version__,
+        sys=platform.system(),
+        py=platform.python_implementation(),
+        py_ver=platform.python_version(),
+    )
+    .lower()
+)
 
 _UNITS = {
     'H': 60 * 60,

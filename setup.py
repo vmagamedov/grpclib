@@ -1,8 +1,18 @@
+import re
+import os.path
+
 from setuptools import setup, find_packages
+
+
+with open(
+    os.path.join(os.path.dirname(__file__), 'grpclib', '__init__.py')
+) as f:
+    VERSION = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
+
 
 setup(
     name='grpclib',
-    version='0.2.0',
+    version=VERSION,
     description='Pure-Python gRPC implementation, based on asyncio and '
                 'hyper-h2',
     author='Vladimir Magamedov',
