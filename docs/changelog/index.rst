@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.2.1rc1
+~~~~~~~~
+
+  - Changed user-agent header to reflect ``grpclib`` and Python versions
+  - Added workaround for ``h2``, when ``h2`` raises ``StreamIDTooLowError``
+    instead of ``StreamClosedError``
+  - Fixed race condition in the ``Channel``, which leads to creation of more
+    than one connection
+  - Fixed Python 3.5.1 compatibility
+
 0.2.0
 ~~~~~
 
