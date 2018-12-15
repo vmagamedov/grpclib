@@ -96,6 +96,7 @@ Example basically looks like this (for Python>=3.7):
         stub = GreeterStub(channel)
         response = await stub.SayHello(HelloRequest(name='World'))
         print(response.message)
+        channel.close()
 
         # shutdown server
         server.close()
