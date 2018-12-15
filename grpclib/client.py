@@ -1,5 +1,6 @@
 import http
 import asyncio
+import warnings
 
 try:
     import ssl
@@ -398,6 +399,10 @@ class Channel:
             sugar=3,
         )
         reply: empty_pb2.Empty = await client.MakeLatte(request)
+
+        ...
+
+        channel.close()
     """
     _protocol = None
 
@@ -442,6 +447,10 @@ class Channel:
         self._ssl = ssl or None
         self._scheme = 'https' if self._ssl else 'http'
         self._connect_lock = asyncio.Lock(loop=self._loop)
+
+    def __repr__(self):
+        return ('Channel({!r}, {!r}, ..., path={!r})'
+                .format(self._host, self._port, self._path))
 
     def _protocol_factory(self):
         return H2Protocol(Handler(), self._config, loop=self._loop)
@@ -518,6 +527,17 @@ class Channel:
         """
         if self._protocol is not None:
             self._protocol.processor.close()
+            del self._protocol
+
+    def __del__(self):
+        if self._protocol is not None:
+            message = 'Unclosed connection: {!r}'.format(self)
+            warnings.warn(message, ResourceWarning)
+            if self._loop.is_closed():
+                return
+            else:
+                self.close()
+                self._loop.call_exception_handler({'message': message})
 
 
 class ServiceMethod:

@@ -67,6 +67,8 @@ async def main():
     msgs = [HelloRequest(name='Rick'), HelloRequest(name='Morty')]
     print(await stub.StreamStreamGreeting(msgs))
 
+    channel.close()
+
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -14,6 +14,8 @@ async def main():
     response = await stub.SayHello(HelloRequest(name='World'))
     print(response.message)
 
+    channel.close()
+
 
 if __name__ == '__main__':
     asyncio.run(main())
