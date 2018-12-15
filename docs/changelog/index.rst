@@ -1,9 +1,11 @@
 Changelog
 =========
 
-0.2.1rc1
-~~~~~~~~
+0.2.1
+~~~~~
 
+  - Added ``Channel.__del__`` method to close unclosed connections and warn
+    about them
   - Changed user-agent header to reflect ``grpclib`` and Python versions
   - Added workaround for ``h2``, when ``h2`` raises ``StreamIDTooLowError``
     instead of ``StreamClosedError``
