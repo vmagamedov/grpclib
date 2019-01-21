@@ -9,6 +9,7 @@ User's Guide
   overview
   client
   server
+  errors
   encoding
   reflection
   health
