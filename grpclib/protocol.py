@@ -11,13 +11,20 @@ from h2.config import H2Configuration
 from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated
 from h2.events import ConnectionTerminated, RemoteSettingsChanged
 from h2.events import SettingsAcknowledged, ResponseReceived, TrailersReceived
-from h2.events import StreamReset, PriorityUpdated
+from h2.events import StreamReset, PriorityUpdated, PingAcknowledged
 from h2.settings import SettingCodes
 from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError, StreamClosedError
 
 from .utils import Wrapper
 from .exceptions import StreamTerminatedError
+
+
+try:
+    from h2.events import PingReceived, PingAckReceived
+except ImportError:
+    PingReceived = object()
+    PingAckReceived = object()
 
 
 if hasattr(socket, 'TCP_NODELAY'):
@@ -377,6 +384,9 @@ class EventsProcessor:
             StreamReset: self.process_stream_reset,
             PriorityUpdated: self.process_priority_updated,
             ConnectionTerminated: self.process_connection_terminated,
+            PingReceived: self.process_ping_received,
+            PingAckReceived: self.process_ping_ack_received,
+            PingAcknowledged: self.process_ping_ack_received,  # deprecated
         }
 
         self.streams = {}  # type: Dict[int, Stream]
@@ -473,6 +483,12 @@ class EventsProcessor:
 
     def process_connection_terminated(self, event: ConnectionTerminated):
         self.close()
+
+    def process_ping_received(self, event: PingReceived):
+        pass
+
+    def process_ping_ack_received(self, event: PingAckReceived):
+        pass
 
 
 class H2Protocol(Protocol):
