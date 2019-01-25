@@ -1,3 +1,5 @@
+# h2 - see tox.ini
+multidict
 protobuf
 pytest
 pytest-asyncio
