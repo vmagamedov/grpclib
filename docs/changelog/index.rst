@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.2.2rc1
+~~~~~~~~
+
+  - Fixed PING frame support on the server-side
+
 0.2.1
 ~~~~~
 
