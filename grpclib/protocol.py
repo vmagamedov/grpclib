@@ -365,8 +365,6 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
-    _initial_window_size_changed = False
-
     def __init__(self, handler: AbstractHandler,
                  connection: Connection) -> None:
         self.handler = handler
@@ -433,7 +431,8 @@ class EventsProcessor:
 
     def process_remote_settings_changed(self, event: RemoteSettingsChanged):
         if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
-            self._initial_window_size_changed = True
+            for stream in self.streams.values():
+                stream.__window_updated__.set()
 
     def process_settings_acknowledged(self, event: SettingsAcknowledged):
         pass
@@ -445,13 +444,8 @@ class EventsProcessor:
 
     def process_window_updated(self, event: WindowUpdated):
         if event.stream_id == 0:
-            # It is possible to increase window size for all streams
-            # by increasing INITIAL_WINDOW_SIZE setting and by increasing
-            # connection's window size
-            if self._initial_window_size_changed:
-                for stream in self.streams.values():
-                    stream.__window_updated__.set()
-                self._initial_window_size_changed = False
+            for stream in self.streams.values():
+                stream.__window_updated__.set()
         else:
             stream = self.streams.get(event.stream_id)
             if stream is not None:
