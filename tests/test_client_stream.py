@@ -9,7 +9,7 @@ from h2.settings import SettingCodes
 from grpclib.const import Status
 from grpclib.client import Stream
 from grpclib.metadata import Request
-from grpclib.exceptions import GRPCError, StreamTerminatedError
+from grpclib.exceptions import GRPCError, StreamTerminatedError, ProtocolError
 from grpclib.encoding.proto import ProtoCodec
 
 from conn import ClientStream, ClientConn, grpc_encode
@@ -63,6 +63,34 @@ async def test_unary_unary(cs: ClientStream):
 async def test_no_request(cs: ClientStream):
     async with cs.client_stream:
         pass
+
+
+@pytest.mark.asyncio
+async def test_no_end(cs: ClientStream):
+    with pytest.raises(ProtocolError) as exc:
+        async with cs.client_stream as stream:
+            await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'))  # no end
+
+            events = cs.client_conn.to_server_transport.events()
+            stream_id = events[-1].stream_id
+            cs.client_conn.server_h2c.send_headers(
+                stream_id,
+                [(':status', '200'),
+                 ('content-type', 'application/grpc+proto')],
+            )
+            cs.client_conn.server_flush()
+            await stream.recv_initial_metadata()
+
+            cs.client_conn.server_h2c.send_data(
+                stream_id,
+                grpc_encode(DummyReply(value='pong'), DummyReply),
+            )
+            cs.client_conn.server_flush()
+            assert await stream.recv_message() == DummyReply(value='pong')
+
+            await stream.recv_trailing_metadata()
+    exc.match('Outgoing stream was not ended')
 
 
 @pytest.mark.asyncio
@@ -419,6 +447,7 @@ async def test_missing_grpc_status(cs: ClientStream):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id
@@ -453,6 +482,7 @@ async def test_invalid_grpc_status_in_headers(cs: ClientStream, grpc_status):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id
@@ -479,6 +509,7 @@ async def test_invalid_grpc_status_in_trailers(cs: ClientStream, grpc_status):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id
@@ -514,6 +545,7 @@ async def test_non_ok_grpc_status_in_headers(cs: ClientStream, grpc_message):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id
@@ -543,6 +575,7 @@ async def test_non_ok_grpc_status_in_trailers(cs: ClientStream, grpc_message):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id
@@ -580,6 +613,7 @@ async def test_missing_content_type(cs: ClientStream):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id
@@ -604,6 +638,7 @@ async def test_invalid_content_type(cs: ClientStream):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
+            await stream.send_message(DummyRequest(value='ping'), end=True)
 
             events = cs.client_conn.to_server_transport.events()
             stream_id = events[-1].stream_id

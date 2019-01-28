@@ -68,6 +68,7 @@ async def test_client_receive_json(loop):
     async with cs.client_stream as stream:
         await stream.send_request()
         _, request_received = cs.client_conn.to_server_transport.events()
+        await stream.send_message({'value': 'ping'}, end=True)
 
         content_type = dict(request_received.headers)['content-type']
         assert content_type == 'application/grpc+json'

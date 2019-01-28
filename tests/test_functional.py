@@ -126,7 +126,7 @@ async def test_unary_unary_simple_unix(loop):
 async def test_unary_unary_advanced(loop):
     async with ClientServer(loop=loop) as (handler, stub):
         async with stub.UnaryUnary.open() as stream:
-            await stream.send_message(DummyRequest(value='ping'))
+            await stream.send_message(DummyRequest(value='ping'), end=True)
             reply = await stream.recv_message()
         assert reply == DummyReply(value='pong')
         assert handler.log == [DummyRequest(value='ping')]

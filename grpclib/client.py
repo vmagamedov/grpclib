@@ -324,6 +324,9 @@ class Stream(StreamIterator):
         When this coroutine finishes, you can access received trailing metadata
         by using :py:attr:`trailing_metadata` attribute.
         """
+        if not self._end_done:
+            raise ProtocolError('Outgoing stream was not ended')
+
         if not self._recv_message_count:
             raise ProtocolError('No messages were received before waiting '
                                 'for trailing metadata')
