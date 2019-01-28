@@ -1,9 +1,11 @@
 Changelog
 =========
 
-0.2.2rc1
+0.2.2rc2
 ~~~~~~~~
 
+  - Fixed flow-control window change detection for the case when the other party
+    relies on connection-level window with unlimited stream-level windows
   - Fixed PING frame support on the server-side
 
 0.2.1
