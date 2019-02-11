@@ -28,29 +28,33 @@ class Wrapper:
 
     """
     _error = None
-    _task = None
 
     cancelled = None
 
-    def __enter__(self):
-        if self._task is not None:
-            raise RuntimeError('Concurrent call detected')
+    def __init__(self):
+        self._tasks = set()
 
+    def __enter__(self):
         if self._error is not None:
             raise self._error
 
-        self._task = _current_task()
-        assert self._task is not None, 'Called not inside a task'
+        task = _current_task()
+        if task is None:
+            raise RuntimeError('Called not inside a task')
+
+        self._tasks.add(task)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._task = None
+        task = _current_task()
+        assert task
+        self._tasks.discard(task)
         if self._error is not None:
             raise self._error
 
     def cancel(self, error):
         self._error = error
-        if self._task is not None:
-            self._task.cancel()
+        for task in self._tasks:
+            task.cancel()
         self.cancelled = True
 
 

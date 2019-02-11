@@ -36,6 +36,26 @@ async def test_wrapper(loop):
 
 
 @pytest.mark.asyncio
+async def test_wrapper_concurrent(loop):
+    api = UserAPI(Wrapper())
+
+    t1 = loop.create_task(api.foo(time=1))
+    t2 = loop.create_task(api.foo(time=1))
+
+    loop.call_soon(lambda: api.wrapper.cancel(CustomError('Some explanation')))
+
+    await asyncio.wait([t1, t2], timeout=0.01)
+
+    assert t1.done()
+    assert t2.done()
+    e1 = t1.exception()
+    e2 = t2.exception()
+    assert e1 and e2 and e1 is e2
+    assert isinstance(e1, CustomError)
+    assert e1.args == ('Some explanation',)
+
+
+@pytest.mark.asyncio
 async def test_deadline_wrapper(loop):
     deadline = Deadline.from_timeout(0.01)
     deadline_wrapper = DeadlineWrapper()
