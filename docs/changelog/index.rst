@@ -1,9 +1,10 @@
 Changelog
 =========
 
-0.2.2rc2
+0.2.2rc3
 ~~~~~~~~
 
+  - Stream methods now can be called concurrently
   - Fixed flow-control window change detection for the case when the other party
     relies on connection-level window with unlimited stream-level windows
   - Fixed PING frame support on the server-side
