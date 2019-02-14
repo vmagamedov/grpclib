@@ -19,11 +19,9 @@
   from: env36
   repository: localhost/grpclib/docs
   tasks:
-  - run: apk add --no-cache ca-certificates
-  - run: update-ca-certificates
-  - run: pip3 install -U setuptools
-  - run: pip3 install --no-cache-dir -r {{requirements}}
-    requirements: !File docs/requirements.txt
+  - run: pip3 install --no-cache-dir h2
+  - run: pip3 install --no-cache-dir -r {{reqs}}
+    reqs: !File "docs/requirements.txt"
 
 - !Command
   name: server

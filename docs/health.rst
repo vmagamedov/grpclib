@@ -28,14 +28,95 @@ way to implement periodic checks.
 when you are able to detect and change check's status proactively (e.g. by
 detecting lost connection). And this way is more efficient and robust.
 
+User Guide
+~~~~~~~~~~
+
+.. note:: To test server's health we will use `grpc_health_probe`_ command.
+
+Overall Server Health
+---------------------
+
+The most simplest health checks:
+
+.. code-block:: python
+
+  from grpclib.health.service import Health
+
+  health = Health()
+
+  server = Server(handlers + [health], loop=loop)
+
+Testing:
+
+.. code-block:: shell
+
+  $ grpc_health_probe -addr=localhost:50051
+  healthy: SERVING
+
+Overall server status is always ``SERVING``.
+
+If you want to add real checks:
+
+.. code-block:: python
+
+  from grpclib.health.service import Health, OVERALL
+
+  health = Health({OVERALL: [db_check, cache_check]})
+
+Overall server status is ``SERVING`` if all checks are passing.
+
+Detailed Services Health
+------------------------
+
+If you want to provide different checks for different services:
+
+.. code-block:: python
+
+  foo = FooService()
+  bar = BarService()
+
+  health = Health({
+      foo: [a_check, b_check],
+      bar: [b_check, c_check],
+  })
+
+Testing:
+
+.. code-block:: shell
+
+  $ grpc_health_probe -addr=localhost:50051 -service acme.FooService
+  healthy: SERVING
+  $ grpc_health_probe -addr=localhost:50051 -service acme.BarService
+  healthy: NOT_SERVING
+  $ grpc_health_probe -addr=localhost:50051
+  healthy: NOT_SERVING
+
+- ``acme.FooService`` is healthy if ``a_check`` and ``b_check`` are passing
+- ``acme.BarService`` is healthy if ``b_check`` and ``c_check`` are passing
+- Overall health status depends on all checks
+
+You can also override checks list for overall server's health status:
+
+.. code-block:: python
+
+  foo = FooService()
+  bar = BarService()
+
+  health = Health({
+      foo: [a_check, b_check],
+      bar: [b_check, c_check],
+      OVERALL: [a_check, c_check],
+  })
+
 Reference
 ~~~~~~~~~
 
 .. automodule:: grpclib.health.service
-    :members: Health
+    :members: Health, OVERALL
 
 .. automodule:: grpclib.health.check
     :members: ServiceCheck, ServiceStatus
 
 .. _Health Checking Protocol: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
 .. _grpc/health/v1/health.proto: https://github.com/grpc/grpc-proto/blob/master/grpc/health/v1/health.proto
+.. _grpc_health_probe: https://github.com/grpc-ecosystem/grpc-health-probe

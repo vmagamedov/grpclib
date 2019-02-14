@@ -1,5 +1,7 @@
 import asyncio
 
+from itertools import chain
+
 from ..const import Status
 from ..utils import _service_name
 
@@ -28,6 +30,16 @@ def _reset_waits(events, waits):
     return new_waits
 
 
+class _Overall:
+    # `_service_name` should return '' (empty string) for this service
+    def __mapping__(self):
+        return {'//': None}
+
+
+#: Represents overall health status of all services
+OVERALL = _Overall()
+
+
 class Health(HealthBase):
     """Health-checking service
 
@@ -48,8 +60,14 @@ class Health(HealthBase):
         server = Server([auth, billing, health], loop=loop)
 
     """
-    def __init__(self, checks):
-        self._checks = {_service_name(s): list(check_list)
+    def __init__(self, checks=None):
+        if checks is None:
+            checks = {OVERALL: []}
+        elif OVERALL not in checks:
+            checks = checks.copy()
+            checks[OVERALL] = list(chain.from_iterable(checks.values()))
+
+        self._checks = {_service_name(s): set(check_list)
                         for s, check_list in checks.items()}
 
     async def Check(self, stream):
