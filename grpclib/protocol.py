@@ -198,6 +198,7 @@ class Stream:
     """
     id = None
     __buffer__ = None
+    __wrapper__ = None
 
     def __init__(
         self, connection: Connection, h2_connection: H2Connection,
@@ -208,8 +209,8 @@ class Stream:
         self._connection = connection
         self._h2_connection = h2_connection
         self._transport = transport
-        self._wrapper = wrapper
         self._loop = loop
+        self.__wrapper__ = wrapper
 
         if stream_id is not None:
             self.id = stream_id
@@ -333,8 +334,8 @@ class Stream:
         self.__buffer__.eof()
 
     def __terminated__(self, reason):
-        if self._wrapper is not None:
-            self._wrapper.cancel(StreamTerminatedError(reason))
+        if self.__wrapper__ is not None:
+            self.__wrapper__.cancel(StreamTerminatedError(reason))
 
     @property
     def closable(self):

@@ -7,14 +7,14 @@ import warnings
 import h2.config
 import h2.exceptions
 
-from .utils import DeadlineWrapper
+from .utils import DeadlineWrapper, Wrapper
 from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .metadata import Deadline, encode_grpc_message
 from .metadata import encode_metadata, decode_metadata
 from .protocol import H2Protocol, AbstractHandler
-from .exceptions import GRPCError, ProtocolError
+from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE
 from .encoding.proto import ProtoCodec
 
@@ -316,23 +316,24 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
         async with Stream(_stream, method.cardinality, codec,
                           method.request_type, method.reply_type,
                           metadata=metadata, deadline=deadline) as stream:
-            deadline_wrapper = None
+            wrapper = None
             try:
-                if deadline:
-                    deadline_wrapper = DeadlineWrapper()
-                    with deadline_wrapper.start(deadline):
-                        with deadline_wrapper:
-                            await method.func(stream)
+                if deadline is None:
+                    wrapper = _stream.__wrapper__ = Wrapper()
+                    with wrapper:
+                        await method.func(stream)
                 else:
-                    await method.func(stream)
+                    wrapper = _stream.__wrapper__ = DeadlineWrapper()
+                    with wrapper.start(deadline), wrapper:
+                        await method.func(stream)
             except asyncio.TimeoutError:
-                if deadline_wrapper and deadline_wrapper.cancelled:
+                if wrapper.cancelled:
                     log.exception('Deadline exceeded')
                     raise GRPCError(Status.DEADLINE_EXCEEDED)
                 else:
                     log.exception('Timeout occurred')
                     raise
-            except asyncio.CancelledError:
+            except StreamTerminatedError:
                 log.exception('Request was cancelled')
                 raise
             except Exception:

@@ -6,9 +6,13 @@ from h2.errors import ErrorCodes
 
 from grpclib.const import Handler, Cardinality
 from grpclib.server import request_handler
+from grpclib.metadata import Request
+from grpclib.protocol import Connection, EventsProcessor
 from grpclib.encoding.proto import ProtoCodec
 
+from stubs import TransportStub, DummyHandler
 from dummy_pb2 import DummyRequest, DummyReply
+from test_protocol import create_connections
 from test_server_stream import H2StreamStub, SendHeaders, Reset
 
 
@@ -156,3 +160,54 @@ async def test_deadline(loop):
         ], end_stream=True),
         Reset(ErrorCodes.NO_ERROR),
     ]
+
+
+@pytest.mark.asyncio
+async def test_client_reset(loop, caplog):
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    to_server_transport = TransportStub(server_h2c)
+
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+
+    server_proc = EventsProcessor(DummyHandler(), server_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+
+    request = Request(method='POST', scheme='http',
+                      path='/package.Service/Method',
+                      content_type='application/grpc+proto',
+                      authority='test.com')
+    client_h2_stream = client_conn.create_stream()
+    await client_h2_stream.send_request(request.to_headers(),
+                                        _processor=client_proc)
+    to_server_transport.process(server_proc)
+
+    server_h2_stream = server_proc.handler.stream
+
+    success = []
+
+    async def _method(_):
+        try:
+            await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            success.append(True)
+            raise
+
+    methods = {'/package.Service/Method': Handler(
+        _method,
+        Cardinality.UNARY_UNARY,
+        DummyRequest,
+        DummyReply,
+    )}
+    task = loop.create_task(
+        request_handler(methods, server_h2_stream, server_proc.handler.headers,
+                        ProtoCodec(), release_stream)
+    )
+    await asyncio.wait([task], timeout=0.001)
+    await client_h2_stream.reset()
+    to_server_transport.process(server_proc)
+    await asyncio.wait_for(task, 0.1, loop=loop)
+    assert success == [True]
+    assert 'Request was cancelled' in caplog.text
