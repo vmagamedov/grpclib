@@ -1,9 +1,10 @@
 Changelog
 =========
 
-0.2.2rc4
+0.2.2rc5
 ~~~~~~~~
 
+  - Logging StreamTerminatedError on the server-side if client resets stream
   - Improved health checks support
   - Stream methods now can be called concurrently
   - Fixed flow-control window change detection for the case when the other party
