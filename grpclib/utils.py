@@ -156,15 +156,16 @@ def graceful_exit(servers, *, loop,
                 print('Server closed')
 
     First stage calls ``server.close()`` and ``await server.wait_closed()``
-    should complete successfully without errors.
+    should complete successfully without errors. If server wasn't started yet,
+    second stage runs to prevent server start.
 
     Second stage raises ``SystemExit`` exception, but you will receive
     ``asyncio.CancelledError`` in your ``async def main()`` coroutine. You
-    can use ``try..finally`` constructs or context-managers to properly handle
+    can use ``try..finally`` constructs and context-managers to properly handle
     this error.
 
     This context-manager is designed to work in cooperation with
-    :py:func:`python:asyncio.run` function, introduced in Python 3.7:
+    :py:func:`python:asyncio.run` function:
 
     .. code-block:: python
 

@@ -8,7 +8,7 @@ autoclass_content = 'both'
 autodoc_member_order = 'bysource'
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.6', None),
+    'python': ('https://docs.python.org/3.7', None),
 }
 
 source_suffix = '.rst'
