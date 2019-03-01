@@ -1,21 +1,24 @@
 import asyncio
 
+from grpclib.utils import graceful_exit
 from grpclib.server import Server
 from grpclib.reflection.service import ServerReflection
 
-from helloworld.server import Greeter, serve
+from helloworld.server import Greeter
 
 
-async def main():
+async def main(*, host='127.0.0.1', port=50051):
+    loop = asyncio.get_running_loop()
+
     services = [Greeter()]
     services = ServerReflection.extend(services)
 
-    server = Server(services, loop=asyncio.get_event_loop())
-    await serve(server)
+    server = Server(services, loop=loop)
+    with graceful_exit([server], loop=loop):
+        await server.start(host, port)
+        print(f'Serving on {host}:{port}')
+        await server.wait_closed()
 
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        pass
+    asyncio.run(main())

@@ -1,4 +1,5 @@
 import sys
+import signal
 import asyncio
 
 from contextlib import contextmanager
@@ -101,3 +102,85 @@ def _service_name(service):
     assert method_name is not None
     _, service_name, _ = method_name.split('/')
     return service_name
+
+
+def _first_stage(sig_num, servers):
+    fail = False
+    for server in servers:
+        try:
+            server.close()
+        except RuntimeError:
+            # probably server wasn't started yet
+            fail = True
+    if fail:
+        # using second stage in case of error will ensure that non-closed
+        # server wont start later
+        _second_stage(sig_num)
+
+
+def _second_stage(sig_num):
+    raise SystemExit(128 + sig_num)
+
+
+def _exit_handler(sig_num, servers, flag):
+    if flag:
+        _second_stage(sig_num)
+    else:
+        _first_stage(sig_num, servers)
+        flag.append(True)
+
+
+@contextmanager
+def graceful_exit(servers, *, loop,
+                  signals=frozenset({signal.SIGINT, signal.SIGTERM})):
+    """Utility context-manager to help properly shutdown server in response to
+    the OS signals
+
+    By default this context-manager handles ``SIGINT`` and ``SIGTERM`` signals.
+
+    There are two stages:
+
+      1. first received signal closes servers
+      2. subsequent signals raise ``SystemExit`` exception
+
+    Example:
+
+    .. code-block:: python
+
+        async def main(...):
+            ...
+            with graceful_exit([server], loop=loop):
+                await server.start(host, port)
+                print('Serving on {}:{}'.format(host, port))
+                await server.wait_closed()
+                print('Server closed')
+
+    First stage calls ``server.close()`` and ``await server.wait_closed()``
+    should complete successfully without errors.
+
+    Second stage raises ``SystemExit`` exception, but you will receive
+    ``asyncio.CancelledError`` in your ``async def main()`` coroutine. You
+    can use ``try..finally`` constructs or context-managers to properly handle
+    this error.
+
+    This context-manager is designed to work in cooperation with
+    :py:func:`python:asyncio.run` function, introduced in Python 3.7:
+
+    .. code-block:: python
+
+        if __name__ == '__main__':
+            asyncio.run(main())
+
+    :param servers: list of servers
+    :param loop: asyncio-compatible event loop
+    :param signals: set of the OS signals to handle
+    """
+    signals = set(signals)
+    flag = []
+    for sig_num in signals:
+        loop.add_signal_handler(sig_num, _exit_handler, sig_num, servers, flag)
+    try:
+        yield
+    finally:
+        for sig_num in signals:
+            loop.remove_signal_handler(sig_num)
