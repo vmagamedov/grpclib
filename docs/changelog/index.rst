@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.2.2rc5
-~~~~~~~~
+0.2.2
+~~~~~
 
   - Logging StreamTerminatedError on the server-side if client resets stream
   - Improved health checks support
@@ -27,7 +27,7 @@ Changelog
 ~~~~~
 
   - Fixed flow control functionality
-  - Generate *_grpc.py stub files only if service definitions exists in the
+  - Generate ``*_grpc.py`` stub files only if service definitions exists in the
     .proto files
   - Fixed possibility of the infinite loop when we reach max outbound streams
     limit and wait for a closed stream during
