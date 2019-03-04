@@ -23,13 +23,13 @@ And it is also important to handle server's exit properly:
       await server.start(host, port)
       await server.wait_closed()
 
-:py:func:`~grpclib.utils.graceful_exit` helps you handle ``SIGINT``
-(during development) and ``SIGTERM`` (on production) signals.
+:py:func:`~grpclib.utils.graceful_exit` helps you handle ``SIGINT`` and
+``SIGTERM`` signals.
 
 When things become complicated you can start using
 :py:class:`~python:contextlib.AsyncExitStack` and
 :py:func:`~python:contextlib.asynccontextmanager` to manage lifecycle of your
-application:
+application and used resources:
 
 .. code-block:: python
 
