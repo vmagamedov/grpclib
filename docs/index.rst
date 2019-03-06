@@ -9,6 +9,7 @@ User's Guide
   overview
   client
   server
+  metadata
   errors
   encoding
   reflection
