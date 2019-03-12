@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.2.3rc1
+~~~~~~~~
+
+  - Implemented ``graceful_exit`` context-manager
+
 0.2.2
 ~~~~~
 
