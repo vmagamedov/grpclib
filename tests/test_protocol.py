@@ -7,7 +7,6 @@ from h2.settings import SettingCodes
 from h2.connection import H2Connection
 from h2.exceptions import StreamClosedError
 
-from grpclib.metadata import Request
 from grpclib.protocol import _slice, Connection, EventsProcessor
 
 from stubs import TransportStub, DummyHandler
@@ -50,6 +49,17 @@ def create_connections(*, connection_window=None, stream_window=None,
     return client_conn, server_conn
 
 
+def create_headers(*, path='/any/path'):
+    return [
+        (':method', 'POST'),
+        (':scheme', 'http'),
+        (':path', path),
+        (':authority', 'test.com'),
+        ('te', 'trailers'),
+        ('content-type', 'application/grpc+proto'),
+    ]
+
+
 def test_slice():
     data, tail = _slice([b'a', b'b', b'c', b'd', b'e', b'f'], 5)
     assert data == [b'a', b'b', b'c', b'd', b'e']
@@ -84,12 +94,9 @@ async def test_send_data_larger_than_frame_size(loop):
     conn = Connection(client_h2c, transport, loop=loop)
     stream = conn.create_stream()
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
     processor = EventsProcessor(DummyHandler(), conn)
 
-    await stream.send_request(request.to_headers(), _processor=processor)
+    await stream.send_request(create_headers(), _processor=processor)
     await stream.send_data(b'0' * (client_h2c.max_outbound_frame_size + 1))
 
 
@@ -106,10 +113,7 @@ async def test_recv_data_larger_than_window_size(loop):
     client_processor = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
-    await client_stream.send_request(request.to_headers(),
+    await client_stream.send_request(create_headers(),
                                      _processor=client_processor)
 
     initial_window = server_h2c.local_settings.initial_window_size
@@ -165,13 +169,9 @@ async def test_stream_release(loop):
 
     server_processor = EventsProcessor(DummyHandler(), server_conn)
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
-
     assert not client_processor.streams
     client_release_stream = await client_stream.send_request(
-        request.to_headers(), _processor=client_processor,
+        create_headers(), _processor=client_processor,
     )
     assert client_release_stream and client_processor.streams
 
@@ -218,10 +218,7 @@ async def test_initial_window_size_update(loop):
     client_processor = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
-    await client_stream.send_request(request.to_headers(),
+    await client_stream.send_request(create_headers(),
                                      _processor=client_processor)
 
     # data should be bigger than window size
@@ -266,10 +263,7 @@ async def test_send_headers_into_closed_stream(loop):
 
     server_processor = EventsProcessor(DummyHandler(), server_conn)
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
-    await client_stream.send_request(request.to_headers(),
+    await client_stream.send_request(create_headers(),
                                      _processor=client_processor)
 
     to_server_transport.process(server_processor)

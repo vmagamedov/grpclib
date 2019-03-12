@@ -8,14 +8,15 @@ except ImportError:
     ssl = None
 
 from h2.config import H2Configuration
+from multidict import MultiDict
 
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
-from .metadata import Request, Deadline, USER_AGENT, decode_grpc_message
-from .metadata import encode_metadata, decode_metadata
+from .metadata import Deadline, USER_AGENT, decode_grpc_message
+from .metadata import decode_metadata, _combine_headers, _Headers
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE
 from .encoding.proto import ProtoCodec
@@ -109,12 +110,15 @@ class Stream(StreamIterator):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata = None
 
-    def __init__(self, channel, request, codec, send_type, recv_type):
+    def __init__(self, channel, headers, metadata, codec, send_type, recv_type,
+                 *, deadline=None):
         self._channel = channel
-        self._request = request
+        self._headers = headers
+        self._metadata = metadata
         self._codec = codec
         self._send_type = send_type
         self._recv_type = recv_type
+        self._deadline = deadline
 
     async def send_request(self):
         """Coroutine to send request headers with metadata to the server.
@@ -132,8 +136,12 @@ class Stream(StreamIterator):
             protocol = await self._channel.__connect__()
             stream = protocol.processor.connection\
                 .create_stream(wrapper=self._wrapper)
+
+            headers = _combine_headers(self._headers, self._metadata,
+                                       deadline=self._deadline)
+
             release_stream = await stream.send_request(
-                self._request.to_headers(), _processor=protocol.processor,
+                headers, _processor=protocol.processor,
             )
             self._stream = stream
             self._release_stream = release_stream
@@ -357,11 +365,11 @@ class Stream(StreamIterator):
             self._cancel_done = True
 
     async def __aenter__(self):
-        if self._request.deadline is None:
+        if self._deadline is None:
             self._wrapper = Wrapper()
         else:
             self._wrapper = DeadlineWrapper()
-            self._wrapper_ctx = self._wrapper.start(self._request.deadline)
+            self._wrapper_ctx = self._wrapper.start(self._deadline)
             self._wrapper_ctx.__enter__()
         return self
 
@@ -509,21 +517,23 @@ class Channel:
         else:
             deadline = None
 
-        if metadata is not None:
-            metadata = encode_metadata(metadata)
-
-        request = Request(
-            method='POST',
-            scheme=self._scheme,
-            path=name,
-            authority=self._authority,
-            content_type=self._content_type,
-            user_agent=USER_AGENT,
-            metadata=metadata,
-            deadline=deadline,
+        headers = _Headers(
+            pseudo=(
+                (':method', 'POST'),
+                (':scheme', self._scheme),
+                (':path', name),
+                (':authority', self._authority),
+            ),
+            regular=(
+                ('te', 'trailers'),
+                ('content-type', self._content_type),
+                ('user-agent', USER_AGENT),
+            ),
         )
+        metadata = MultiDict(metadata or ())
 
-        return Stream(self, request, self._codec, request_type, reply_type)
+        return Stream(self, headers, metadata, self._codec,
+                      request_type, reply_type, deadline=deadline)
 
     def close(self):
         """Closes connection to the server.

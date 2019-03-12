@@ -5,10 +5,11 @@ import async_timeout
 
 from faker import Faker
 from h2.settings import SettingCodes
+from multidict import MultiDict
 
 from grpclib.const import Status
-from grpclib.client import Stream
-from grpclib.metadata import Request
+from grpclib.client import Stream, _Headers
+from grpclib.metadata import USER_AGENT
 from grpclib.exceptions import GRPCError, StreamTerminatedError, ProtocolError
 from grpclib.encoding.proto import ProtoCodec
 
@@ -95,15 +96,25 @@ async def test_no_end(cs: ClientStream):
 
 @pytest.mark.asyncio
 async def test_connection_error():
-    request = Request(method='POST', scheme='http', path='/foo/bar',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
+    headers = _Headers(
+        pseudo=(
+            (':method', 'POST'),
+            (':scheme', 'http'),
+            (':path', '/foo/bar'),
+            (':authority', 'test.com'),
+        ),
+        regular=(
+            ('te', 'trailers'),
+            ('content-type', 'application/grpc+proto'),
+            ('user-agent', USER_AGENT),
+        ),
+    )
 
     class BrokenChannel:
         def __connect__(self):
             raise IOError('Intentionally broken connection')
 
-    stream = Stream(BrokenChannel(), request, ProtoCodec(),
+    stream = Stream(BrokenChannel(), headers, MultiDict(), ProtoCodec(),
                     DummyRequest, DummyReply)
 
     with pytest.raises(IOError) as err:

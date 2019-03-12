@@ -1,9 +1,9 @@
 import re
 import time
 import platform
+import collections
 
 from base64 import b64encode, b64decode
-from collections import namedtuple
 from urllib.parse import quote, unquote
 
 from multidict import MultiDict
@@ -32,6 +32,8 @@ _UNITS = {
 }
 
 _TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
+
+_Headers = collections.namedtuple('_Headers', 'pseudo, regular')
 
 
 def decode_timeout(value):
@@ -92,57 +94,6 @@ class Metadata(MultiDict):
     pass
 
 
-class Request(namedtuple('Request', [
-    'method', 'scheme', 'path', 'authority',
-    'content_type', 'message_type', 'message_encoding',
-    'message_accept_encoding', 'user_agent',
-    'metadata', 'deadline',
-])):
-    __slots__ = tuple()
-
-    def __new__(cls, *, method, scheme, path, authority,
-                content_type, message_type=None, message_encoding=None,
-                message_accept_encoding=None, user_agent=None,
-                metadata=None, deadline=None):
-        return super().__new__(cls, method, scheme, path, authority,
-                               content_type, message_type, message_encoding,
-                               message_accept_encoding, user_agent,
-                               metadata, deadline)
-
-    def to_headers(self):
-        result = [
-            (':method', self.method),
-            (':scheme', self.scheme),
-            (':path', self.path),
-            (':authority', self.authority),
-        ]
-
-        if self.deadline is not None:
-            timeout = self.deadline.time_remaining()
-            result.append(('grpc-timeout', encode_timeout(timeout)))
-
-        result.append(('te', 'trailers'))
-        result.append(('content-type', self.content_type))
-
-        if self.message_type is not None:
-            result.append(('grpc-message-type', self.message_type))
-
-        if self.message_encoding is not None:
-            result.append(('grpc-encoding', self.message_encoding))
-
-        if self.message_accept_encoding is not None:
-            result.append(('grpc-accept-encoding',
-                          self.message_accept_encoding))
-
-        if self.user_agent is not None:
-            result.append(('user-agent', self.user_agent))
-
-        if self.metadata is not None:
-            result.extend(self.metadata)
-
-        return result
-
-
 _UNQUOTED = ''.join([chr(i) for i in range(0x20, 0x24 + 1)]
                     + [chr(i) for i in range(0x26, 0x7E + 1)])
 
@@ -196,4 +147,15 @@ def encode_metadata(metadata):
             if not _VALUE_RE.match(value):
                 raise ValueError('Invalid metadata value: {!r}'.format(value))
             result.append((key, value))
+    return result
+
+
+def _combine_headers(headers: _Headers, metadata, deadline=None):
+    # headers are sent in order defined by gRPC spec
+    result = list(headers.pseudo)
+    if deadline is not None:
+        timeout = deadline.time_remaining()
+        result.append(('grpc-timeout', encode_timeout(timeout)))
+    result.extend(headers.regular)
+    result.extend(encode_metadata(metadata))
     return result

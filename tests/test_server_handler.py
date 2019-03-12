@@ -6,13 +6,12 @@ from h2.errors import ErrorCodes
 
 from grpclib.const import Handler, Cardinality
 from grpclib.server import request_handler
-from grpclib.metadata import Request
 from grpclib.protocol import Connection, EventsProcessor
 from grpclib.encoding.proto import ProtoCodec
 
 from stubs import TransportStub, DummyHandler
 from dummy_pb2 import DummyRequest, DummyReply
-from test_protocol import create_connections
+from test_protocol import create_connections, create_headers
 from test_server_stream import H2StreamStub, SendHeaders, Reset
 
 
@@ -175,13 +174,11 @@ async def test_client_reset(loop, caplog):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request(method='POST', scheme='http',
-                      path='/package.Service/Method',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
-    await client_h2_stream.send_request(request.to_headers(),
-                                        _processor=client_proc)
+    await client_h2_stream.send_request(
+        create_headers(path='/package.Service/Method'),
+        _processor=client_proc,
+    )
     to_server_transport.process(server_proc)
 
     server_h2_stream = server_proc.handler.stream

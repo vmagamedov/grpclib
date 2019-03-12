@@ -11,14 +11,13 @@ from grpclib.const import Status, Cardinality
 from grpclib.stream import send_message
 from grpclib.server import Stream, GRPCError
 from grpclib.protocol import Connection, EventsProcessor
-from grpclib.metadata import Metadata, Request, decode_metadata
+from grpclib.metadata import Metadata, decode_metadata
 from grpclib.exceptions import ProtocolError
 from grpclib.encoding.proto import ProtoCodec
 
 from stubs import TransportStub, DummyHandler
 from dummy_pb2 import DummyRequest, DummyReply
-from test_protocol import create_connections
-
+from test_protocol import create_connections, create_headers
 
 SendHeaders = namedtuple('SendHeaders', 'headers, end_stream')
 SendData = namedtuple('SendData', 'data, end_stream')
@@ -327,11 +326,8 @@ async def test_exit_and_stream_was_closed(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
-    await client_h2_stream.send_request(request.to_headers(),
+    await client_h2_stream.send_request(create_headers(),
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
@@ -365,11 +361,8 @@ async def test_exit_and_connection_was_closed(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
-    await client_h2_stream.send_request(request.to_headers(),
+    await client_h2_stream.send_request(create_headers(),
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
@@ -403,11 +396,8 @@ async def test_exit_and_connection_was_broken(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
-    await client_h2_stream.send_request(request.to_headers(),
+    await client_h2_stream.send_request(create_headers(),
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')
@@ -441,11 +431,8 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
 
-    request = Request(method='POST', scheme='http', path='/',
-                      content_type='application/grpc+proto',
-                      authority='test.com')
     client_h2_stream = client_conn.create_stream()
-    await client_h2_stream.send_request(request.to_headers(),
+    await client_h2_stream.send_request(create_headers(),
                                         _processor=client_proc)
 
     request = DummyRequest(value='ping')

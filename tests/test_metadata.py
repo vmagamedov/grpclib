@@ -2,10 +2,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from grpclib.metadata import Deadline, Request, Metadata
+from grpclib.metadata import Deadline, Metadata
 from grpclib.metadata import encode_timeout, decode_timeout
 from grpclib.metadata import encode_metadata, decode_metadata
 from grpclib.metadata import encode_grpc_message, decode_grpc_message
+from grpclib.metadata import _combine_headers, _Headers
 
 
 @pytest.mark.parametrize('value, expected', [
@@ -51,13 +52,20 @@ def test_headers_with_deadline():
     deadline = Mock()
     deadline.time_remaining.return_value = 0.1
 
+    headers = _Headers(
+        pseudo=(
+            (':method', 'briana'),
+            (':scheme', 'dismal'),
+            (':path', 'dost'),
+            (':authority', 'lemnos'),
+        ),
+        regular=(
+            ('te', 'trailers'),
+            ('content-type', 'gazebos'),
+        ),
+    )
     metadata = [('dominic', 'lovech')]
-
-    assert Request(
-        method='briana', scheme='dismal', path='dost', authority='lemnos',
-        content_type='gazebos',
-        metadata=metadata, deadline=deadline,
-    ).to_headers() == [
+    assert _combine_headers(headers, metadata, deadline=deadline) == [
         (':method', 'briana'),
         (':scheme', 'dismal'),
         (':path', 'dost'),
@@ -68,62 +76,28 @@ def test_headers_with_deadline():
         ('dominic', 'lovech'),
     ]
 
-    assert Request(
-        method='briana', scheme='dismal', path='dost', authority='edges',
-        content_type='gazebos',
-        message_type='dobson', message_encoding='patera',
-        message_accept_encoding='shakers', user_agent='dowlin',
-        metadata=metadata, deadline=deadline,
-    ).to_headers() == [
-        (':method', 'briana'),
-        (':scheme', 'dismal'),
-        (':path', 'dost'),
-        (':authority', 'edges'),
-        ('grpc-timeout', '100m'),
-        ('te', 'trailers'),
-        ('content-type', 'gazebos'),
-        ('grpc-message-type', 'dobson'),
-        ('grpc-encoding', 'patera'),
-        ('grpc-accept-encoding', 'shakers'),
-        ('user-agent', 'dowlin'),
-        ('dominic', 'lovech'),
-    ]
-
 
 def test_headers_without_deadline():
+    headers = _Headers(
+        pseudo=(
+            (':method', 'flysch'),
+            (':scheme', 'plains'),
+            (':path', 'slaps'),
+            (':authority', 'darrin'),
+        ),
+        regular=(
+            ('te', 'trailers'),
+            ('content-type', 'pemako'),
+        ),
+    )
     metadata = [('chagga', 'chrome')]
-
-    assert Request(
-        method='flysch', scheme='plains', path='slaps', authority='darrin',
-        content_type='pemako',
-        metadata=metadata,
-    ).to_headers() == [
+    assert _combine_headers(headers, metadata) == [
         (':method', 'flysch'),
         (':scheme', 'plains'),
         (':path', 'slaps'),
         (':authority', 'darrin'),
         ('te', 'trailers'),
         ('content-type', 'pemako'),
-        ('chagga', 'chrome'),
-    ]
-
-    assert Request(
-        method='flysch', scheme='plains', path='slaps', authority='sleev',
-        content_type='pemako',
-        message_type='deltic', message_encoding='eutexia',
-        message_accept_encoding='glyptic', user_agent='chrisom',
-        metadata=metadata,
-    ).to_headers() == [
-        (':method', 'flysch'),
-        (':scheme', 'plains'),
-        (':path', 'slaps'),
-        (':authority', 'sleev'),
-        ('te', 'trailers'),
-        ('content-type', 'pemako'),
-        ('grpc-message-type', 'deltic'),
-        ('grpc-encoding', 'eutexia'),
-        ('grpc-accept-encoding', 'glyptic'),
-        ('user-agent', 'chrisom'),
         ('chagga', 'chrome'),
     ]
 
