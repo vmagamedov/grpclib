@@ -62,6 +62,9 @@ class DummyHandler(AbstractHandler):
 class ChannelStub:
 
     def __init__(self, protocol, *, connect_time=None):
+        self._scheme = 'http'
+        self._authority = 'test.com'
+
         self.__protocol__ = protocol
         self.__connect_time = connect_time
 

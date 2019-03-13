@@ -1,12 +1,9 @@
-from unittest.mock import Mock
-
 import pytest
 
 from grpclib.metadata import Deadline, Metadata
 from grpclib.metadata import encode_timeout, decode_timeout
 from grpclib.metadata import encode_metadata, decode_metadata
 from grpclib.metadata import encode_grpc_message, decode_grpc_message
-from grpclib.metadata import _combine_headers, _Headers
 
 
 @pytest.mark.parametrize('value, expected', [
@@ -46,60 +43,6 @@ def test_deadline():
     assert Deadline(_timestamp=1) == Deadline(_timestamp=1)
 
     assert Deadline.from_timeout(1) != 'invalid'
-
-
-def test_headers_with_deadline():
-    deadline = Mock()
-    deadline.time_remaining.return_value = 0.1
-
-    headers = _Headers(
-        pseudo=(
-            (':method', 'briana'),
-            (':scheme', 'dismal'),
-            (':path', 'dost'),
-            (':authority', 'lemnos'),
-        ),
-        regular=(
-            ('te', 'trailers'),
-            ('content-type', 'gazebos'),
-        ),
-    )
-    metadata = [('dominic', 'lovech')]
-    assert _combine_headers(headers, metadata, deadline=deadline) == [
-        (':method', 'briana'),
-        (':scheme', 'dismal'),
-        (':path', 'dost'),
-        (':authority', 'lemnos'),
-        ('grpc-timeout', '100m'),
-        ('te', 'trailers'),
-        ('content-type', 'gazebos'),
-        ('dominic', 'lovech'),
-    ]
-
-
-def test_headers_without_deadline():
-    headers = _Headers(
-        pseudo=(
-            (':method', 'flysch'),
-            (':scheme', 'plains'),
-            (':path', 'slaps'),
-            (':authority', 'darrin'),
-        ),
-        regular=(
-            ('te', 'trailers'),
-            ('content-type', 'pemako'),
-        ),
-    )
-    metadata = [('chagga', 'chrome')]
-    assert _combine_headers(headers, metadata) == [
-        (':method', 'flysch'),
-        (':scheme', 'plains'),
-        (':path', 'slaps'),
-        (':authority', 'darrin'),
-        ('te', 'trailers'),
-        ('content-type', 'pemako'),
-        ('chagga', 'chrome'),
-    ]
 
 
 @pytest.mark.parametrize('value, output', [

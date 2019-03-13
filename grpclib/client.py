@@ -15,8 +15,8 @@ from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
-from .metadata import Deadline, USER_AGENT, decode_grpc_message
-from .metadata import decode_metadata, _combine_headers, _Headers
+from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
+from .metadata import encode_metadata, decode_metadata
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE
 from .encoding.proto import ProtoCodec
@@ -110,10 +110,10 @@ class Stream(StreamIterator):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata = None
 
-    def __init__(self, channel, headers, metadata, codec, send_type, recv_type,
+    def __init__(self, channel, name, metadata, codec, send_type, recv_type,
                  *, deadline=None):
         self._channel = channel
-        self._headers = headers
+        self._name = name
         self._metadata = metadata
         self._codec = codec
         self._send_type = send_type
@@ -137,8 +137,23 @@ class Stream(StreamIterator):
             stream = protocol.processor.connection\
                 .create_stream(wrapper=self._wrapper)
 
-            headers = _combine_headers(self._headers, self._metadata,
-                                       deadline=self._deadline)
+            headers = [
+                (':method', 'POST'),
+                (':scheme', self._channel._scheme),
+                (':path', self._name),
+                (':authority', self._channel._authority),
+            ]
+            if self._deadline is not None:
+                timeout = self._deadline.time_remaining()
+                headers.append(('grpc-timeout', encode_timeout(timeout)))
+            content_type = (GRPC_CONTENT_TYPE
+                            + '+' + self._codec.__content_subtype__)
+            headers.extend((
+                ('te', 'trailers'),
+                ('content-type', content_type),
+                ('user-agent', USER_AGENT),
+            ))
+            headers.extend(encode_metadata(self._metadata))
 
             release_stream = await stream.send_request(
                 headers, _processor=protocol.processor,
@@ -504,35 +519,16 @@ class Channel:
 
         return ctx
 
-    @property
-    def _content_type(self):
-        return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
-
     def request(self, name, request_type, reply_type, *, timeout=None,
                 deadline=None, metadata=None):
         if timeout is not None and deadline is None:
             deadline = Deadline.from_timeout(timeout)
         elif timeout is not None and deadline is not None:
             deadline = min(Deadline.from_timeout(timeout), deadline)
-        else:
-            deadline = None
 
-        headers = _Headers(
-            pseudo=(
-                (':method', 'POST'),
-                (':scheme', self._scheme),
-                (':path', name),
-                (':authority', self._authority),
-            ),
-            regular=(
-                ('te', 'trailers'),
-                ('content-type', self._content_type),
-                ('user-agent', USER_AGENT),
-            ),
-        )
         metadata = MultiDict(metadata or ())
 
-        return Stream(self, headers, metadata, self._codec,
+        return Stream(self, name, metadata, self._codec,
                       request_type, reply_type, deadline=deadline)
 
     def close(self):

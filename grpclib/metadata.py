@@ -1,7 +1,6 @@
 import re
 import time
 import platform
-import collections
 
 from base64 import b64encode, b64decode
 from urllib.parse import quote, unquote
@@ -32,8 +31,6 @@ _UNITS = {
 }
 
 _TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
-
-_Headers = collections.namedtuple('_Headers', 'pseudo, regular')
 
 
 def decode_timeout(value):
@@ -147,15 +144,4 @@ def encode_metadata(metadata):
             if not _VALUE_RE.match(value):
                 raise ValueError('Invalid metadata value: {!r}'.format(value))
             result.append((key, value))
-    return result
-
-
-def _combine_headers(headers: _Headers, metadata, deadline=None):
-    # headers are sent in order defined by gRPC spec
-    result = list(headers.pseudo)
-    if deadline is not None:
-        timeout = deadline.time_remaining()
-        result.append(('grpc-timeout', encode_timeout(timeout)))
-    result.extend(headers.regular)
-    result.extend(encode_metadata(metadata))
     return result

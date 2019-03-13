@@ -1,5 +1,7 @@
 import asyncio
 
+from unittest.mock import Mock
+
 import pytest
 import async_timeout
 
@@ -8,7 +10,7 @@ from h2.settings import SettingCodes
 from multidict import MultiDict
 
 from grpclib.const import Status
-from grpclib.client import Stream, _Headers
+from grpclib.client import Stream
 from grpclib.metadata import USER_AGENT
 from grpclib.exceptions import GRPCError, StreamTerminatedError, ProtocolError
 from grpclib.encoding.proto import ProtoCodec
@@ -96,25 +98,11 @@ async def test_no_end(cs: ClientStream):
 
 @pytest.mark.asyncio
 async def test_connection_error():
-    headers = _Headers(
-        pseudo=(
-            (':method', 'POST'),
-            (':scheme', 'http'),
-            (':path', '/foo/bar'),
-            (':authority', 'test.com'),
-        ),
-        regular=(
-            ('te', 'trailers'),
-            ('content-type', 'application/grpc+proto'),
-            ('user-agent', USER_AGENT),
-        ),
-    )
-
     class BrokenChannel:
         def __connect__(self):
             raise IOError('Intentionally broken connection')
 
-    stream = Stream(BrokenChannel(), headers, MultiDict(), ProtoCodec(),
+    stream = Stream(BrokenChannel(), '/foo/bar', MultiDict(), ProtoCodec(),
                     DummyRequest, DummyReply)
 
     with pytest.raises(IOError) as err:
@@ -668,3 +656,43 @@ async def test_invalid_content_type(cs: ClientStream):
                 assert exc.status == Status.UNKNOWN
                 assert exc.message == "Invalid content-type: 'text/invalid'"
                 raise ErrorDetected()
+
+
+@pytest.mark.asyncio
+async def test_request_headers(cs: ClientStream):
+    async with cs.client_stream as stream:
+        await stream.send_request()
+        events = cs.client_conn.to_server_transport.events()
+        request_received = events[-1]
+        assert request_received.headers == [
+            (':method', 'POST'),
+            (':scheme', 'http'),
+            (':path', '/foo/bar'),
+            (':authority', 'test.com'),
+            ('te', 'trailers'),
+            ('content-type', 'application/grpc+proto'),
+            ('user-agent', USER_AGENT),
+        ]
+        await stream.cancel()
+
+
+@pytest.mark.asyncio
+async def test_request_headers_with_deadline(loop):
+    deadline = Mock()
+    deadline.time_remaining.return_value = 0.1
+    cs = ClientStream(loop=loop, deadline=deadline)
+    async with cs.client_stream as stream:
+        await stream.send_request()
+        events = cs.client_conn.to_server_transport.events()
+        request_received = events[-1]
+        assert request_received.headers == [
+            (':method', 'POST'),
+            (':scheme', 'http'),
+            (':path', '/foo/bar'),
+            (':authority', 'test.com'),
+            ('grpc-timeout', '100m'),
+            ('te', 'trailers'),
+            ('content-type', 'application/grpc+proto'),
+            ('user-agent', USER_AGENT),
+        ]
+        await stream.cancel()
