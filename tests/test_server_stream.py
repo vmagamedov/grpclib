@@ -82,14 +82,18 @@ def _stub(loop):
 
 @pytest.fixture(name='stream')
 def _stream(stub):
-    return Stream(stub, Cardinality.UNARY_UNARY, ProtoCodec(),
-                  DummyRequest, DummyReply, metadata=Metadata([]))
+    stream = Stream(stub, Cardinality.UNARY_UNARY, ProtoCodec(),
+                    DummyRequest, DummyReply)
+    stream.metadata = Metadata([])
+    return stream
 
 
 @pytest.fixture(name='stream_streaming')
 def _stream_streaming(stub):
-    return Stream(stub, Cardinality.UNARY_STREAM, ProtoCodec(),
-                  DummyRequest, DummyReply, metadata=Metadata([]))
+    stream = Stream(stub, Cardinality.UNARY_STREAM, ProtoCodec(),
+                    DummyRequest, DummyReply)
+    stream.metadata = Metadata([])
+    return stream
 
 
 def encode_message(message):
@@ -313,6 +317,13 @@ async def test_grpc_error(stream, stub):
     ]
 
 
+def mk_stream(h2_stream, metadata):
+    stream = Stream(h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
+                    DummyRequest, DummyReply)
+    stream.metadata = metadata
+    return stream
+
+
 @pytest.mark.asyncio
 async def test_exit_and_stream_was_closed(loop):
     client_h2c, server_h2c = create_connections()
@@ -338,9 +349,7 @@ async def test_exit_and_stream_was_closed(loop):
     server_h2_stream = server_proc.handler.stream
     request_metadata = decode_metadata(server_proc.handler.headers)
 
-    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
-                      DummyRequest, DummyReply,
-                      metadata=request_metadata) as server_stream:
+    async with mk_stream(server_h2_stream, request_metadata) as server_stream:
         await server_stream.recv_message()
 
         # simulating client closing stream
@@ -373,9 +382,7 @@ async def test_exit_and_connection_was_closed(loop):
     server_h2_stream = server_proc.handler.stream
     request_metadata = decode_metadata(server_proc.handler.headers)
 
-    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
-                      DummyRequest, DummyReply,
-                      metadata=request_metadata) as server_stream:
+    async with mk_stream(server_h2_stream, request_metadata) as server_stream:
         await server_stream.recv_message()
         client_h2c.close_connection()
         to_server_transport.process(server_proc)
@@ -409,11 +416,10 @@ async def test_exit_and_connection_was_broken(loop):
     request_metadata = decode_metadata(server_proc.handler.headers)
 
     with pytest.raises(WriteError):
-        async with Stream(server_h2_stream, Cardinality.UNARY_UNARY,
-                          ProtoCodec(), DummyRequest, DummyReply,
-                          metadata=request_metadata) as server_stream:
+        async with mk_stream(server_h2_stream,
+                             request_metadata) as server_stream:
+            server_stream.metadata = request_metadata
             await server_stream.recv_message()
-
             # simulate broken connection
             to_client_transport.__raise_on_write__(WriteError)
 
@@ -444,9 +450,7 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
     request_metadata = decode_metadata(server_proc.handler.headers)
 
     send_trailing_metadata_done = False
-    async with Stream(server_h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
-                      DummyRequest, DummyReply,
-                      metadata=request_metadata) as server_stream:
+    async with mk_stream(server_h2_stream, request_metadata) as server_stream:
         await server_stream.send_trailing_metadata(status=Status.UNKNOWN)
         send_trailing_metadata_done = True
 

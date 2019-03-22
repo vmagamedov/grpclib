@@ -9,8 +9,10 @@ import h2.exceptions
 
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status
+from .compat import nullcontext
 from .stream import send_message, recv_message
 from .stream import StreamIterator
+from .events import _DispatchServerEvents
 from .metadata import Deadline, encode_grpc_message
 from .metadata import encode_metadata, decode_metadata
 from .protocol import H2Protocol, AbstractHandler
@@ -46,13 +48,13 @@ class Stream(StreamIterator):
     _cancel_done = False
 
     def __init__(self, stream, cardinality, codec, recv_type, send_type,
-                 *, metadata, deadline=None):
+                 *, deadline=None):
         self._stream = stream
         self._cardinality = cardinality
         self._codec = codec
         self._recv_type = recv_type
         self._send_type = send_type
-        self.metadata = metadata
+        self.metadata = None
         self.deadline = deadline
 
     @property
@@ -250,7 +252,8 @@ async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None):
         h2_stream.reset_nowait()
 
 
-async def request_handler(mapping, _stream, headers, codec, release_stream):
+async def request_handler(mapping, _stream, headers, codec, dispatch,
+                          release_stream):
     try:
         headers_map = dict(headers)
 
@@ -279,8 +282,8 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                          'Required "te: trailers" header is missing')
             return
 
-        h2_path = headers_map[':path']
-        method = mapping.get(h2_path)
+        method_name = headers_map[':path']
+        method = mapping.get(method_name)
         if method is None:
             await _abort(_stream, 200, Status.UNIMPLEMENTED,
                          'Method not found')
@@ -297,17 +300,23 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
 
         async with Stream(_stream, method.cardinality, codec,
                           method.request_type, method.reply_type,
-                          metadata=metadata, deadline=deadline) as stream:
-            wrapper = None
+                          deadline=deadline) as stream:
+            if deadline is None:
+                wrapper = _stream.__wrapper__ = Wrapper()
+                deadline_wrapper = nullcontext()
+            else:
+                wrapper = _stream.__wrapper__ = DeadlineWrapper()
+                deadline_wrapper = wrapper.start(deadline)
             try:
-                if deadline is None:
-                    wrapper = _stream.__wrapper__ = Wrapper()
-                    with wrapper:
-                        await method.func(stream)
-                else:
-                    wrapper = _stream.__wrapper__ = DeadlineWrapper()
-                    with wrapper.start(deadline), wrapper:
-                        await method.func(stream)
+                with deadline_wrapper, wrapper:
+                    stream.metadata, method_func = await dispatch.recv_request(
+                        metadata,
+                        method.func,
+                        method_name=method_name,
+                        deadline=deadline,
+                        content_type=content_type,
+                    )
+                    await method_func(stream)
             except asyncio.TimeoutError:
                 if wrapper.cancelled:
                     log.exception('Deadline exceeded')
@@ -350,9 +359,10 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    def __init__(self, mapping, codec, *, loop):
+    def __init__(self, mapping, codec, dispatch, *, loop):
         self.mapping = mapping
         self.codec = codec
+        self.dispatch = dispatch
         self.loop = loop
         self._tasks = {}
         self._cancelled = set()
@@ -367,7 +377,7 @@ class Handler(_GC, AbstractHandler):
         self.__gc_step__()
         self._tasks[stream] = self.loop.create_task(
             request_handler(self.mapping, stream, headers, self.codec,
-                            release_stream)
+                            self.dispatch, release_stream)
         )
 
     def cancel(self, stream):
@@ -430,13 +440,16 @@ class Server(_GC, asyncio.AbstractServer):
         self._server = None
         self._handlers = set()
 
+        self.__dispatch__ = _DispatchServerEvents()
+
     def __gc_collect__(self):
         self._handlers = {h for h in self._handlers
                           if not (h.closing and h.check_closed())}
 
     def _protocol_factory(self):
         self.__gc_step__()
-        handler = Handler(self._mapping, self._codec, loop=self._loop)
+        handler = Handler(self._mapping, self._codec, self.__dispatch__,
+                          loop=self._loop)
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 

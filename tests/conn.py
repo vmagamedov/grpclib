@@ -114,9 +114,9 @@ class ServerStream:
             codec,
             recv_type,
             send_type,
-            metadata=metadata or {},
             deadline=deadline,
         )
+        self.server_stream.metadata = metadata or {}
 
 
 class ClientServer:
