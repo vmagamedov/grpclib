@@ -12,16 +12,16 @@ class Greeter(GreeterBase):
     # UNARY_UNARY - simple RPC
     async def UnaryUnaryGreeting(self, stream):
         request = await stream.recv_message()
-        message = 'Hello, {}!'.format(request.name)
+        message = f'Hello, {request.name}!'
         await stream.send_message(HelloReply(message=message))
 
     # UNARY_STREAM - response streaming RPC
     async def UnaryStreamGreeting(self, stream):
         request = await stream.recv_message()
         await stream.send_message(
-            HelloReply(message='Hello, {}!'.format(request.name)))
+            HelloReply(message=f'Hello, {request.name}!'))
         await stream.send_message(
-            HelloReply(message='Goodbye, {}!'.format(request.name)))
+            HelloReply(message=f'Goodbye, {request.name}!'))
 
     # STREAM_UNARY - request streaming RPC
     async def StreamUnaryGreeting(self, stream):
@@ -34,7 +34,7 @@ class Greeter(GreeterBase):
     # STREAM_STREAM - bidirectional streaming RPC
     async def StreamStreamGreeting(self, stream):
         async for request in stream:
-            message = 'Hello, {}!'.format(request.name)
+            message = f'Hello, {request.name}!'
             await stream.send_message(HelloReply(message=message))
         # Send another message to demonstrate responses are not
         # coupled to requests.

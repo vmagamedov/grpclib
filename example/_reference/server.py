@@ -16,9 +16,9 @@ class Greeter(helloworld_pb2_grpc.GreeterServicer):
 def serve(host='127.0.0.1', port=50051):
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
     helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), server)
-    server.add_insecure_port('{}:{}'.format(host, port))
+    server.add_insecure_port(f'{host}:{port}')
     server.start()
-    print('Serving on {}:{}'.format(host, port))
+    print(f'Serving on {host}:{port}')
     try:
         while True:
             time.sleep(3600)

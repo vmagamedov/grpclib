@@ -17,7 +17,7 @@ def main(iterations=10, count=1000):
         t2 = time.time()
         secs = (t2 - t1)
         rps = int(count / (t2 - t1))
-        print('{} requests in {:.2f} secs ~= {} rps'.format(count, secs, rps))
+        print(f'{count} requests in {secs:.2f} secs ~= {rps} rps')
 
 
 if __name__ == '__main__':
