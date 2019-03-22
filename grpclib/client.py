@@ -14,6 +14,7 @@ from .utils import Wrapper, DeadlineWrapper
 from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
+from .events import _DispatchChannelEvents
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata
@@ -110,14 +111,15 @@ class Stream(StreamIterator):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata = None
 
-    def __init__(self, channel, name, metadata, codec, send_type, recv_type,
-                 *, deadline=None):
+    def __init__(self, channel, method_name, metadata, send_type, recv_type,
+                 *, codec, dispatch: _DispatchChannelEvents, deadline=None):
         self._channel = channel
-        self._name = name
+        self._method_name = method_name
         self._metadata = metadata
-        self._codec = codec
         self._send_type = send_type
         self._recv_type = recv_type
+        self._codec = codec
+        self._dispatch = dispatch
         self._deadline = deadline
 
     async def send_request(self):
@@ -140,7 +142,7 @@ class Stream(StreamIterator):
             headers = [
                 (':method', 'POST'),
                 (':scheme', self._channel._scheme),
-                (':path', self._name),
+                (':path', self._method_name),
                 (':authority', self._channel._authority),
             ]
             if self._deadline is not None:
@@ -153,8 +155,13 @@ class Stream(StreamIterator):
                 ('content-type', content_type),
                 ('user-agent', USER_AGENT),
             ))
-            headers.extend(encode_metadata(self._metadata))
-
+            metadata, = await self._dispatch.send_request(
+                self._metadata,
+                method_name=self._method_name,
+                deadline=self._deadline,
+                content_type=content_type,
+            )
+            headers.extend(encode_metadata(metadata))
             release_stream = await stream.send_request(
                 headers, _processor=protocol.processor,
             )
@@ -474,6 +481,8 @@ class Channel:
         self._scheme = 'https' if self._ssl else 'http'
         self._connect_lock = asyncio.Lock(loop=self._loop)
 
+        self.__dispatch__ = _DispatchChannelEvents()
+
     def __repr__(self):
         return ('Channel({!r}, {!r}, ..., path={!r})'
                 .format(self._host, self._port, self._path))
@@ -528,8 +537,9 @@ class Channel:
 
         metadata = MultiDict(metadata or ())
 
-        return Stream(self, name, metadata, self._codec,
-                      request_type, reply_type, deadline=deadline)
+        return Stream(self, name, metadata, request_type, reply_type,
+                      codec=self._codec, dispatch=self.__dispatch__,
+                      deadline=deadline)
 
     def close(self):
         """Closes connection to the server.

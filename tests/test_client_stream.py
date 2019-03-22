@@ -11,6 +11,7 @@ from multidict import MultiDict
 
 from grpclib.const import Status
 from grpclib.client import Stream
+from grpclib.events import _DispatchChannelEvents
 from grpclib.metadata import USER_AGENT
 from grpclib.exceptions import GRPCError, StreamTerminatedError, ProtocolError
 from grpclib.encoding.proto import ProtoCodec
@@ -102,8 +103,9 @@ async def test_connection_error():
         def __connect__(self):
             raise IOError('Intentionally broken connection')
 
-    stream = Stream(BrokenChannel(), '/foo/bar', MultiDict(), ProtoCodec(),
-                    DummyRequest, DummyReply)
+    stream = Stream(BrokenChannel(), '/foo/bar', MultiDict(),
+                    DummyRequest, DummyReply, codec=ProtoCodec(),
+                    dispatch=_DispatchChannelEvents())
 
     with pytest.raises(IOError) as err:
         async with stream:

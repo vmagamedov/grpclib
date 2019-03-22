@@ -125,3 +125,27 @@ class _DispatchServerEvents(_Dispatch, metaclass=_DispatchMeta):
             deadline=deadline,
             content_type=content_type,
         ))
+
+
+class SendRequest(_Event, metaclass=_EventMeta):
+    """Dispatches when request is about to send
+    """
+    __payload__ = ('metadata',)
+
+    metadata: MultiDict
+    method_name: str
+    deadline: Optional[Deadline]
+    content_type: str
+
+
+class _DispatchChannelEvents(_Dispatch, metaclass=_DispatchMeta):
+
+    @_dispatches(SendRequest)
+    async def send_request(self, metadata, *, method_name, deadline,
+                           content_type):
+        return await self.__dispatch__(SendRequest(
+            metadata=metadata,
+            method_name=method_name,
+            deadline=deadline,
+            content_type=content_type,
+        ))
