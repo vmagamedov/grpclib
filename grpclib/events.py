@@ -1,4 +1,5 @@
-from typing import Type, Optional, Callable, TYPE_CHECKING, Coroutine
+from typing import Type, Optional, Callable, TYPE_CHECKING, Coroutine, Any
+from itertools import chain
 from collections import defaultdict
 
 from multidict import MultiDict
@@ -12,7 +13,7 @@ class _Event:
     __readonly__ = frozenset()
 
     def __init__(self, **kwargs):
-        assert len(kwargs) == len(self.__slots__)
+        assert len(kwargs) == len(self.__slots__), self.__slots__
         super().__setattr__('__interrupted__', False)
         for key, value in kwargs.items():
             super().__setattr__(key, value)
@@ -72,7 +73,10 @@ class _Dispatch:
 class _DispatchMeta(type):
 
     def __new__(mcs, name, bases, params):
-        dispatch_methods = {}
+        dispatch_methods = dict(chain.from_iterable(
+            getattr(base, '__dispatch_methods__', {}).items()
+            for base in bases
+        ))
         for key, value in params.items():
             dispatches = getattr(value, '__dispatches__', None)
             if dispatches is not None:
@@ -89,12 +93,49 @@ def listen(target, event_type, callback):
 
     .. code-block:: python
 
+        server = Server([service], loop=loop)
+
         async def callback(event: RecvRequest):
             print(event.metadata)
 
         listen(server, RecvRequest, callback)
     """
     target.__dispatch__.add_listener(event_type, callback)
+
+
+class SendMessage(_Event, metaclass=_EventMeta):
+    """Dispatches before sending message to the other party
+
+    :param mutable message: message to send
+    """
+    __payload__ = ('message',)
+
+    message: Any
+
+
+class RecvMessage(_Event, metaclass=_EventMeta):
+    """Dispatches after message was received from the other party
+
+    :param mutable message: received message
+    """
+    __payload__ = ('message',)
+
+    message: Any
+
+
+class _DispatchCommonEvents(_Dispatch, metaclass=_DispatchMeta):
+
+    @_dispatches(SendMessage)
+    async def send_message(self, message):
+        return await self.__dispatch__(SendMessage(
+            message=message,
+        ))
+
+    @_dispatches(RecvMessage)
+    async def recv_message(self, message):
+        return await self.__dispatch__(RecvMessage(
+            message=message,
+        ))
 
 
 if TYPE_CHECKING:
@@ -120,7 +161,7 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     content_type: str
 
 
-class _DispatchServerEvents(_Dispatch, metaclass=_DispatchMeta):
+class _DispatchServerEvents(_DispatchCommonEvents):
 
     @_dispatches(RecvRequest)
     async def recv_request(self, metadata, method_func,
@@ -150,7 +191,7 @@ class SendRequest(_Event, metaclass=_EventMeta):
     content_type: str
 
 
-class _DispatchChannelEvents(_Dispatch, metaclass=_DispatchMeta):
+class _DispatchChannelEvents(_DispatchCommonEvents):
 
     @_dispatches(SendRequest)
     async def send_request(self, metadata, *, method_name, deadline,

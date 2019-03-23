@@ -47,15 +47,19 @@ class Stream(StreamIterator):
     _send_trailing_metadata_done = False
     _cancel_done = False
 
-    def __init__(self, stream, cardinality, codec, recv_type, send_type,
-                 *, deadline=None):
+    def __init__(self, stream, cardinality, recv_type, send_type,
+                 *, codec, dispatch, deadline=None):
         self._stream = stream
         self._cardinality = cardinality
-        self._codec = codec
         self._recv_type = recv_type
         self._send_type = send_type
-        self.metadata = None
+        self._codec = codec
+        self._dispatch = dispatch
+        #: :py:class:`~grpclib.metadata.Deadline` of the current request
         self.deadline = deadline
+        #: Invocation metadata, received with headers from the client.
+        #: Represented as a multi-dict object.
+        self.metadata = None
 
     @property
     def _content_type(self):
@@ -86,7 +90,9 @@ class Stream(StreamIterator):
 
         :returns: message
         """
-        return await recv_message(self._stream, self._codec, self._recv_type)
+        message = await recv_message(self._stream, self._codec, self._recv_type)
+        message, = await self._dispatch.recv_message(message)
+        return message
 
     async def send_initial_metadata(self, *, metadata=None):
         """Coroutine to send headers with initial metadata to the client.
@@ -141,6 +147,7 @@ class Stream(StreamIterator):
                 raise ProtocolError('Server should send exactly one message '
                                     'in response')
 
+        message, = await self._dispatch.send_message(message)
         await send_message(self._stream, self._codec, message, self._send_type)
         self._send_message_count += 1
 
@@ -298,9 +305,10 @@ async def request_handler(mapping, _stream, headers, codec, dispatch,
 
         metadata = decode_metadata(headers)
 
-        async with Stream(_stream, method.cardinality, codec,
-                          method.request_type, method.reply_type,
-                          deadline=deadline) as stream:
+        async with Stream(
+            _stream, method.cardinality, method.request_type, method.reply_type,
+            codec=codec, dispatch=dispatch, deadline=deadline
+        ) as stream:
             if deadline is None:
                 wrapper = _stream.__wrapper__ = Wrapper()
                 deadline_wrapper = nullcontext()

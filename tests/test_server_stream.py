@@ -8,6 +8,7 @@ import pytest
 from h2.errors import ErrorCodes
 
 from grpclib.const import Status, Cardinality
+from grpclib.events import _DispatchServerEvents
 from grpclib.stream import send_message
 from grpclib.server import Stream, GRPCError
 from grpclib.protocol import Connection, EventsProcessor
@@ -82,16 +83,16 @@ def _stub(loop):
 
 @pytest.fixture(name='stream')
 def _stream(stub):
-    stream = Stream(stub, Cardinality.UNARY_UNARY, ProtoCodec(),
-                    DummyRequest, DummyReply)
+    stream = Stream(stub, Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
+                    codec=ProtoCodec(), dispatch=_DispatchServerEvents())
     stream.metadata = Metadata([])
     return stream
 
 
 @pytest.fixture(name='stream_streaming')
 def _stream_streaming(stub):
-    stream = Stream(stub, Cardinality.UNARY_STREAM, ProtoCodec(),
-                    DummyRequest, DummyReply)
+    stream = Stream(stub, Cardinality.UNARY_STREAM, DummyRequest, DummyReply,
+                    codec=ProtoCodec(), dispatch=_DispatchServerEvents())
     stream.metadata = Metadata([])
     return stream
 
@@ -318,8 +319,9 @@ async def test_grpc_error(stream, stub):
 
 
 def mk_stream(h2_stream, metadata):
-    stream = Stream(h2_stream, Cardinality.UNARY_UNARY, ProtoCodec(),
-                    DummyRequest, DummyReply)
+    stream = Stream(h2_stream, Cardinality.UNARY_UNARY, DummyRequest,
+                    DummyReply, codec=ProtoCodec(),
+                    dispatch=_DispatchServerEvents())
     stream.metadata = metadata
     return stream
 

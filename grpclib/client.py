@@ -196,6 +196,7 @@ class Stream(StreamIterator):
             raise ProtocolError('Stream was already ended')
 
         with self._wrapper:
+            message, = await self._dispatch.send_message(message)
             await send_message(self._stream, self._codec, message,
                                self._send_type, end=end)
             self._send_message_count += 1
@@ -339,6 +340,7 @@ class Stream(StreamIterator):
             message = await recv_message(self._stream, self._codec,
                                          self._recv_type)
             self._recv_message_count += 1
+            message, = await self._dispatch.recv_message(message)
             return message
 
     async def recv_trailing_metadata(self):

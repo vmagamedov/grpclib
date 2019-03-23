@@ -6,6 +6,7 @@ from h2.connection import H2Connection
 
 from grpclib import client, server
 from grpclib.const import Cardinality
+from grpclib.events import _DispatchServerEvents
 from grpclib.protocol import H2Protocol
 from grpclib.encoding.proto import ProtoCodec
 
@@ -111,9 +112,10 @@ class ServerStream:
         self.server_stream = server.Stream(
             self.server_h2s,
             Cardinality.UNARY_UNARY,
-            codec,
             recv_type,
             send_type,
+            codec=codec,
+            dispatch=_DispatchServerEvents(),
             deadline=deadline,
         )
         self.server_stream.metadata = metadata or {}
