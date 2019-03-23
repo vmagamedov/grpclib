@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.3.0rc1
+~~~~~~~~
+
+  - Implemented ability to listen for "events" from grpclib
+  - Dropped Python 3.5 support for async generators and better typing support
+
 0.2.3
 ~~~~~
 

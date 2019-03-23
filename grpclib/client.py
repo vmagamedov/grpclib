@@ -46,13 +46,6 @@ _H2_TO_GRPC_STATUS_MAP = {
 }
 
 
-async def _to_list(stream):
-    result = []
-    async for message in stream:
-        result.append(message)
-    return result
-
-
 class Handler(AbstractHandler):
     connection_lost = False
 
@@ -632,7 +625,7 @@ class UnaryStreamMethod(ServiceMethod):
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send_message(message, end=True)
-            return await _to_list(stream)
+            return [message async for message in stream]
 
 
 class StreamUnaryMethod(ServiceMethod):
@@ -684,4 +677,4 @@ class StreamStreamMethod(ServiceMethod):
                 await stream.send_message(messages[-1], end=True)
             else:
                 await stream.end()
-            return await _to_list(stream)
+            return [message async for message in stream]

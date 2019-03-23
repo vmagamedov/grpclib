@@ -25,7 +25,7 @@ setup(
     url='https://github.com/vmagamedov/grpclib',
     packages=find_packages(),
     license='BSD',
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     install_requires=['h2', 'multidict'],
     entry_points={
         'console_scripts': [
@@ -38,7 +38,6 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3 :: Only',

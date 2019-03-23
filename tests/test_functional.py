@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from grpclib.client import Channel, _to_list
+from grpclib.client import Channel
 from grpclib.server import Server
 
 from dummy_pb2 import DummyRequest, DummyReply
@@ -147,7 +147,7 @@ async def test_unary_stream_advanced(loop):
     async with ClientServer(loop=loop) as (handler, stub):
         async with stub.UnaryStream.open() as stream:
             await stream.send_message(DummyRequest(value='ping'), end=True)
-            replies = await _to_list(stream)
+            replies = [message async for message in stream]
         assert handler.log == [DummyRequest(value='ping')]
         assert replies == [DummyReply(value='pong1'),
                            DummyReply(value='pong2'),

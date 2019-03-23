@@ -1,7 +1,7 @@
 Pure-Python gRPC implementation for asyncio
 ===========================================
 
-This project is based on `hyper-h2`_ and **requires Python >= 3.5**.
+This project is based on `hyper-h2`_ and **requires Python >= 3.6**.
 
 Licensed under **BSD-3-Clause** license. See LICENSE.txt
 

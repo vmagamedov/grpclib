@@ -1,9 +1,5 @@
-import sys
 import abc
 import struct
-
-
-_PY352 = (sys.version_info >= (3, 5, 2))
 
 
 async def recv_message(stream, codec, message_type):
@@ -31,23 +27,14 @@ async def send_message(stream, codec, message, message_type, *, end=False):
     await stream.send_data(reply_data, end_stream=end)
 
 
-async def _ident(value):
-    return value
-
-
 class StreamIterator(abc.ABC):
 
     @abc.abstractmethod
     async def recv_message(self):
         pass
 
-    if _PY352:
-        def __aiter__(self):
-            return self
-    else:
-        # noqa; See https://www.python.org/dev/peps/pep-0492/#why-aiter-does-not-return-an-awaitable
-        def __aiter__(self):
-            return _ident(self)
+    def __aiter__(self):
+        return self
 
     async def __anext__(self):
         message = await self.recv_message()
