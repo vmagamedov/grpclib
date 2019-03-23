@@ -107,4 +107,10 @@ Receiving and sending metadata:
 
 See reference docs for more details: :doc:`server`.
 
+Reference
+~~~~~~~~~
+
+.. automodule:: grpclib.metadata
+  :members: Deadline
+
 .. _gRPC Wire Format: https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md

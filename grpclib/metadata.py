@@ -53,7 +53,8 @@ def encode_timeout(timeout: float) -> str:
 
 
 class Deadline:
-
+    """Represents request's deadline - fixed point in time
+    """
     def __init__(self, *, _timestamp):
         self._timestamp = _timestamp
 
@@ -84,6 +85,11 @@ class Deadline:
         return cls(_timestamp=time.monotonic() + timeout)
 
     def time_remaining(self):
+        """Calculates remaining time for the current request completion
+
+        This function returns time in seconds as a floating point number,
+        greater or equal to zero.
+        """
         return max(0, self._timestamp - time.monotonic())
 
 

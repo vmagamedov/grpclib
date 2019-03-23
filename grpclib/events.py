@@ -85,14 +85,14 @@ class _DispatchMeta(type):
 
 
 def listen(target, event_type, callback):
-    """Register a listener function for the given target and event type
+    """Registers a listener function for the given target and event type
 
     .. code-block:: python
 
-        async def callback(event: RequestReceived):
-            print(event.data)
+        async def callback(event: RecvRequest):
+            print(event.metadata)
 
-        listen(server, RequestReceived, callback)
+        listen(server, RecvRequest, callback)
     """
     target.__dispatch__.add_listener(event_type, callback)
 
@@ -102,7 +102,14 @@ if TYPE_CHECKING:
 
 
 class RecvRequest(_Event, metaclass=_EventMeta):
-    """Dispatches when request was received
+    """Dispatches after request was received from the client
+
+    :param mutable metadata: invocation metadata
+    :param mutable method_func: coroutine function to process this request,
+        accepts :py:class:`~grpclib.server.Stream`
+    :param read-only method_name: RPC's method name
+    :param read-only deadline: request's :py:class:`~grpclib.metadata.Deadline`
+    :param read-only content_type: request's content type
     """
     __payload__ = ('metadata', 'method_func')
 
@@ -128,7 +135,12 @@ class _DispatchServerEvents(_Dispatch, metaclass=_DispatchMeta):
 
 
 class SendRequest(_Event, metaclass=_EventMeta):
-    """Dispatches when request is about to send
+    """Dispatches before sending request to the server
+
+    :param mutable metadata: invocation metadata
+    :param read-only method_name: RPC's method name
+    :param read-only deadline: request's :py:class:`~grpclib.metadata.Deadline`
+    :param read-only content_type: request's content type
     """
     __payload__ = ('metadata',)
 

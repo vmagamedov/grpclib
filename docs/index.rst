@@ -9,6 +9,7 @@ User's Guide
   overview
   client
   server
+  events
   metadata
   errors
   encoding
