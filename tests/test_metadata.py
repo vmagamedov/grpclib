@@ -1,6 +1,8 @@
 import pytest
 
-from grpclib.metadata import Deadline, Metadata
+from multidict import MultiDict
+
+from grpclib.metadata import Deadline
 from grpclib.metadata import encode_timeout, decode_timeout
 from grpclib.metadata import encode_metadata, decode_metadata
 from grpclib.metadata import encode_grpc_message, decode_grpc_message
@@ -100,7 +102,7 @@ def test_decode_metadata_empty():
         ('user-agent', 'Test'),
         ('grpc-timeout', '100m'),
     ])
-    assert metadata == Metadata()
+    assert metadata == MultiDict()
 
 
 @pytest.mark.parametrize('key, value, expected', [
@@ -116,5 +118,5 @@ def test_decode_metadata_regular(key, value, expected):
         ('grpc-timeout', '100m'),
         (key, value),
     ])
-    assert metadata == Metadata({key: expected})
+    assert metadata == MultiDict({key: expected})
     assert type(metadata[key]) is type(expected)

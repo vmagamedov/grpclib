@@ -272,7 +272,9 @@ class Stream(StreamIterator):
                 headers = await self._stream.recv_headers()
                 self._recv_initial_metadata_done = True
 
-                self.initial_metadata = decode_metadata(headers)
+                metadata = decode_metadata(headers)
+                metadata, = await self._dispatch.recv_initial_metadata(metadata)
+                self.initial_metadata = metadata
 
                 headers_map = dict(headers)
                 self._raise_for_status(headers_map)
@@ -370,7 +372,9 @@ class Stream(StreamIterator):
             headers = await self._stream.recv_headers()
             self._recv_trailing_metadata_done = True
 
-            self.trailing_metadata = decode_metadata(headers)
+            metadata = decode_metadata(headers)
+            metadata, = await self._dispatch.recv_trailing_metadata(metadata)
+            self.trailing_metadata = metadata
 
             self._raise_for_grpc_status(dict(headers))
 

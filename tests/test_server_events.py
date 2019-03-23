@@ -1,12 +1,33 @@
 import pytest
+
 from multidict import MultiDict
 
+from grpclib.const import Status
 from grpclib.events import listen, RecvRequest, RecvMessage, SendMessage
+from grpclib.events import SendInitialMetadata, SendTrailingMetadata
+from grpclib.exceptions import GRPCError
 from grpclib.testing import ChannelFor
 
 from dummy_pb2 import DummyRequest, DummyReply
-from dummy_grpc import DummyServiceStub
-from test_functional import DummyService
+from dummy_grpc import DummyServiceStub, DummyServiceBase
+
+
+class DummyService(DummyServiceBase):
+
+    async def UnaryUnary(self, stream):
+        await stream.recv_message()
+        await stream.send_initial_metadata(metadata={'initial': 'true'})
+        await stream.send_message(DummyReply(value='pong'))
+        await stream.send_trailing_metadata(metadata={'trailing': 'true'})
+
+    async def UnaryStream(self, stream):
+        raise GRPCError(Status.UNIMPLEMENTED)
+
+    async def StreamUnary(self, stream):
+        raise GRPCError(Status.UNIMPLEMENTED)
+
+    async def StreamStream(self, stream):
+        raise GRPCError(Status.UNIMPLEMENTED)
 
 
 async def _test(event_type):
@@ -50,3 +71,15 @@ async def test_recv_message():
 async def test_send_message():
     event = await _test(SendMessage)
     assert event.message == DummyReply(value='pong')
+
+
+@pytest.mark.asyncio
+async def test_send_initial_metadata():
+    event = await _test(SendInitialMetadata)
+    assert event.metadata == MultiDict({'initial': 'true'})
+
+
+@pytest.mark.asyncio
+async def test_send_trailing_metadata():
+    event = await _test(SendTrailingMetadata)
+    assert event.metadata == MultiDict({'trailing': 'true'})

@@ -161,6 +161,26 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     content_type: str
 
 
+class SendInitialMetadata(_Event, metaclass=_EventMeta):
+    """Dispatches before sending headers with initial metadata to the client
+
+    :param mutable metadata: initial metadata
+    """
+    __payload__ = ('metadata',)
+
+    metadata: MultiDict
+
+
+class SendTrailingMetadata(_Event, metaclass=_EventMeta):
+    """Dispatches before sending trailers with trailing metadata to the client
+
+    :param mutable metadata: trailing metadata
+    """
+    __payload__ = ('metadata',)
+
+    metadata: MultiDict
+
+
 class _DispatchServerEvents(_DispatchCommonEvents):
 
     @_dispatches(RecvRequest)
@@ -172,6 +192,18 @@ class _DispatchServerEvents(_DispatchCommonEvents):
             method_name=method_name,
             deadline=deadline,
             content_type=content_type,
+        ))
+
+    @_dispatches(SendInitialMetadata)
+    async def send_initial_metadata(self, metadata):
+        return await self.__dispatch__(SendInitialMetadata(
+            metadata=metadata,
+        ))
+
+    @_dispatches(SendTrailingMetadata)
+    async def send_trailing_metadata(self, metadata):
+        return await self.__dispatch__(SendTrailingMetadata(
+            metadata=metadata,
         ))
 
 
@@ -191,6 +223,28 @@ class SendRequest(_Event, metaclass=_EventMeta):
     content_type: str
 
 
+class RecvInitialMetadata(_Event, metaclass=_EventMeta):
+    """Dispatches after headers with initial metadata were received
+    from the server
+
+    :param mutable metadata: initial metadata
+    """
+    __payload__ = ('metadata',)
+
+    metadata: MultiDict
+
+
+class RecvTrailingMetadata(_Event, metaclass=_EventMeta):
+    """Dispatches after trailers with trailing metadata were received
+    from the server
+
+    :param mutable metadata: trailing metadata
+    """
+    __payload__ = ('metadata',)
+
+    metadata: MultiDict
+
+
 class _DispatchChannelEvents(_DispatchCommonEvents):
 
     @_dispatches(SendRequest)
@@ -201,4 +255,16 @@ class _DispatchChannelEvents(_DispatchCommonEvents):
             method_name=method_name,
             deadline=deadline,
             content_type=content_type,
+        ))
+
+    @_dispatches(RecvInitialMetadata)
+    async def recv_initial_metadata(self, metadata):
+        return await self.__dispatch__(RecvInitialMetadata(
+            metadata=metadata,
+        ))
+
+    @_dispatches(RecvTrailingMetadata)
+    async def recv_trailing_metadata(self, metadata):
+        return await self.__dispatch__(RecvTrailingMetadata(
+            metadata=metadata,
         ))

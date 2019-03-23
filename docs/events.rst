@@ -13,11 +13,19 @@ Common
 Client-Side
 ~~~~~~~~~~~
 
+See also :py:class:`~grpclib.events.SendMessage` and
+:py:class:`~grpclib.events.RecvMessage`. You can listen for them on the
+client-side.
+
 .. automodule:: grpclib.events
-  :members: SendRequest
+  :members: SendRequest, RecvInitialMetadata, RecvTrailingMetadata
 
 Server-Side
 ~~~~~~~~~~~
 
+See also :py:class:`~grpclib.events.RecvMessage` and
+:py:class:`~grpclib.events.SendMessage`. You can listen for them on the
+server-side.
+
 .. automodule:: grpclib.events
-  :members: RecvRequest
+  :members: RecvRequest, SendInitialMetadata, SendTrailingMetadata

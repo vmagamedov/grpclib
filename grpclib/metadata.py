@@ -93,10 +93,6 @@ class Deadline:
         return max(0, self._timestamp - time.monotonic())
 
 
-class Metadata(MultiDict):
-    pass
-
-
 _UNQUOTED = ''.join([chr(i) for i in range(0x20, 0x24 + 1)]
                     + [chr(i) for i in range(0x26, 0x7E + 1)])
 
@@ -119,7 +115,7 @@ _SPECIAL = {
 
 
 def decode_metadata(headers):
-    metadata = Metadata()
+    metadata = MultiDict()
     for key, value in headers:
         if key.startswith((':', 'grpc-')) or key in _SPECIAL:
             continue

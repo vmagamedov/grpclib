@@ -7,6 +7,8 @@ import warnings
 import h2.config
 import h2.exceptions
 
+from multidict import MultiDict
+
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status
 from .compat import nullcontext
@@ -48,7 +50,7 @@ class Stream(StreamIterator):
     _cancel_done = False
 
     def __init__(self, stream, cardinality, recv_type, send_type,
-                 *, codec, dispatch, deadline=None):
+                 *, codec, dispatch: _DispatchServerEvents, deadline=None):
         self._stream = stream
         self._cardinality = cardinality
         self._recv_type = recv_type
@@ -116,8 +118,9 @@ class Stream(StreamIterator):
             (':status', '200'),
             ('content-type', self._content_type),
         ]
-        if metadata is not None:
-            headers.extend(encode_metadata(metadata))
+        metadata = MultiDict(metadata or ())
+        metadata, = await self._dispatch.send_initial_metadata(metadata)
+        headers.extend(encode_metadata(metadata))
 
         await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
@@ -187,8 +190,10 @@ class Stream(StreamIterator):
         if status_message is not None:
             headers.append(('grpc-message',
                             encode_grpc_message(status_message)))
-        if metadata is not None:
-            headers.extend(encode_metadata(metadata))
+
+        metadata = MultiDict(metadata or ())
+        metadata, = await self._dispatch.send_trailing_metadata(metadata)
+        headers.extend(encode_metadata(metadata))
 
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True

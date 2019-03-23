@@ -6,13 +6,14 @@ from collections import namedtuple
 import pytest
 
 from h2.errors import ErrorCodes
+from multidict import MultiDict
 
 from grpclib.const import Status, Cardinality
 from grpclib.events import _DispatchServerEvents
 from grpclib.stream import send_message
 from grpclib.server import Stream, GRPCError
 from grpclib.protocol import Connection, EventsProcessor
-from grpclib.metadata import Metadata, decode_metadata
+from grpclib.metadata import decode_metadata
 from grpclib.exceptions import ProtocolError
 from grpclib.encoding.proto import ProtoCodec
 
@@ -85,7 +86,7 @@ def _stub(loop):
 def _stream(stub):
     stream = Stream(stub, Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
                     codec=ProtoCodec(), dispatch=_DispatchServerEvents())
-    stream.metadata = Metadata([])
+    stream.metadata = MultiDict()
     return stream
 
 
@@ -93,7 +94,7 @@ def _stream(stub):
 def _stream_streaming(stub):
     stream = Stream(stub, Cardinality.UNARY_STREAM, DummyRequest, DummyReply,
                     codec=ProtoCodec(), dispatch=_DispatchServerEvents())
-    stream.metadata = Metadata([])
+    stream.metadata = MultiDict()
     return stream
 
 

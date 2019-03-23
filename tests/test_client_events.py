@@ -1,12 +1,33 @@
 import pytest
+
 from multidict import MultiDict
 
+from grpclib.const import Status
 from grpclib.events import listen, SendRequest, SendMessage, RecvMessage
+from grpclib.events import RecvInitialMetadata, RecvTrailingMetadata
 from grpclib.testing import ChannelFor
+from grpclib.exceptions import GRPCError
 
 from dummy_pb2 import DummyRequest, DummyReply
-from dummy_grpc import DummyServiceStub
-from test_functional import DummyService
+from dummy_grpc import DummyServiceStub, DummyServiceBase
+
+
+class DummyService(DummyServiceBase):
+
+    async def UnaryUnary(self, stream):
+        await stream.recv_message()
+        await stream.send_initial_metadata(metadata={'initial': 'true'})
+        await stream.send_message(DummyReply(value='pong'))
+        await stream.send_trailing_metadata(metadata={'trailing': 'true'})
+
+    async def UnaryStream(self, stream):
+        raise GRPCError(Status.UNIMPLEMENTED)
+
+    async def StreamUnary(self, stream):
+        raise GRPCError(Status.UNIMPLEMENTED)
+
+    async def StreamStream(self, stream):
+        raise GRPCError(Status.UNIMPLEMENTED)
 
 
 async def _test(event_type):
@@ -21,7 +42,7 @@ async def _test(event_type):
         stub = DummyServiceStub(channel)
         reply = await stub.UnaryUnary(DummyRequest(value='ping'),
                                       timeout=1,
-                                      metadata={'foo': 'bar'})
+                                      metadata={'request': 'true'})
         assert reply == DummyReply(value='pong')
 
     event, = events
@@ -31,7 +52,7 @@ async def _test(event_type):
 @pytest.mark.asyncio
 async def test_send_request():
     event = await _test(SendRequest)
-    assert event.metadata == MultiDict({'foo': 'bar'})
+    assert event.metadata == MultiDict({'request': 'true'})
     assert event.method_name == '/dummy.DummyService/UnaryUnary'
     assert event.deadline.time_remaining() > 0
     assert event.content_type == 'application/grpc+proto'
@@ -47,3 +68,15 @@ async def test_send_message():
 async def test_recv_message():
     event = await _test(RecvMessage)
     assert event.message == DummyReply(value='pong')
+
+
+@pytest.mark.asyncio
+async def test_recv_initial_metadata():
+    event = await _test(RecvInitialMetadata)
+    assert event.metadata == MultiDict({'initial': 'true'})
+
+
+@pytest.mark.asyncio
+async def test_recv_trailing_metadata():
+    event = await _test(RecvTrailingMetadata)
+    assert event.metadata == MultiDict({'trailing': 'true'})
