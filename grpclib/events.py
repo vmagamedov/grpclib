@@ -93,12 +93,10 @@ def listen(target, event_type, callback):
 
     .. code-block:: python
 
-        server = Server([service], loop=loop)
+        async def callback(event: SomeEvent):
+            print(event.data)
 
-        async def callback(event: RecvRequest):
-            print(event.metadata)
-
-        listen(server, RecvRequest, callback)
+        listen(target, SomeEvent, callback)
     """
     target.__dispatch__.add_listener(event_type, callback)
 
