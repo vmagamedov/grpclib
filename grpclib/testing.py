@@ -1,12 +1,14 @@
 import asyncio
+from types import TracebackType
+from typing import Type, Optional, List
 
 from .client import Channel
-from .server import Server
+from .server import Server, Handler
 
 
 class _Server(asyncio.AbstractServer):
 
-    def close(self):
+    def close(self) -> None:
         pass
 
     async def wait_closed(self):
@@ -15,19 +17,19 @@ class _Server(asyncio.AbstractServer):
 
 class _InMemoryTransport(asyncio.Transport):
 
-    def __init__(self, protocol, *, loop):
+    def __init__(self, protocol: asyncio.Protocol, *, loop: asyncio.AbstractEventLoop) -> None:
         super().__init__()
         self._loop = loop
         self._protocol = protocol
 
-    def write(self, data):
+    def write(self, data: bytes) -> None:
         if data:
             self._loop.call_soon(self._protocol.data_received, data)
 
-    def is_closing(self):
+    def is_closing(self) -> bool:
         return False
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
@@ -53,13 +55,13 @@ class ChannelFor:
     _server = None
     _server_protocol = None
 
-    def __init__(self, services):
+    def __init__(self, services: List[Handler]) -> None:
         """
         :param services: list of services you want to test
         """
         self._services = services
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Channel:
         """
         :return: :py:class:`~grpclib.client.Channel`
         """
@@ -80,7 +82,16 @@ class ChannelFor:
         )
         return self._channel
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        assert self._channel is not None
+        assert self._channel._protocol is not None
+        assert self._server_protocol is not None
+        assert self._server is not None
         self._channel._protocol.connection_lost(None)
         self._channel.close()
 

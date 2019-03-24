@@ -14,6 +14,8 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
+from typing import List, Iterable
+
 from google.protobuf import descriptor_pool
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
 
@@ -31,7 +33,7 @@ from .v1alpha.reflection_grpc import (
 
 class _ServerReflection:
 
-    def __init__(self, pb, service_names):
+    def __init__(self, pb, service_names: Iterable[str]) -> None:
         self._pb = pb
         self._service_names = service_names
         self._pool = descriptor_pool.Default()
@@ -53,7 +55,7 @@ class _ServerReflection:
             ),
         )
 
-    def _file_by_filename_response(self, file_name):
+    def _file_by_filename_response(self, file_name: str):
         try:
             file = self._pool.FindFileByName(file_name)
         except KeyError:
@@ -69,7 +71,7 @@ class _ServerReflection:
         else:
             return self._file_descriptor_response(file)
 
-    def _file_containing_extension_response(self, msg_name, ext_number):
+    def _file_containing_extension_response(self, msg_name: str, ext_number: int):
         try:
             message = self._pool.FindMessageTypeByName(msg_name)
             extension = self._pool.FindExtensionByNumber(message, ext_number)
@@ -79,7 +81,7 @@ class _ServerReflection:
         else:
             return self._file_descriptor_response(file)
 
-    def _all_extension_numbers_of_type_response(self, type_name):
+    def _all_extension_numbers_of_type_response(self, type_name: str):
         try:
             message = self._pool.FindMessageTypeByName(type_name)
             extensions = self._pool.FindAllExtensions(message)
@@ -101,7 +103,7 @@ class _ServerReflection:
             )
         )
 
-    async def ServerReflectionInfo(self, stream):
+    async def ServerReflectionInfo(self, stream) -> None:
         async for request in stream:
             if request.HasField('file_by_filename'):
                 response = self._file_by_filename_response(
@@ -157,7 +159,7 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
 
         Returns new services list with reflection support added.
         """
-        service_names = []
+        service_names: List[str] = []
         for service in services:
             service_names.append(_service_name(service))
         services = list(services)

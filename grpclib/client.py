@@ -5,21 +5,25 @@ import warnings
 try:
     import ssl
 except ImportError:
-    ssl = None
+    ssl = None  # type: ignore
 
 from h2.config import H2Configuration
-from multidict import MultiDict
+from types import TracebackType
+from typing import TypeVar, List, Generic, Dict, Optional, Type, Union, Sequence, Callable
+from google.protobuf.message import Message
 
-from .utils import Wrapper, DeadlineWrapper
+from .utils import Wrapper, DeadlineWrapper, none_throws
 from .const import Status
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .protocol import H2Protocol, AbstractHandler
+from .protocol import Stream as ProtocolStream
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
-from .encoding.base import GRPC_CONTENT_TYPE
+from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
 from .encoding.proto import ProtoCodec
+from .metadata import Metadata
 
 
 _H2_OK = '200'
@@ -44,9 +48,12 @@ _H2_TO_GRPC_STATUS_MAP = {
     str(http.HTTPStatus.TOO_MANY_REQUESTS.value): Status.UNAVAILABLE,
 }
 
+_TRequest = TypeVar("_TRequest", bound=Message)
+_TResponse = TypeVar("_TResponse", bound=Message)
 
-async def _to_list(stream):
-    result = []
+
+async def _to_list(stream: "Stream[_TRequest, _TResponse]") -> List[_TResponse]:
+    result: List[_TResponse] = []
     async for message in stream:
         result.append(message)
     return result
@@ -61,11 +68,11 @@ class Handler(AbstractHandler):
     def cancel(self, stream):
         pass
 
-    def close(self):
+    def close(self) -> None:
         self.connection_lost = True
 
 
-class Stream(StreamIterator):
+class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
     """
     Represents gRPC method call - HTTP/2 request/stream, and everything you
     need to communicate with server in order to get response.
@@ -94,24 +101,33 @@ class Stream(StreamIterator):
     _recv_trailing_metadata_done = False
     _cancel_done = False
 
-    _stream = None
-    _release_stream = None
+    _stream: Optional[ProtocolStream] = None
+    _release_stream: Optional[Callable[[], None]] = None
 
-    _wrapper = None
+    _wrapper = Wrapper()
     _wrapper_ctx = None
 
     #: This property contains initial metadata, received with headers from
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_initial_metadata` coroutine succeeds.
-    initial_metadata = None
+    initial_metadata: Optional[Metadata] = None
 
     #: This property contains trailing metadata, received with trailers from
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
-    trailing_metadata = None
+    trailing_metadata: Optional[Metadata] = None
 
-    def __init__(self, channel, name, metadata, codec, send_type, recv_type,
-                 *, deadline=None):
+    def __init__(
+        self,
+        channel: "Channel",
+        name: str,
+        metadata: Metadata,
+        codec: CodecBase,
+        send_type: Type[_TRequest],
+        recv_type: Type[_TResponse],
+        *,
+        deadline: Optional[Deadline] = None,
+    ) -> None:
         self._channel = channel
         self._name = name
         self._metadata = metadata
@@ -120,7 +136,7 @@ class Stream(StreamIterator):
         self._recv_type = recv_type
         self._deadline = deadline
 
-    async def send_request(self):
+    async def send_request(self) -> None:
         """Coroutine to send request headers with metadata to the server.
 
         New HTTP/2 stream will be created during this coroutine call.
@@ -134,8 +150,7 @@ class Stream(StreamIterator):
 
         with self._wrapper:
             protocol = await self._channel.__connect__()
-            stream = protocol.processor.connection\
-                .create_stream(wrapper=self._wrapper)
+            stream = protocol.processor.connection.create_stream(wrapper=self._wrapper)   # type: ignore
 
             headers = [
                 (':method', 'POST'),
@@ -156,13 +171,13 @@ class Stream(StreamIterator):
             headers.extend(encode_metadata(self._metadata))
 
             release_stream = await stream.send_request(
-                headers, _processor=protocol.processor,
+                headers, _processor=protocol.processor,  # type: ignore
             )
             self._stream = stream
             self._release_stream = release_stream
             self._send_request_done = True
 
-    async def send_message(self, message, *, end=False):
+    async def send_message(self, message: _TRequest, *, end: bool = False) -> None:
         """Coroutine to send message to the server.
 
         If client sends UNARY request, then you should call this coroutine only
@@ -195,7 +210,7 @@ class Stream(StreamIterator):
             if end:
                 self._end_done = True
 
-    async def end(self):
+    async def end(self) -> None:
         """Coroutine to end stream from the client-side.
 
         It should be used to finally end stream from the client-side when we're
@@ -208,17 +223,17 @@ class Stream(StreamIterator):
         if self._end_done:
             raise ProtocolError('Stream was already ended')
 
-        await self._stream.end()
+        await none_throws(self._stream).end()
         self._end_done = True
 
-    def _raise_for_status(self, headers_map):
+    def _raise_for_status(self, headers_map: Dict[str, str]) -> None:
         status = headers_map[':status']
         if status is not None and status != _H2_OK:
             grpc_status = _H2_TO_GRPC_STATUS_MAP.get(status, Status.UNKNOWN)
             raise GRPCError(grpc_status,
                             'Received :status = {!r}'.format(status))
 
-    def _raise_for_grpc_status(self, headers_map, *, optional=False):
+    def _raise_for_grpc_status(self, headers_map: Dict[str, str], *, optional: bool = False) -> None:
         grpc_status = headers_map.get('grpc-status')
         if grpc_status is None:
             if optional:
@@ -239,7 +254,7 @@ class Stream(StreamIterator):
                     status_message = decode_grpc_message(status_message)
                 raise GRPCError(grpc_status_enum, status_message)
 
-    async def recv_initial_metadata(self):
+    async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
 
         .. note:: This coroutine will be called implicitly during first
@@ -259,6 +274,7 @@ class Stream(StreamIterator):
         if self._recv_initial_metadata_done:
             raise ProtocolError('Initial metadata was already received')
 
+        assert self._stream is not None
         try:
             with self._wrapper:
                 headers = await self._stream.recv_headers()
@@ -288,18 +304,18 @@ class Stream(StreamIterator):
             # Server can send RST_STREAM frame right after sending trailers-only
             # response, so we have to check received headers and probably raise
             # more descriptive error
-            headers = self._stream.recv_headers_nowait()
-            if headers is None:
+            optional_headers = self._stream.recv_headers_nowait()
+            if optional_headers is None:
                 raise
             else:
-                headers_map = dict(headers)
+                headers_map = dict(optional_headers)
                 self._raise_for_status(headers_map)
                 self._raise_for_grpc_status(headers_map, optional=True)
                 # If there are no errors in the headers, just reraise original
                 # StreamTerminatedError
                 raise
 
-    async def recv_message(self):
+    async def recv_message(self) -> Optional[_TResponse]:
         """Coroutine to receive incoming message from the server.
 
         If server sends UNARY response, then you can call this coroutine only
@@ -334,7 +350,7 @@ class Stream(StreamIterator):
             self._recv_message_count += 1
             return message
 
-    async def recv_trailing_metadata(self):
+    async def recv_trailing_metadata(self) -> None:
         """Coroutine to wait for trailers with trailing metadata from the
         server.
 
@@ -358,14 +374,14 @@ class Stream(StreamIterator):
             raise ProtocolError('Trailing metadata was already received')
 
         with self._wrapper:
-            headers = await self._stream.recv_headers()
+            headers = await none_throws(self._stream).recv_headers()
             self._recv_trailing_metadata_done = True
 
             self.trailing_metadata = decode_metadata(headers)
 
             self._raise_for_grpc_status(dict(headers))
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """Coroutine to cancel this request/stream.
 
         Client will send RST_STREAM frame to the server, so it will be
@@ -376,10 +392,10 @@ class Stream(StreamIterator):
             raise ProtocolError('Stream was already cancelled')
 
         with self._wrapper:
-            await self._stream.reset()  # TODO: specify error code
+            await none_throws(self._stream).reset()  # TODO: specify error code
             self._cancel_done = True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Stream[_TRequest, _TResponse]":
         if self._deadline is None:
             self._wrapper = Wrapper()
         else:
@@ -388,18 +404,25 @@ class Stream(StreamIterator):
             self._wrapper_ctx.__enter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         if not self._send_request_done:
             return
         try:
             if (
                 not self._recv_trailing_metadata_done
                 and not self._cancel_done
-                and not self._stream._transport.is_closing()
+                and not none_throws(self._stream)._transport.is_closing()
                 and not (exc_type or exc_val or exc_tb)
             ):
                 await self.recv_trailing_metadata()
         finally:
+            assert self._stream is not None
+            assert self._release_stream is not None
             if self._stream.closable:
                 self._stream.reset_nowait()
             self._release_stream()
@@ -432,8 +455,16 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host=None, port=None, *, loop,  path=None, codec=None,
-                 ssl=None):
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        *,
+        loop: asyncio.AbstractEventLoop,
+        path: Optional[str] = None,
+        codec: Optional[CodecBase] = None,
+        ssl: Optional[Union[ssl.SSLContext, bool]] = None,
+    ) -> None:
         """Initialize connection to the server
 
         :param host: server host name.
@@ -474,14 +505,14 @@ class Channel:
         self._scheme = 'https' if self._ssl else 'http'
         self._connect_lock = asyncio.Lock(loop=self._loop)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('Channel({!r}, {!r}, ..., path={!r})'
                 .format(self._host, self._port, self._path))
 
-    def _protocol_factory(self):
+    def _protocol_factory(self) -> asyncio.Protocol:
         return H2Protocol(Handler(), self._config, loop=self._loop)
 
-    async def _create_connection(self):
+    async def _create_connection(self) -> asyncio.BaseProtocol:
         if self._path is not None:
             _, protocol = await self._loop.create_unix_connection(
                 self._protocol_factory, self._path, ssl=self._ssl)
@@ -492,19 +523,20 @@ class Channel:
         return protocol
 
     @property
-    def _connected(self):
+    def _connected(self) -> bool:
         return (self._protocol is not None
                 and not self._protocol.handler.connection_lost)
 
-    async def __connect__(self):
+    async def __connect__(self) -> asyncio.BaseProtocol:
         if not self._connected:
             async with self._connect_lock:
                 if not self._connected:
                     self._protocol = await self._create_connection()
+        assert self._protocol is not None
         return self._protocol
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
-    def _get_default_ssl_context(self):
+    def _get_default_ssl_context(self) -> ssl.SSLContext:
         if not ssl:
             raise RuntimeError('SSL is not supported.')
 
@@ -519,26 +551,34 @@ class Channel:
 
         return ctx
 
-    def request(self, name, request_type, reply_type, *, timeout=None,
-                deadline=None, metadata=None):
+    def request(
+        self,
+        name: str,
+        request_type: Type[_TRequest],
+        reply_type: Type[_TResponse],
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional[Deadline] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> Stream[_TRequest, _TResponse]:
         if timeout is not None and deadline is None:
             deadline = Deadline.from_timeout(timeout)
         elif timeout is not None and deadline is not None:
             deadline = min(Deadline.from_timeout(timeout), deadline)
 
-        metadata = MultiDict(metadata or ())
+        metadata = Metadata(metadata or ())
 
         return Stream(self, name, metadata, self._codec,
                       request_type, reply_type, deadline=deadline)
 
-    def close(self):
+    def close(self) -> None:
         """Closes connection to the server.
         """
         if self._protocol is not None:
-            self._protocol.processor.close()
+            self._protocol.processor.close()  # type: ignore
             del self._protocol
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self._protocol is not None:
             message = 'Unclosed connection: {!r}'.format(self)
             warnings.warn(message, ResourceWarning)
@@ -549,17 +589,17 @@ class Channel:
                 self._loop.call_exception_handler({'message': message})
 
 
-class ServiceMethod:
+class ServiceMethod(Generic[_TRequest, _TResponse]):
     """
     Base class for all gRPC method types
     """
-    def __init__(self, channel, name, request_type, reply_type):
+    def __init__(self, channel: Channel, name: str, request_type: Type[_TRequest], reply_type: Type[_TResponse]) -> None:
         self.channel = channel
         self.name = name
         self.request_type = request_type
         self.reply_type = reply_type
 
-    def open(self, *, timeout=None, metadata=None) -> Stream:
+    def open(self, *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> Stream[_TRequest, _TResponse]:
         """Creates and returns :py:class:`Stream` object to perform request
         to the server.
 
@@ -577,7 +617,7 @@ class ServiceMethod:
                                     metadata=metadata)
 
 
-class UnaryUnaryMethod(ServiceMethod):
+class UnaryUnaryMethod(ServiceMethod[_TRequest, _TResponse]):
     """
     Represents UNARY-UNARY gRPC method type.
 
@@ -585,7 +625,7 @@ class UnaryUnaryMethod(ServiceMethod):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message, *, timeout=None, metadata=None):
+    async def __call__(self, message: _TRequest, *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> Optional[_TResponse]:
         """Coroutine to perform defined call.
 
         :param message: message
@@ -598,7 +638,7 @@ class UnaryUnaryMethod(ServiceMethod):
             return await stream.recv_message()
 
 
-class UnaryStreamMethod(ServiceMethod):
+class UnaryStreamMethod(ServiceMethod[_TRequest, _TResponse]):
     """
     Represents UNARY-STREAM gRPC method type.
 
@@ -606,7 +646,7 @@ class UnaryStreamMethod(ServiceMethod):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message, *, timeout=None, metadata=None):
+    async def __call__(self, message: _TRequest, *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> List[_TResponse]:
         """Coroutine to perform defined call.
 
         :param message: message
@@ -619,7 +659,7 @@ class UnaryStreamMethod(ServiceMethod):
             return await _to_list(stream)
 
 
-class StreamUnaryMethod(ServiceMethod):
+class StreamUnaryMethod(ServiceMethod[_TRequest, _TResponse]):
     """
     Represents STREAM-UNARY gRPC method type.
 
@@ -627,7 +667,7 @@ class StreamUnaryMethod(ServiceMethod):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, messages, *, timeout=None, metadata=None):
+    async def __call__(self, messages: Sequence[_TRequest], *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> Optional[_TResponse]:
         """Coroutine to perform defined call.
 
         :param messages: sequence of messages
@@ -645,7 +685,7 @@ class StreamUnaryMethod(ServiceMethod):
             return await stream.recv_message()
 
 
-class StreamStreamMethod(ServiceMethod):
+class StreamStreamMethod(ServiceMethod[_TRequest, _TResponse]):
     """
     Represents STREAM-STREAM gRPC method type.
 
@@ -653,7 +693,7 @@ class StreamStreamMethod(ServiceMethod):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, messages, *, timeout=None, metadata=None):
+    async def __call__(self, messages: Sequence[_TRequest], *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> List[_TResponse]:
         """Coroutine to perform defined call.
 
         :param messages: sequence of messages

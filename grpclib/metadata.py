@@ -4,6 +4,7 @@ import platform
 
 from base64 import b64encode, b64decode
 from urllib.parse import quote, unquote
+from typing import Any, Dict, Optional, List, Tuple
 
 from multidict import MultiDict
 
@@ -33,7 +34,7 @@ _UNITS = {
 _TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
 
 
-def decode_timeout(value):
+def decode_timeout(value: str) -> float:
     match = _TIMEOUT_RE.match(value)
     if match is None:
         raise ValueError('Invalid timeout: {}'.format(value))
@@ -54,23 +55,23 @@ def encode_timeout(timeout: float) -> str:
 
 class Deadline:
 
-    def __init__(self, *, _timestamp):
+    def __init__(self, *, _timestamp: float) -> None:
         self._timestamp = _timestamp
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, Deadline):
             raise TypeError('comparison is not supported between '
                             'instances of \'{}\' and \'{}\''
                             .format(type(self).__name__, type(other).__name__))
         return self._timestamp < other._timestamp
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Deadline):
             return False
         return self._timestamp == other._timestamp
 
     @classmethod
-    def from_headers(cls, headers):
+    def from_headers(cls, headers: Dict[str, str]) -> Optional["Deadline"]:
         timeout = min(map(decode_timeout,
                           (v for k, v in headers if k == 'grpc-timeout')),
                       default=None)
@@ -80,10 +81,10 @@ class Deadline:
             return None
 
     @classmethod
-    def from_timeout(cls, timeout):
+    def from_timeout(cls, timeout: float) -> "Deadline":
         return cls(_timestamp=time.monotonic() + timeout)
 
-    def time_remaining(self):
+    def time_remaining(self) -> float:
         return max(0, self._timestamp - time.monotonic())
 
 
@@ -112,7 +113,7 @@ _SPECIAL = {
 }
 
 
-def decode_metadata(headers):
+def decode_metadata(headers: List[Tuple[str, str]]) -> Metadata:
     metadata = Metadata()
     for key, value in headers:
         if key.startswith((':', 'grpc-')) or key in _SPECIAL:
@@ -125,10 +126,11 @@ def decode_metadata(headers):
     return metadata
 
 
-def encode_metadata(metadata):
+def encode_metadata(metadata: Metadata) -> List[Tuple[str, str]]:
     if hasattr(metadata, 'items'):
-        metadata = metadata.items()
-    result = []
+        metadata = metadata.items()  # type: ignore
+
+    result: List[Tuple[str, str]] = []
     for key, value in metadata:
         if key in _SPECIAL or key.startswith('grpc-') or not _KEY_RE.match(key):
             raise ValueError('Invalid metadata key: {!r}'.format(key))

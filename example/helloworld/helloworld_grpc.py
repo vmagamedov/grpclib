@@ -2,9 +2,11 @@
 # source: helloworld/helloworld.proto
 # plugin: grpclib.plugin.main
 import abc
+import typing
 
 import grpclib.const
 import grpclib.client
+import grpclib.server
 
 import helloworld.helloworld_pb2
 
@@ -12,10 +14,10 @@ import helloworld.helloworld_pb2
 class GreeterBase(abc.ABC):
 
     @abc.abstractmethod
-    async def SayHello(self, stream):
+    async def SayHello(self, stream: grpclib.server.Stream[helloworld.helloworld_pb2.HelloRequest, helloworld.helloworld_pb2.HelloReply]) -> None:
         pass
 
-    def __mapping__(self):
+    def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
             '/helloworld.Greeter/SayHello': grpclib.const.Handler(
                 self.SayHello,

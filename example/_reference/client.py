@@ -4,7 +4,7 @@ from helloworld import helloworld_pb2
 from helloworld import helloworld_pb2_grpc
 
 
-def main():
+def main() -> None:
     channel = grpc.insecure_channel('127.0.0.1:50051')
     stub = helloworld_pb2_grpc.GreeterStub(channel)
 

@@ -6,7 +6,7 @@ from .helloworld_pb2 import HelloRequest
 from .helloworld_grpc import GreeterStub
 
 
-async def main():
+async def main() -> None:
     channel = Channel(loop=asyncio.get_event_loop())
     stub = GreeterStub(channel)
 

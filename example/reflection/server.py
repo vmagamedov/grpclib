@@ -7,7 +7,7 @@ from grpclib.reflection.service import ServerReflection
 from helloworld.server import Greeter
 
 
-async def main(*, host='127.0.0.1', port=50051):
+async def main(*, host: str = '127.0.0.1', port: int = 50051) -> None:
     loop = asyncio.get_running_loop()
 
     services = [Greeter()]

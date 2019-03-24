@@ -1,15 +1,18 @@
 import asyncio
 
 from itertools import chain
+from typing import Iterable, Dict, Optional, List, Union
 
+from .check import CheckBase
 from ..const import Status
-from ..utils import _service_name
+from ..utils import _service_name, none_throws
+from ..server import Stream
 
-from .v1.health_pb2 import HealthCheckResponse
+from .v1.health_pb2 import HealthCheckResponse, HealthCheckRequest
 from .v1.health_grpc import HealthBase
 
 
-def _status(checks):
+def _status(checks: Iterable[CheckBase]):
     statuses = {check.__status__() for check in checks}
     if statuses == {None}:
         return HealthCheckResponse.UNKNOWN
@@ -19,7 +22,10 @@ def _status(checks):
         return HealthCheckResponse.NOT_SERVING
 
 
-def _reset_waits(events, waits):
+def _reset_waits(
+    events: Iterable[asyncio.Event],
+    waits: Dict[asyncio.Event, asyncio.Future],
+) -> Dict[asyncio.Event, asyncio.Future]:
     new_waits = {}
     for event in events:
         wait = waits.get(event)
@@ -32,7 +38,7 @@ def _reset_waits(events, waits):
 
 class _Overall:
     # `_service_name` should return '' (empty string) for this service
-    def __mapping__(self):
+    def __mapping__(self) -> Dict[str, None]:
         return {'//': None}
 
 
@@ -60,7 +66,7 @@ class Health(HealthBase):
         server = Server([auth, billing, health], loop=loop)
 
     """
-    def __init__(self, checks=None):
+    def __init__(self, checks: Optional[Dict[Union[str, _Overall], List[CheckBase]]] = None) -> None:
         if checks is None:
             checks = {OVERALL: []}
         elif OVERALL not in checks:
@@ -70,9 +76,9 @@ class Health(HealthBase):
         self._checks = {_service_name(s): set(check_list)
                         for s, check_list in checks.items()}
 
-    async def Check(self, stream):
+    async def Check(self, stream: Stream[HealthCheckRequest, HealthCheckResponse]) -> None:
         """Implements synchronous periodic checks"""
-        request = await stream.recv_message()
+        request = none_throws(await stream.recv_message())
         checks = self._checks.get(request.service)
         if checks is None:
             await stream.send_trailing_metadata(status=Status.NOT_FOUND)
@@ -87,8 +93,8 @@ class Health(HealthBase):
                 status=_status(checks),
             ))
 
-    async def Watch(self, stream):
-        request = await stream.recv_message()
+    async def Watch(self, stream: Stream[HealthCheckRequest, HealthCheckResponse]) -> None:
+        request = none_throws(await stream.recv_message())
         checks = self._checks.get(request.service)
         if checks is None:
             await stream.send_message(HealthCheckResponse(

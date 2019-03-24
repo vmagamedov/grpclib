@@ -2,8 +2,8 @@ import socket
 
 from io import BytesIO
 from abc import ABC, abstractmethod
-from typing import Optional, List, Tuple, Dict  # noqa
-from asyncio import Transport, Protocol, Event, AbstractEventLoop
+from typing import Optional, List, Tuple, Dict, Iterable, Callable, Type, Any # noqa
+from asyncio import Protocol, Event, AbstractEventLoop, WriteTransport, BaseTransport
 from asyncio import Queue, QueueEmpty
 
 from h2.errors import ErrorCodes
@@ -16,21 +16,21 @@ from h2.settings import SettingCodes
 from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError, StreamClosedError
 
-from .utils import Wrapper
+from .utils import Wrapper, none_throws
 from .exceptions import StreamTerminatedError
 
 
 try:
     from h2.events import PingReceived, PingAckReceived
 except ImportError:
-    PingReceived = object()
-    PingAckReceived = object()
+    PingReceived = object()  # type: ignore
+    PingAckReceived = object()  # type: ignore
 
 
 if hasattr(socket, 'TCP_NODELAY'):
     _sock_type_mask = 0xf if hasattr(socket, 'SOCK_NONBLOCK') else 0xffffffff
 
-    def _set_nodelay(sock):
+    def _set_nodelay(sock: socket.socket) -> None:
         if (
             sock.family in {socket.AF_INET, socket.AF_INET6}
             and sock.type & _sock_type_mask == socket.SOCK_STREAM
@@ -38,12 +38,14 @@ if hasattr(socket, 'TCP_NODELAY'):
         ):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 else:
-    def _set_nodelay(sock):
+    def _set_nodelay(sock: socket.socket) -> None:
         pass
 
 
-def _slice(chunks: List[bytes], size: int):
-    data, data_size, tail = [], 0, []
+def _slice(chunks: Iterable[bytes], size: int) -> Tuple[List[bytes], List[bytes]]:
+    data: List[bytes] = []
+    data_size: int = 0
+    tail: List[bytes] = []
     for chunk in chunks:
         if data_size < size:
             if data_size + len(chunk) <= size:
@@ -61,23 +63,29 @@ def _slice(chunks: List[bytes], size: int):
 
 class Buffer:
 
-    def __init__(self, stream_id, connection, h2_connection,
-                 *, loop: AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        stream_id: int,
+        connection: "Connection",
+        h2_connection: H2Connection,
+        *,
+        loop: AbstractEventLoop,
+    ) -> None:
         self._stream_id = stream_id
         self._connection = connection
         self._h2_connection = h2_connection
-        self._chunks = []  # type: List[bytes]
+        self._chunks: List[bytes] = []
         self._size = 0
-        self._read_size = None
+        self._read_size: Optional[int] = None
         self._ready_event = Event(loop=loop)
         self._eof = False
 
-    def _ack(self, size):
+    def _ack(self, size: int) -> None:
         if size:
             self._h2_connection.acknowledge_received_data(size, self._stream_id)
             self._connection.flush()
 
-    def append(self, data):
+    def append(self, data: bytes) -> None:
         size = len(data)
         self._chunks.append(data)
         self._size += size
@@ -87,11 +95,11 @@ class Buffer:
             if self._size >= self._read_size:
                 self._ready_event.set()
 
-    def eof(self):
+    def eof(self) -> None:
         self._eof = True
         self._ready_event.set()
 
-    async def read(self, size):
+    async def read(self, size: int) -> bytes:
         if size < 0:
             raise ValueError('Size can not be negative')
         elif size == 0:
@@ -123,33 +131,33 @@ class Buffer:
 
 class StreamsLimit:
 
-    def __init__(self, limit=None, *, loop):
+    def __init__(self, limit: Optional[int] = None, *, loop: AbstractEventLoop) -> None:
         self._limit = limit
         self._current = 0
         self._loop = loop
         self._release = Event(loop=loop)
 
-    def reached(self):
+    def reached(self) -> bool:
         if self._limit is not None:
             return self._current >= self._limit
         else:
             return False
 
-    async def wait(self):
+    async def wait(self) -> None:
         # TODO: use FIFO queue for waiters
         if self.reached():
             self._release.clear()
         await self._release.wait()
 
-    def acquire(self):
+    def acquire(self) -> None:
         self._current += 1
 
-    def release(self):
+    def release(self) -> None:
         self._current -= 1
         if not self.reached():
             self._release.set()
 
-    def set(self, value: Optional[int]):
+    def set(self, value: Optional[int]) -> None:
         assert value is None or value >= 0, value
         self._limit = value
 
@@ -159,7 +167,7 @@ class Connection:
     Holds connection state (write_ready), and manages
     H2Connection <-> Transport communication
     """
-    def __init__(self, connection: H2Connection, transport: Transport,
+    def __init__(self, connection: H2Connection, transport: WriteTransport,
                  *, loop: AbstractEventLoop) -> None:
         self._connection = connection
         self._transport = transport
@@ -170,25 +178,30 @@ class Connection:
 
         self.stream_close_waiter = Event(loop=self._loop)
 
-    def feed(self, data):
+    def feed(self, data: bytes) -> List[Event]:
         return self._connection.receive_data(data)
 
-    def pause_writing(self):
+    def pause_writing(self) -> None:
         self.write_ready.clear()
 
-    def resume_writing(self):
+    def resume_writing(self) -> None:
         self.write_ready.set()
 
-    def create_stream(self, *, stream_id=None, wrapper=None):
+    def create_stream(
+        self,
+        *,
+        stream_id: Optional[int] = None,
+        wrapper: Optional[Wrapper] = None,
+    ) -> "Stream":
         return Stream(self, self._connection, self._transport, loop=self._loop,
                       stream_id=stream_id, wrapper=wrapper)
 
-    def flush(self):
+    def flush(self) -> None:
         data = self._connection.data_to_send()
         if data:
             self._transport.write(data)
 
-    def close(self):
+    def close(self) -> None:
         self._transport.close()
 
 
@@ -201,8 +214,8 @@ class Stream:
     __wrapper__ = None
 
     def __init__(
-        self, connection: Connection, h2_connection: H2Connection,
-        transport: Transport, *, loop: AbstractEventLoop,
+        self, connection: "Connection", h2_connection: H2Connection,
+        transport: WriteTransport, *, loop: AbstractEventLoop,
         stream_id: Optional[int] = None,
         wrapper: Optional[Wrapper] = None
     ) -> None:
@@ -217,23 +230,22 @@ class Stream:
             self.__buffer__ = Buffer(self.id, self._connection,
                                      self._h2_connection, loop=self._loop)
 
-        self.__headers__ = Queue(loop=loop) \
-            # type: Queue[List[Tuple[str, str]]]
+        self.__headers__: Queue[List[Tuple[str, str]]] = Queue(loop=loop)
         self.__window_updated__ = Event(loop=loop)
 
-    async def recv_headers(self):
+    async def recv_headers(self) -> List[Tuple[str, str]]:
         return await self.__headers__.get()
 
-    def recv_headers_nowait(self):
+    def recv_headers_nowait(self) -> Optional[List[Tuple[str, str]]]:
         try:
             return self.__headers__.get_nowait()
         except QueueEmpty:
             return None
 
-    async def recv_data(self, size):
-        return await self.__buffer__.read(size)
+    async def recv_data(self, size: int) -> bytes:
+        return await none_throws(self.__buffer__).read(size)
 
-    async def send_request(self, headers, end_stream=False, *, _processor):
+    async def send_request(self, headers: List[Tuple[str, str]], end_stream: bool = False, *, _processor) -> "Stream":
         assert self.id is None, self.id
         while True:
             # this is the first thing we should check before even trying to
@@ -271,7 +283,7 @@ class Stream:
                 self._transport.write(self._h2_connection.data_to_send())
                 return release_stream
 
-    async def send_headers(self, headers, end_stream=False):
+    async def send_headers(self, headers: List[Tuple[str, str]], end_stream: bool = False) -> None:
         assert self.id is not None
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
@@ -286,7 +298,7 @@ class Stream:
                                          end_stream=end_stream)
         self._transport.write(self._h2_connection.data_to_send())
 
-    async def send_data(self, data, end_stream=False):
+    async def send_data(self, data: bytes, end_stream: bool = False) -> None:
         f = BytesIO(data)
         f_pos, f_last = 0, len(data)
 
@@ -313,32 +325,32 @@ class Stream:
                 self._h2_connection.send_data(self.id, f_chunk)
                 self._transport.write(self._h2_connection.data_to_send())
 
-    async def end(self):
+    async def end(self) -> None:
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
         self._h2_connection.end_stream(self.id)
         self._transport.write(self._h2_connection.data_to_send())
 
-    async def reset(self, error_code=ErrorCodes.NO_ERROR):
+    async def reset(self, error_code: ErrorCodes = ErrorCodes.NO_ERROR) -> None:
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
 
-    def reset_nowait(self, error_code=ErrorCodes.NO_ERROR):
+    def reset_nowait(self, error_code: ErrorCodes = ErrorCodes.NO_ERROR) -> None:
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         if self._connection.write_ready.is_set():
             self._transport.write(self._h2_connection.data_to_send())
 
-    def __ended__(self):
-        self.__buffer__.eof()
+    def __ended__(self) -> None:
+        none_throws(self.__buffer__).eof()
 
-    def __terminated__(self, reason):
+    def __terminated__(self, reason: str) -> None:
         if self.__wrapper__ is not None:
             self.__wrapper__.cancel(StreamTerminatedError(reason))
 
     @property
-    def closable(self):
+    def closable(self) -> bool:
         if self._h2_connection.state_machine.state is ConnectionState.CLOSED:
             return False
         stream = self._h2_connection.streams.get(self.id)
@@ -350,15 +362,15 @@ class Stream:
 class AbstractHandler(ABC):
 
     @abstractmethod
-    def accept(self, stream, headers, release_stream):
+    def accept(self, stream: Stream, headers: List[Tuple[str, str]], release_stream: Callable[[], None]) -> None:
         pass
 
     @abstractmethod
-    def cancel(self, stream):
+    def cancel(self, stream: Stream) -> None:
         pass
 
     @abstractmethod
-    def close(self):
+    def close(self) -> None:
         pass
 
 
@@ -371,7 +383,7 @@ class EventsProcessor:
         self.handler = handler
         self.connection = connection
 
-        self.processors = {
+        self.processors: Dict[Type[Any], Callable[[Any], None]] = {
             RequestReceived: self.process_request_received,
             ResponseReceived: self.process_response_received,
             RemoteSettingsChanged: self.process_remote_settings_changed,
@@ -388,30 +400,33 @@ class EventsProcessor:
             PingAcknowledged: self.process_ping_ack_received,  # deprecated
         }
 
-        self.streams = {}  # type: Dict[int, Stream]
+        self.streams: Dict[int, Stream] = {}
 
-    def create_stream(self):
+    def create_stream(self) -> Stream:
         stream = self.connection.create_stream()
-        self.streams[stream.id] = stream
+        self.streams[none_throws(stream.id)] = stream
         return stream
 
-    def register(self, stream):
-        assert stream.id is not None
-        self.streams[stream.id] = stream
+    def register(self, stream: Stream) -> Callable[[], None]:
+        self.streams[none_throws(stream.id)] = stream
 
-        def release_stream(*, _streams=self.streams, _id=stream.id):
+        def release_stream(
+            *,
+            _streams: Dict[int, Stream] = self.streams,
+            _id: int = none_throws(stream.id),
+        ) -> None:
             _streams.pop(_id)
             self.connection.stream_close_waiter.set()
 
         return release_stream
 
-    def close(self):
+    def close(self) -> None:
         self.connection.close()
         self.handler.close()
         for stream in self.streams.values():
             stream.__terminated__('Connection was closed')
 
-    def process(self, event):
+    def process(self, event: Event) -> None:
         try:
             proc = self.processors[event.__class__]
         except KeyError:
@@ -419,50 +434,50 @@ class EventsProcessor:
         else:
             proc(event)
 
-    def process_request_received(self, event: RequestReceived):
+    def process_request_received(self, event: RequestReceived) -> None:
         stream = self.connection.create_stream(stream_id=event.stream_id)
         release_stream = self.register(stream)
         self.handler.accept(stream, event.headers, release_stream)
         # TODO: check EOF
 
-    def process_response_received(self, event: ResponseReceived):
+    def process_response_received(self, event: ResponseReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.__headers__.put_nowait(event.headers)
 
-    def process_remote_settings_changed(self, event: RemoteSettingsChanged):
+    def process_remote_settings_changed(self, event: RemoteSettingsChanged) -> None:
         if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
             for stream in self.streams.values():
                 stream.__window_updated__.set()
 
-    def process_settings_acknowledged(self, event: SettingsAcknowledged):
+    def process_settings_acknowledged(self, event: SettingsAcknowledged) -> None:
         pass
 
-    def process_data_received(self, event: DataReceived):
+    def process_data_received(self, event: DataReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.__buffer__.append(event.data)
+            none_throws(stream.__buffer__).append(event.data)
 
-    def process_window_updated(self, event: WindowUpdated):
+    def process_window_updated(self, event: WindowUpdated) -> None:
         if event.stream_id == 0:
             for stream in self.streams.values():
                 stream.__window_updated__.set()
         else:
-            stream = self.streams.get(event.stream_id)
-            if stream is not None:
-                stream.__window_updated__.set()
+            optional_stream = self.streams.get(event.stream_id)
+            if optional_stream is not None:
+                optional_stream.__window_updated__.set()
 
-    def process_trailers_received(self, event: TrailersReceived):
+    def process_trailers_received(self, event: TrailersReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.__headers__.put_nowait(event.headers)
 
-    def process_stream_ended(self, event: StreamEnded):
+    def process_stream_ended(self, event: StreamEnded) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.__ended__()
 
-    def process_stream_reset(self, event: StreamReset):
+    def process_stream_reset(self, event: StreamReset) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             if event.remote_reset:
@@ -473,30 +488,30 @@ class EventsProcessor:
             stream.__terminated__(msg)
             self.handler.cancel(stream)
 
-    def process_priority_updated(self, event: PriorityUpdated):
+    def process_priority_updated(self, event: PriorityUpdated) -> None:
         pass
 
-    def process_connection_terminated(self, event: ConnectionTerminated):
+    def process_connection_terminated(self, event: ConnectionTerminated) -> None:
         self.close()
 
-    def process_ping_received(self, event: PingReceived):
+    def process_ping_received(self, event: PingReceived) -> None:
         pass
 
-    def process_ping_ack_received(self, event: PingAckReceived):
+    def process_ping_ack_received(self, event: PingAckReceived) -> None:
         pass
 
 
 class H2Protocol(Protocol):
-    connection = None  # type: Optional[Connection]
-    processor = None  # type: Optional[EventsProcessor]
+    connection: Optional[Connection] = None
+    processor: Optional[EventsProcessor] = None
 
     def __init__(self, handler: AbstractHandler, config: H2Configuration,
-                 *, loop) -> None:
+                 *, loop: AbstractEventLoop) -> None:
         self.handler = handler
         self.config = config
         self.loop = loop
 
-    def connection_made(self, transport: Transport):  # type: ignore
+    def connection_made(self, transport: BaseTransport) -> None:
         sock = transport.get_extra_info('socket')
         if sock is not None:
             _set_nodelay(sock)
@@ -504,12 +519,15 @@ class H2Protocol(Protocol):
         h2_conn = H2Connection(config=self.config)
         h2_conn.initiate_connection()
 
+        assert isinstance(transport, WriteTransport)
         self.connection = Connection(h2_conn, transport, loop=self.loop)
         self.connection.flush()
 
         self.processor = EventsProcessor(self.handler, self.connection)
 
-    def data_received(self, data: bytes):
+    def data_received(self, data: bytes) -> None:
+        assert self.connection is not None
+        assert self.processor is not None
         try:
             events = self.connection.feed(data)
         except ProtocolError:
@@ -520,11 +538,11 @@ class H2Protocol(Protocol):
                 self.processor.process(event)
             self.connection.flush()
 
-    def pause_writing(self):
-        self.connection.pause_writing()
+    def pause_writing(self) -> None:
+        none_throws(self.connection).pause_writing()
 
-    def resume_writing(self):
-        self.connection.resume_writing()
+    def resume_writing(self) -> None:
+        none_throws(self.connection).resume_writing()
 
-    def connection_lost(self, exc):
-        self.processor.close()
+    def connection_lost(self, exc: Optional[BaseException]) -> None:
+        none_throws(self.processor).close()

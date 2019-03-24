@@ -3,26 +3,35 @@ import socket
 import logging
 import asyncio
 import warnings
+import ssl
 
 import h2.config
 import h2.exceptions
 
-from .utils import DeadlineWrapper, Wrapper
-from .const import Status
+from types import TracebackType
+from typing import TypeVar, Set, Dict, Optional, Generic, List, Tuple, Type, Callable
+from google.protobuf.message import Message
+
+from .utils import DeadlineWrapper, Wrapper, none_throws
+from .const import Status, Cardinality
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .metadata import Deadline, encode_grpc_message
-from .metadata import encode_metadata, decode_metadata
+from .metadata import encode_metadata, decode_metadata, Metadata
 from .protocol import H2Protocol, AbstractHandler
+from .protocol import Stream as ProtocolStream
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
-from .encoding.base import GRPC_CONTENT_TYPE
+from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
 from .encoding.proto import ProtoCodec
 
 
 log = logging.getLogger(__name__)
 
+_TRequest = TypeVar("_TRequest", bound=Message)
+_TResponse = TypeVar("_TResponse", bound=Message)
 
-class Stream(StreamIterator):
+
+class Stream(StreamIterator[_TRequest], Generic[_TRequest, _TResponse]):
     """
     Represents gRPC method call – HTTP/2 request/stream, and everything you
     need to communicate with client in order to handle this request.
@@ -45,8 +54,17 @@ class Stream(StreamIterator):
     _send_trailing_metadata_done = False
     _cancel_done = False
 
-    def __init__(self, stream, cardinality, codec, recv_type, send_type,
-                 *, metadata, deadline=None):
+    def __init__(
+        self,
+        stream: ProtocolStream,
+        cardinality: Cardinality,
+        codec: CodecBase,
+        recv_type: Type[_TRequest],
+        send_type: Type[_TResponse],
+        *,
+        metadata: Metadata,
+        deadline: Optional[Deadline] = None,
+    ) -> None:
         self._stream = stream
         self._cardinality = cardinality
         self._codec = codec
@@ -56,10 +74,10 @@ class Stream(StreamIterator):
         self.deadline = deadline
 
     @property
-    def _content_type(self):
+    def _content_type(self) -> str:
         return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
-    async def recv_message(self):
+    async def recv_message(self) -> Optional[_TRequest]:
         """Coroutine to receive incoming message from the client.
 
         If client sends UNARY request, then you can call this coroutine
@@ -86,7 +104,11 @@ class Stream(StreamIterator):
         """
         return await recv_message(self._stream, self._codec, self._recv_type)
 
-    async def send_initial_metadata(self, *, metadata=None):
+    async def send_initial_metadata(
+        self,
+        *,
+        metadata=None,
+    ) -> None:
         """Coroutine to send headers with initial metadata to the client.
 
         In gRPC you can send initial metadata as soon as possible, because
@@ -114,7 +136,7 @@ class Stream(StreamIterator):
         await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
 
-    async def send_message(self, message, **kwargs):
+    async def send_message(self, message: _TResponse, **kwargs) -> None:
         """Coroutine to send message to the client.
 
         If server sends UNARY response, then you should call this coroutine only
@@ -145,8 +167,8 @@ class Stream(StreamIterator):
         if end:
             await self.send_trailing_metadata()
 
-    async def send_trailing_metadata(self, *, status=Status.OK,
-                                     status_message=None, metadata=None):
+    async def send_trailing_metadata(self, *, status: Status = Status.OK,
+                                     status_message: Optional[str] = None, metadata=None) -> None:
         """Coroutine to send trailers with trailing metadata to the client.
 
         This coroutine allows sending trailers-only responses, in case of some
@@ -169,7 +191,7 @@ class Stream(StreamIterator):
                                 .format(status))
 
         if self._send_initial_metadata_done:
-            headers = []
+            headers: List[Tuple[str, str]] = []
         else:
             # trailers-only response
             headers = [(':status', '200')]
@@ -187,7 +209,7 @@ class Stream(StreamIterator):
         if status != Status.OK and self._stream.closable:
             self._stream.reset_nowait()
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """Coroutine to cancel this request/stream.
 
         Server will send RST_STREAM frame to the client, so it will be
@@ -200,10 +222,15 @@ class Stream(StreamIterator):
         await self._stream.reset()  # TODO: specify error code
         self._cancel_done = True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Stream[_TRequest, _TResponse]":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> Optional[bool]:
         if (
             self._send_trailing_metadata_done
             or self._cancel_done
@@ -221,7 +248,7 @@ class Stream(StreamIterator):
                 status_message = 'Internal Server Error'
             else:
                 # propagate exception
-                return
+                return None
         elif not self._send_message_count:
             status = Status.UNKNOWN
             status_message = 'Empty response'
@@ -239,7 +266,7 @@ class Stream(StreamIterator):
         return True
 
 
-async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None):
+async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None) -> None:
     headers = [(':status', str(h2_status))]
     if grpc_status is not None:
         headers.append(('grpc-status', str(grpc_status.value)))
@@ -250,7 +277,7 @@ async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None):
         h2_stream.reset_nowait()
 
 
-async def request_handler(mapping, _stream, headers, codec, release_stream):
+async def request_handler(mapping, _stream, headers, codec, release_stream) -> None:
     try:
         headers_map = dict(headers)
 
@@ -309,7 +336,7 @@ async def request_handler(mapping, _stream, headers, codec, release_stream):
                     with wrapper.start(deadline), wrapper:
                         await method.func(stream)
             except asyncio.TimeoutError:
-                if wrapper.cancelled:
+                if wrapper is not None and wrapper.cancelled:
                     log.exception('Deadline exceeded')
                     raise GRPCError(Status.DEADLINE_EXCEEDED)
                 else:
@@ -332,14 +359,14 @@ class _GC(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def __gc_interval__(self):
+    def __gc_interval__(self) -> int:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __gc_collect__(self):
+    def __gc_collect__(self) -> None:
         pass
 
-    def __gc_step__(self):
+    def __gc_step__(self) -> None:
         self._gc_counter += 1
         if not (self._gc_counter % self.__gc_interval__):
             self.__gc_collect__()
@@ -350,42 +377,42 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    def __init__(self, mapping, codec, *, loop):
+    def __init__(self, mapping, codec: CodecBase, *, loop: asyncio.AbstractEventLoop) -> None:
         self.mapping = mapping
         self.codec = codec
         self.loop = loop
-        self._tasks = {}
-        self._cancelled = set()
+        self._tasks: Dict[ProtocolStream, asyncio.Task[None]] = {}
+        self._cancelled: Set[asyncio.Task[None]] = set()
 
-    def __gc_collect__(self):
+    def __gc_collect__(self) -> None:
         self._tasks = {s: t for s, t in self._tasks.items()
                        if not t.done()}
         self._cancelled = {t for t in self._cancelled
                            if not t.done()}
 
-    def accept(self, stream, headers, release_stream):
+    def accept(self, stream: ProtocolStream, headers, release_stream: Callable[[], None]) -> None:
         self.__gc_step__()
         self._tasks[stream] = self.loop.create_task(
             request_handler(self.mapping, stream, headers, self.codec,
                             release_stream)
         )
 
-    def cancel(self, stream):
+    def cancel(self, stream: ProtocolStream) -> None:
         task = self._tasks.pop(stream)
         task.cancel()
         self._cancelled.add(task)
 
-    def close(self):
+    def close(self) -> None:
         for task in self._tasks.values():
             task.cancel()
         self._cancelled.update(self._tasks.values())
         self.closing = True
 
-    async def wait_closed(self):
+    async def wait_closed(self) -> None:
         if self._cancelled:
             await asyncio.wait(self._cancelled, loop=self.loop)
 
-    def check_closed(self):
+    def check_closed(self) -> bool:
         self.__gc_collect__()
         return not self._tasks and not self._cancelled
 
@@ -410,12 +437,12 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
-    def __init__(self, handlers, *, loop, codec=None):
+    def __init__(self, handlers, *, loop: asyncio.AbstractEventLoop, codec: Optional[CodecBase] = None) -> None:
         """
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
         """
-        mapping = {}
+        mapping: Dict[str, Handler] = {}
         for handler in handlers:
             mapping.update(handler.__mapping__())
 
@@ -427,23 +454,33 @@ class Server(_GC, asyncio.AbstractServer):
             header_encoding='ascii',
         )
 
-        self._server = None
-        self._handlers = set()
+        self._server: Optional[asyncio.AbstractServer] = None
+        self._handlers: Set[Handler] = set()
 
-    def __gc_collect__(self):
+    def __gc_collect__(self) -> None:
         self._handlers = {h for h in self._handlers
                           if not (h.closing and h.check_closed())}
 
-    def _protocol_factory(self):
+    def _protocol_factory(self) -> asyncio.Protocol:
         self.__gc_step__()
         handler = Handler(self._mapping, self._codec, loop=self._loop)
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 
-    async def start(self, host=None, port=None, *, path=None,
-                    family=socket.AF_UNSPEC, flags=socket.AI_PASSIVE,
-                    sock=None, backlog=100, ssl=None, reuse_address=None,
-                    reuse_port=None):
+    async def start(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        *,
+        path: Optional[str] = None,
+        family: socket.AddressFamily = socket.AF_UNSPEC,
+        flags: socket.AddressInfo = socket.AI_PASSIVE,
+        sock: Optional[socket.socket] = None,
+        backlog: int = 100,
+        ssl: Optional[ssl.SSLContext] = None,
+        reuse_address: Optional[bool] = None,
+        reuse_port: Optional[bool] = None,
+    ) -> None:
         """Coroutine to start the server.
 
         :param host: can be a string, containing IPv4/v6 address or domain name.
@@ -492,13 +529,13 @@ class Server(_GC, asyncio.AbstractServer):
             )
 
         else:
-            self._server = await self._loop.create_server(
-                self._protocol_factory, host, port,
+            self._server = await self._loop.create_server(  # type: ignore
+                self._protocol_factory, host, none_throws(port),
                 family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
                 reuse_address=reuse_address, reuse_port=reuse_port
             )
 
-    def close(self):
+    def close(self) -> None:
         """Stops accepting new connections, cancels all currently running
         requests. Request handlers are able to handle `CancelledError` and
         exit properly.

@@ -9,11 +9,11 @@ from helloworld import helloworld_pb2_grpc
 
 class Greeter(helloworld_pb2_grpc.GreeterServicer):
 
-    def SayHello(self, request, context):
+    def SayHello(self, request: helloworld_pb2.HelloRequest, context: grpc.ServicerContext) -> helloworld_pb2.HelloReply:
         return helloworld_pb2.HelloReply(message='Hello, %s!' % request.name)
 
 
-def serve(host='127.0.0.1', port=50051):
+def serve(host: str = '127.0.0.1', port: int = 50051) -> None:
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
     helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), server)
     server.add_insecure_port('{}:{}'.format(host, port))

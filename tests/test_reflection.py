@@ -32,9 +32,9 @@ def channel_fixture(loop, port):
     services = ServerReflection.extend(services)
 
     server = Server(services, loop=loop)
-    loop.run_until_complete(server.start(port=port))
+    loop.run_until_complete(server.start(host="localhost", port=port))
 
-    channel = Channel(port=port, loop=loop)
+    channel = Channel(host="localhost", port=port, loop=loop)
     try:
         yield channel
     finally:

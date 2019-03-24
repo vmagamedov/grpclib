@@ -1,5 +1,5 @@
 import enum
-import collections
+from typing import NamedTuple, Callable, Awaitable, Any, Type
 
 
 @enum.unique
@@ -48,9 +48,9 @@ class Status(enum.Enum):
     UNAUTHENTICATED = 16
 
 
-_Cardinality = collections.namedtuple(
-    '_Cardinality', 'client_streaming, server_streaming',
-)
+class _Cardinality(NamedTuple):
+    client_streaming: bool
+    server_streaming: bool
 
 
 @enum.unique
@@ -61,6 +61,8 @@ class Cardinality(_Cardinality, enum.Enum):
     STREAM_STREAM = _Cardinality(True, True)
 
 
-Handler = collections.namedtuple(
-    'Handler', 'func, cardinality, request_type, reply_type',
-)
+class Handler(NamedTuple):
+    func: Callable[[Any], Awaitable[None]]  # TODO fix circular import
+    cardinality: Cardinality
+    request_type: Type[Any]
+    reply_type: Type[Any]

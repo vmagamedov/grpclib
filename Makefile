@@ -16,12 +16,12 @@ clean:
 	rm -f ./tests/*_grpc.py
 
 proto: clean
-	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. grpclib/health/v1/health.proto
-	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. grpclib/reflection/v1/reflection.proto
-	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. grpclib/reflection/v1alpha/reflection.proto
-	python3 -m grpc_tools.protoc -Iexample --python_out=example --python_grpc_out=example --grpc_python_out=example example/helloworld/helloworld.proto
-	python3 -m grpc_tools.protoc -Iexample --python_out=example --python_grpc_out=example example/streaming/helloworld.proto
-	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. dummy.proto
+	python3 -m grpc_tools.protoc -I. --python_out=. --mypy_out=. --python_grpc_out=. grpclib/health/v1/health.proto
+	python3 -m grpc_tools.protoc -I. --python_out=. --mypy_out=. --python_grpc_out=. grpclib/reflection/v1/reflection.proto
+	python3 -m grpc_tools.protoc -I. --python_out=. --mypy_out=. --python_grpc_out=. grpclib/reflection/v1alpha/reflection.proto
+	python3 -m grpc_tools.protoc -Iexample --python_out=example --mypy_out=example --python_grpc_out=example --grpc_python_out=example example/helloworld/helloworld.proto
+	python3 -m grpc_tools.protoc -Iexample --python_out=example --mypy_out=example --python_grpc_out=example example/streaming/helloworld.proto
+	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --mypy_out=. --python_grpc_out=. dummy.proto
 
 release: proto
 	./scripts/release_check.sh

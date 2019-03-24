@@ -2,9 +2,11 @@
 # source: grpclib/health/v1/health.proto
 # plugin: grpclib.plugin.main
 import abc
+import typing
 
 import grpclib.const
 import grpclib.client
+import grpclib.server
 
 import grpclib.health.v1.health_pb2
 
@@ -12,14 +14,14 @@ import grpclib.health.v1.health_pb2
 class HealthBase(abc.ABC):
 
     @abc.abstractmethod
-    async def Check(self, stream):
+    async def Check(self, stream: grpclib.server.Stream[grpclib.health.v1.health_pb2.HealthCheckRequest, grpclib.health.v1.health_pb2.HealthCheckResponse]) -> None:
         pass
 
     @abc.abstractmethod
-    async def Watch(self, stream):
+    async def Watch(self, stream: grpclib.server.Stream[grpclib.health.v1.health_pb2.HealthCheckRequest, grpclib.health.v1.health_pb2.HealthCheckResponse]) -> None:
         pass
 
-    def __mapping__(self):
+    def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
             '/grpc.health.v1.Health/Check': grpclib.const.Handler(
                 self.Check,

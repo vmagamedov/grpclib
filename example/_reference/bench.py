@@ -6,13 +6,13 @@ from helloworld import helloworld_pb2
 from helloworld import helloworld_pb2_grpc
 
 
-def main(iterations=10, count=1000):
+def main(iterations: int = 10, count: int = 1000) -> None:
     channel = grpc.insecure_channel('127.0.0.1:50051')
     stub = helloworld_pb2_grpc.GreeterStub(channel)
 
-    for j in range(iterations):
+    for _ in range(iterations):
         t1 = time.time()
-        for i in range(count):
+        for _ in range(count):
             stub.SayHello(helloworld_pb2.HelloRequest(name='World'))
         t2 = time.time()
         secs = (t2 - t1)
