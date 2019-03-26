@@ -1,6 +1,6 @@
 import asyncio
 
-from grpclib.utils import graceful_exit
+from grpclib.utils import graceful_exit, none_throws
 from grpclib.server import Server
 from grpclib.server import Stream
 
@@ -15,7 +15,7 @@ class Greeter(GreeterBase):
         self,
         stream: Stream[HelloRequest, HelloReply],
     ) -> None:
-        request = await stream.recv_message()
+        request = none_throws(await stream.recv_message())
         message = 'Hello, {}!'.format(request.name)
         await stream.send_message(HelloReply(message=message))
 
@@ -24,7 +24,7 @@ class Greeter(GreeterBase):
         self,
         stream: Stream[HelloRequest, HelloReply],
     ) -> None:
-        request = await stream.recv_message()
+        request = none_throws(await stream.recv_message())
         await stream.send_message(
             HelloReply(message='Hello, {}!'.format(request.name)))
         await stream.send_message(
