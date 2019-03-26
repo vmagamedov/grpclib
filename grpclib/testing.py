@@ -17,7 +17,12 @@ class _Server(asyncio.AbstractServer):
 
 class _InMemoryTransport(asyncio.Transport):
 
-    def __init__(self, protocol: asyncio.Protocol, *, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        protocol: asyncio.Protocol,
+        *,
+        loop: asyncio.AbstractEventLoop,
+    ) -> None:
         super().__init__()
         self._loop = loop
         self._protocol = protocol

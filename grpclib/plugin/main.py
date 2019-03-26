@@ -92,7 +92,8 @@ def render(
                     buf.add('pass')
             buf.add('')
             buf.add(
-                'def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:',
+                'def __mapping__(self) -> '
+                'typing.Dict[str, grpclib.const.Handler]:',
             )
             with buf.indent():
                 buf.add('return {{')
@@ -190,7 +191,9 @@ def main() -> None:
                     types_map[method.input_type],
                     types_map[method.output_type],
                 ))
-            services.append(Service(service.name, methods=methods))  # type: ignore
+            services.append(
+                Service(service.name, methods=methods)  # type: ignore
+            )
         if not services:
             continue
 

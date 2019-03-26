@@ -71,7 +71,11 @@ class _ServerReflection:
         else:
             return self._file_descriptor_response(file)
 
-    def _file_containing_extension_response(self, msg_name: str, ext_number: int):
+    def _file_containing_extension_response(
+        self,
+        msg_name: str,
+        ext_number: int,
+    ):
         try:
             message = self._pool.FindMessageTypeByName(msg_name)
             extension = self._pool.FindExtensionByNumber(message, ext_number)

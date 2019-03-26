@@ -9,7 +9,17 @@ except ImportError:
 
 from h2.config import H2Configuration
 from types import TracebackType
-from typing import TypeVar, List, Generic, Dict, Optional, Type, Union, Sequence, Callable
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Sequence,
+    Type,
+    TypeVar,
+    Union,
+)
 from google.protobuf.message import Message
 
 from .utils import Wrapper, DeadlineWrapper, none_throws
@@ -150,7 +160,9 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
 
         with self._wrapper:
             protocol = await self._channel.__connect__()
-            stream = protocol.processor.connection.create_stream(wrapper=self._wrapper)   # type: ignore
+            stream = protocol.processor.connection.create_stream(
+                wrapper=self._wrapper,
+            )   # type: ignore
 
             headers = [
                 (':method', 'POST'),
@@ -177,7 +189,12 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
             self._release_stream = release_stream
             self._send_request_done = True
 
-    async def send_message(self, message: _TRequest, *, end: bool = False) -> None:
+    async def send_message(
+        self,
+        message: _TRequest,
+        *,
+        end: bool = False,
+    ) -> None:
         """Coroutine to send message to the server.
 
         If client sends UNARY request, then you should call this coroutine only
@@ -233,7 +250,12 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
             raise GRPCError(grpc_status,
                             'Received :status = {!r}'.format(status))
 
-    def _raise_for_grpc_status(self, headers_map: Dict[str, str], *, optional: bool = False) -> None:
+    def _raise_for_grpc_status(
+        self,
+        headers_map: Dict[str, str],
+        *,
+        optional: bool = False,
+    ) -> None:
         grpc_status = headers_map.get('grpc-status')
         if grpc_status is None:
             if optional:
@@ -593,13 +615,24 @@ class ServiceMethod(Generic[_TRequest, _TResponse]):
     """
     Base class for all gRPC method types
     """
-    def __init__(self, channel: Channel, name: str, request_type: Type[_TRequest], reply_type: Type[_TResponse]) -> None:
+    def __init__(
+        self,
+        channel: Channel,
+        name: str,
+        request_type: Type[_TRequest],
+        reply_type: Type[_TResponse],
+    ) -> None:
         self.channel = channel
         self.name = name
         self.request_type = request_type
         self.reply_type = reply_type
 
-    def open(self, *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> Stream[_TRequest, _TResponse]:
+    def open(
+        self,
+        *,
+        timeout: Optional[float] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> Stream[_TRequest, _TResponse]:
         """Creates and returns :py:class:`Stream` object to perform request
         to the server.
 
@@ -625,7 +658,13 @@ class UnaryUnaryMethod(ServiceMethod[_TRequest, _TResponse]):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message: _TRequest, *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> Optional[_TResponse]:
+    async def __call__(
+        self,
+        message: _TRequest,
+        *,
+        timeout: Optional[float] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> Optional[_TResponse]:
         """Coroutine to perform defined call.
 
         :param message: message
@@ -646,7 +685,13 @@ class UnaryStreamMethod(ServiceMethod[_TRequest, _TResponse]):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message: _TRequest, *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> List[_TResponse]:
+    async def __call__(
+        self,
+        message: _TRequest,
+        *,
+        timeout: Optional[float] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> List[_TResponse]:
         """Coroutine to perform defined call.
 
         :param message: message
@@ -667,7 +712,13 @@ class StreamUnaryMethod(ServiceMethod[_TRequest, _TResponse]):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, messages: Sequence[_TRequest], *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> Optional[_TResponse]:
+    async def __call__(
+        self,
+        messages: Sequence[_TRequest],
+        *,
+        timeout: Optional[float] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> Optional[_TResponse]:
         """Coroutine to perform defined call.
 
         :param messages: sequence of messages
@@ -693,7 +744,13 @@ class StreamStreamMethod(ServiceMethod[_TRequest, _TResponse]):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, messages: Sequence[_TRequest], *, timeout: Optional[float] = None, metadata: Optional[Metadata] = None) -> List[_TResponse]:
+    async def __call__(
+        self,
+        messages: Sequence[_TRequest],
+        *,
+        timeout: Optional[float] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> List[_TResponse]:
         """Coroutine to perform defined call.
 
         :param messages: sequence of messages

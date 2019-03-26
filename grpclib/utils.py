@@ -4,7 +4,17 @@ import asyncio
 
 from .metadata import Deadline
 from types import TracebackType
-from typing import Set, Optional, Type, ContextManager, Iterator, List, FrozenSet, TypeVar, Any
+from typing import (
+    Any,
+    ContextManager,
+    FrozenSet,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+)
 from contextlib import contextmanager
 
 
@@ -135,7 +145,11 @@ def _second_stage(sig_num: int) -> None:
     raise SystemExit(128 + sig_num)
 
 
-def _exit_handler(sig_num: int, servers: List[asyncio.AbstractServer], flag: List[bool]) -> None:
+def _exit_handler(
+    sig_num: int,
+    servers: List[asyncio.AbstractServer],
+    flag: List[bool],
+) -> None:
     if flag:
         _second_stage(sig_num)
     else:
@@ -144,8 +158,14 @@ def _exit_handler(sig_num: int, servers: List[asyncio.AbstractServer], flag: Lis
 
 
 @contextmanager
-def graceful_exit(servers: List[asyncio.AbstractServer], *, loop: asyncio.AbstractEventLoop,
-                  signals: FrozenSet[signal.Signals] = frozenset({signal.SIGINT, signal.SIGTERM})) -> Iterator[None]:
+def graceful_exit(
+    servers: List[asyncio.AbstractServer],
+    *,
+    loop: asyncio.AbstractEventLoop,
+    signals: FrozenSet[signal.Signals] = frozenset(
+        {signal.SIGINT, signal.SIGTERM}
+    ),
+) -> Iterator[None]:
     """Utility context-manager to help properly shutdown server in response to
     the OS signals
 

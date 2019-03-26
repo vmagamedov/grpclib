@@ -66,7 +66,10 @@ class Health(HealthBase):
         server = Server([auth, billing, health], loop=loop)
 
     """
-    def __init__(self, checks: Optional[Dict[Union[str, _Overall], List[CheckBase]]] = None) -> None:
+    def __init__(
+        self,
+        checks: Optional[Dict[Union[str, _Overall], List[CheckBase]]] = None,
+    ) -> None:
         if checks is None:
             checks = {OVERALL: []}
         elif OVERALL not in checks:
@@ -76,7 +79,10 @@ class Health(HealthBase):
         self._checks = {_service_name(s): set(check_list)
                         for s, check_list in checks.items()}
 
-    async def Check(self, stream: Stream[HealthCheckRequest, HealthCheckResponse]) -> None:
+    async def Check(
+        self,
+        stream: Stream[HealthCheckRequest, HealthCheckResponse],
+    ) -> None:
         """Implements synchronous periodic checks"""
         request = none_throws(await stream.recv_message())
         checks = self._checks.get(request.service)
@@ -93,7 +99,10 @@ class Health(HealthBase):
                 status=_status(checks),
             ))
 
-    async def Watch(self, stream: Stream[HealthCheckRequest, HealthCheckResponse]) -> None:
+    async def Watch(
+        self,
+        stream: Stream[HealthCheckRequest, HealthCheckResponse],
+    ) -> None:
         request = none_throws(await stream.recv_message())
         checks = self._checks.get(request.service)
         if checks is None:

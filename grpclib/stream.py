@@ -11,7 +11,11 @@ _PY352 = (sys.version_info >= (3, 5, 2))
 _T = TypeVar("_T", bound=Message)
 
 
-async def recv_message(stream, codec: CodecBase, message_type: Type[_T]) -> Optional[_T]:
+async def recv_message(
+    stream,
+    codec: CodecBase,
+    message_type: Type[_T],
+) -> Optional[_T]:
     meta = await stream.recv_data(5)
     if not meta:
         return None
@@ -28,7 +32,14 @@ async def recv_message(stream, codec: CodecBase, message_type: Type[_T]) -> Opti
     return message
 
 
-async def send_message(stream, codec: CodecBase, message: _T, message_type: Type[_T], *, end: bool = False) -> None:
+async def send_message(
+    stream,
+    codec: CodecBase,
+    message: _T,
+    message_type: Type[_T],
+    *,
+    end: bool = False,
+) -> None:
     reply_bin = codec.encode(message, message_type)
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))

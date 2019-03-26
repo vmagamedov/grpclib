@@ -9,7 +9,17 @@ import h2.config
 import h2.exceptions
 
 from types import TracebackType
-from typing import TypeVar, Set, Dict, Optional, Generic, List, Tuple, Type, Callable
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+)
 from google.protobuf.message import Message
 
 from .utils import DeadlineWrapper, Wrapper, none_throws
@@ -167,8 +177,13 @@ class Stream(StreamIterator[_TRequest], Generic[_TRequest, _TResponse]):
         if end:
             await self.send_trailing_metadata()
 
-    async def send_trailing_metadata(self, *, status: Status = Status.OK,
-                                     status_message: Optional[str] = None, metadata=None) -> None:
+    async def send_trailing_metadata(
+        self,
+        *,
+        status: Status = Status.OK,
+        status_message: Optional[str] = None,
+        metadata=None,
+    ) -> None:
         """Coroutine to send trailers with trailing metadata to the client.
 
         This coroutine allows sending trailers-only responses, in case of some
@@ -266,7 +281,12 @@ class Stream(StreamIterator[_TRequest], Generic[_TRequest, _TResponse]):
         return True
 
 
-async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None) -> None:
+async def _abort(
+    h2_stream,
+    h2_status,
+    grpc_status=None,
+    grpc_message=None,
+) -> None:
     headers = [(':status', str(h2_status))]
     if grpc_status is not None:
         headers.append(('grpc-status', str(grpc_status.value)))
@@ -277,7 +297,13 @@ async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None) -> N
         h2_stream.reset_nowait()
 
 
-async def request_handler(mapping, _stream, headers, codec, release_stream) -> None:
+async def request_handler(
+    mapping,
+    _stream,
+    headers,
+    codec,
+    release_stream,
+) -> None:
     try:
         headers_map = dict(headers)
 
@@ -377,7 +403,13 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    def __init__(self, mapping, codec: CodecBase, *, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        mapping,
+        codec: CodecBase,
+        *,
+        loop: asyncio.AbstractEventLoop,
+    ) -> None:
         self.mapping = mapping
         self.codec = codec
         self.loop = loop
@@ -390,7 +422,12 @@ class Handler(_GC, AbstractHandler):
         self._cancelled = {t for t in self._cancelled
                            if not t.done()}
 
-    def accept(self, stream: ProtocolStream, headers, release_stream: Callable[[], None]) -> None:
+    def accept(
+        self,
+        stream: ProtocolStream,
+        headers,
+        release_stream: Callable[[], None],
+    ) -> None:
         self.__gc_step__()
         self._tasks[stream] = self.loop.create_task(
             request_handler(self.mapping, stream, headers, self.codec,
@@ -437,7 +474,13 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
-    def __init__(self, handlers, *, loop: asyncio.AbstractEventLoop, codec: Optional[CodecBase] = None) -> None:
+    def __init__(
+        self,
+        handlers,
+        *,
+        loop: asyncio.AbstractEventLoop,
+        codec: Optional[CodecBase] = None,
+    ) -> None:
         """
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop

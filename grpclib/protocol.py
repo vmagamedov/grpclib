@@ -2,8 +2,23 @@ import socket
 
 from io import BytesIO
 from abc import ABC, abstractmethod
-from typing import Optional, List, Tuple, Dict, Iterable, Callable, Type, Any # noqa
-from asyncio import Protocol, Event, AbstractEventLoop, WriteTransport, BaseTransport
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+)
+from asyncio import (
+    AbstractEventLoop,
+    BaseTransport,
+    Event,
+    Protocol,
+    WriteTransport,
+)
 from asyncio import Queue, QueueEmpty
 
 from h2.errors import ErrorCodes
@@ -42,7 +57,10 @@ else:
         pass
 
 
-def _slice(chunks: Iterable[bytes], size: int) -> Tuple[List[bytes], List[bytes]]:
+def _slice(
+    chunks: Iterable[bytes],
+    size: int,
+) -> Tuple[List[bytes], List[bytes]]:
     data = []  # type: List[bytes]
     data_size = 0  # type: int
     tail = []  # type: List[bytes]
@@ -131,7 +149,12 @@ class Buffer:
 
 class StreamsLimit:
 
-    def __init__(self, limit: Optional[int] = None, *, loop: AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        limit: Optional[int] = None,
+        *,
+        loop: AbstractEventLoop,
+    ) -> None:
         self._limit = limit
         self._current = 0
         self._loop = loop
@@ -230,7 +253,9 @@ class Stream:
             self.__buffer__ = Buffer(self.id, self._connection,
                                      self._h2_connection, loop=self._loop)
 
-        self.__headers__ = Queue(loop=loop)  # type: Queue[List[Tuple[str, str]]]
+        self.__headers__ = Queue(
+            loop=loop,
+        )  # type: Queue[List[Tuple[str, str]]]
         self.__window_updated__ = Event(loop=loop)
 
     async def recv_headers(self) -> List[Tuple[str, str]]:
@@ -245,7 +270,13 @@ class Stream:
     async def recv_data(self, size: int) -> bytes:
         return await none_throws(self.__buffer__).read(size)
 
-    async def send_request(self, headers: List[Tuple[str, str]], end_stream: bool = False, *, _processor) -> "Stream":
+    async def send_request(
+        self,
+        headers: List[Tuple[str, str]],
+        end_stream: bool = False,
+        *,
+        _processor,
+    ) -> "Stream":
         assert self.id is None, self.id
         while True:
             # this is the first thing we should check before even trying to
@@ -283,7 +314,11 @@ class Stream:
                 self._transport.write(self._h2_connection.data_to_send())
                 return release_stream
 
-    async def send_headers(self, headers: List[Tuple[str, str]], end_stream: bool = False) -> None:
+    async def send_headers(
+        self,
+        headers: List[Tuple[str, str]],
+        end_stream: bool = False,
+    ) -> None:
         assert self.id is not None
         if not self._connection.write_ready.is_set():
             await self._connection.write_ready.wait()
@@ -337,7 +372,10 @@ class Stream:
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
 
-    def reset_nowait(self, error_code: ErrorCodes = ErrorCodes.NO_ERROR) -> None:
+    def reset_nowait(
+        self,
+        error_code: ErrorCodes = ErrorCodes.NO_ERROR,
+    ) -> None:
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         if self._connection.write_ready.is_set():
             self._transport.write(self._h2_connection.data_to_send())
@@ -362,7 +400,12 @@ class Stream:
 class AbstractHandler(ABC):
 
     @abstractmethod
-    def accept(self, stream: Stream, headers: List[Tuple[str, str]], release_stream: Callable[[], None]) -> None:
+    def accept(
+        self,
+        stream: Stream,
+        headers: List[Tuple[str, str]],
+        release_stream: Callable[[], None],
+    ) -> None:
         pass
 
     @abstractmethod
@@ -445,12 +488,18 @@ class EventsProcessor:
         if stream is not None:
             stream.__headers__.put_nowait(event.headers)
 
-    def process_remote_settings_changed(self, event: RemoteSettingsChanged) -> None:
+    def process_remote_settings_changed(
+        self,
+        event: RemoteSettingsChanged,
+    ) -> None:
         if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
             for stream in self.streams.values():
                 stream.__window_updated__.set()
 
-    def process_settings_acknowledged(self, event: SettingsAcknowledged) -> None:
+    def process_settings_acknowledged(
+        self,
+        event: SettingsAcknowledged,
+    ) -> None:
         pass
 
     def process_data_received(self, event: DataReceived) -> None:
@@ -491,7 +540,10 @@ class EventsProcessor:
     def process_priority_updated(self, event: PriorityUpdated) -> None:
         pass
 
-    def process_connection_terminated(self, event: ConnectionTerminated) -> None:
+    def process_connection_terminated(
+        self,
+        event: ConnectionTerminated,
+    ) -> None:
         self.close()
 
     def process_ping_received(self, event: PingReceived) -> None:
