@@ -426,7 +426,7 @@ class EventsProcessor:
         self.handler = handler
         self.connection = connection
 
-        self.processors = {  # type: Dict[Type[Any], Callable[[Any], None]]
+        self.processors = {
             RequestReceived: self.process_request_received,
             ResponseReceived: self.process_response_received,
             RemoteSettingsChanged: self.process_remote_settings_changed,
@@ -441,7 +441,7 @@ class EventsProcessor:
             PingReceived: self.process_ping_received,
             PingAckReceived: self.process_ping_ack_received,
             PingAcknowledged: self.process_ping_ack_received,  # deprecated
-        }
+        }  # type: Dict[Type[Any], Callable[[Any], None]]
 
         self.streams = {}  # type: Dict[int, Stream]
 

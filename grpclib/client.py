@@ -160,9 +160,10 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
 
         with self._wrapper:
             protocol = await self._channel.__connect__()
-            stream = protocol.processor.connection.create_stream(
+            # noqa
+            stream = protocol.processor.connection.create_stream(  # type: ignore  # noqa
                 wrapper=self._wrapper,
-            )   # type: ignore
+            )
 
             headers = [
                 (':method', 'POST'),
