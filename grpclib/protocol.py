@@ -43,9 +43,9 @@ else:
 
 
 def _slice(chunks: Iterable[bytes], size: int) -> Tuple[List[bytes], List[bytes]]:
-    data: List[bytes] = []
-    data_size: int = 0
-    tail: List[bytes] = []
+    data = []  # type: List[bytes]
+    data_size = 0  # type: int
+    tail = []  # type: List[bytes]
     for chunk in chunks:
         if data_size < size:
             if data_size + len(chunk) <= size:
@@ -74,9 +74,9 @@ class Buffer:
         self._stream_id = stream_id
         self._connection = connection
         self._h2_connection = h2_connection
-        self._chunks: List[bytes] = []
+        self._chunks = []  # type: List[bytes]
         self._size = 0
-        self._read_size: Optional[int] = None
+        self._read_size = None  # type: Optional[int]
         self._ready_event = Event(loop=loop)
         self._eof = False
 
@@ -217,7 +217,7 @@ class Stream:
         self, connection: "Connection", h2_connection: H2Connection,
         transport: WriteTransport, *, loop: AbstractEventLoop,
         stream_id: Optional[int] = None,
-        wrapper: Optional[Wrapper] = None
+        wrapper: Optional[Wrapper] = None,
     ) -> None:
         self._connection = connection
         self._h2_connection = h2_connection
@@ -230,7 +230,7 @@ class Stream:
             self.__buffer__ = Buffer(self.id, self._connection,
                                      self._h2_connection, loop=self._loop)
 
-        self.__headers__: Queue[List[Tuple[str, str]]] = Queue(loop=loop)
+        self.__headers__ = Queue(loop=loop)  # type: Queue[List[Tuple[str, str]]]
         self.__window_updated__ = Event(loop=loop)
 
     async def recv_headers(self) -> List[Tuple[str, str]]:
@@ -383,7 +383,7 @@ class EventsProcessor:
         self.handler = handler
         self.connection = connection
 
-        self.processors: Dict[Type[Any], Callable[[Any], None]] = {
+        self.processors = {  # type: Dict[Type[Any], Callable[[Any], None]]
             RequestReceived: self.process_request_received,
             ResponseReceived: self.process_response_received,
             RemoteSettingsChanged: self.process_remote_settings_changed,
@@ -400,7 +400,7 @@ class EventsProcessor:
             PingAcknowledged: self.process_ping_ack_received,  # deprecated
         }
 
-        self.streams: Dict[int, Stream] = {}
+        self.streams = {}  # type: Dict[int, Stream]
 
     def create_stream(self) -> Stream:
         stream = self.connection.create_stream()
@@ -502,8 +502,8 @@ class EventsProcessor:
 
 
 class H2Protocol(Protocol):
-    connection: Optional[Connection] = None
-    processor: Optional[EventsProcessor] = None
+    connection = None  # type: Optional[Connection]
+    processor = None  # type: Optional[EventsProcessor]
 
     def __init__(self, handler: AbstractHandler, config: H2Configuration,
                  *, loop: AbstractEventLoop) -> None:

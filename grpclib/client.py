@@ -53,7 +53,7 @@ _TResponse = TypeVar("_TResponse", bound=Message)
 
 
 async def _to_list(stream: "Stream[_TRequest, _TResponse]") -> List[_TResponse]:
-    result: List[_TResponse] = []
+    result = []  # type: List[_TResponse]
     async for message in stream:
         result.append(message)
     return result
@@ -89,7 +89,7 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
         )
         async with client.MakeLatte.open() as stream:
             await stream.send_message(request, end=True)
-            reply: empty_pb2.Empty = await stream.recv_message()
+            reply = await stream.recv_message()  # type: empty_pb2.Empty
 
     """
     # stream state
@@ -101,8 +101,8 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
     _recv_trailing_metadata_done = False
     _cancel_done = False
 
-    _stream: Optional[ProtocolStream] = None
-    _release_stream: Optional[Callable[[], None]] = None
+    _stream = None  # type: Optional[ProtocolStream]
+    _release_stream = None  # type: Optional[Callable[[], None]]
 
     _wrapper = Wrapper()
     _wrapper_ctx = None
@@ -110,12 +110,12 @@ class Stream(StreamIterator[_TResponse], Generic[_TRequest, _TResponse]):
     #: This property contains initial metadata, received with headers from
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_initial_metadata` coroutine succeeds.
-    initial_metadata: Optional[Metadata] = None
+    initial_metadata = None  # type: Optional[Metadata]
 
     #: This property contains trailing metadata, received with trailers from
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
-    trailing_metadata: Optional[Metadata] = None
+    trailing_metadata = None  # type: Optional[Metadata]
 
     def __init__(
         self,
@@ -447,7 +447,7 @@ class Channel:
             temperature=70,
             sugar=3,
         )
-        reply: empty_pb2.Empty = await client.MakeLatte(request)
+        reply = await client.MakeLatte(request)  # type: empty_pb2.Empty
 
         ...
 

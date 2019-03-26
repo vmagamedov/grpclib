@@ -159,7 +159,7 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
 
         Returns new services list with reflection support added.
         """
-        service_names: List[str] = []
+        service_names = []  # type: List[str]
         for service in services:
             service_names.append(_service_name(service))
         services = list(services)

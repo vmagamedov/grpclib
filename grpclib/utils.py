@@ -31,12 +31,12 @@ class Wrapper(ContextManager[None]):
         w.cancel(NoNeedToWaitError('With explanation'))
 
     """
-    _error: Optional[BaseException] = None
+    _error = None  # type: Optional[BaseException]
 
-    cancelled: Optional[bool] = None
+    cancelled = None  # type: Optional[bool]
 
     def __init__(self) -> None:
-        self._tasks: Set[asyncio.Task[Any]] = set()
+        self._tasks = set()  # type: Set[asyncio.Task[Any]]
 
     def __enter__(self) -> None:
         if self._error is not None:
@@ -190,7 +190,7 @@ def graceful_exit(servers: List[asyncio.AbstractServer], *, loop: asyncio.Abstra
     :param signals: set of the OS signals to handle
     """
     signals = frozenset(signals)
-    flag: List[bool] = []
+    flag = []  # type: List[bool]
     for sig_num in signals:
         loop.add_signal_handler(sig_num, _exit_handler, sig_num, servers, flag)
     try:

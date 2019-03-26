@@ -26,7 +26,7 @@ _CARDINALITY = {
 class Buffer:
 
     def __init__(self) -> None:
-        self._lines: List[str] = []
+        self._lines = []  # type: List[str]
         self._indent = 0
 
     def add(self, string: str, *args, **kwargs) -> None:

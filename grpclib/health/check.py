@@ -49,8 +49,8 @@ class ServiceCheck(CheckBase):
 
         db_check = ServiceCheck(db_test, loop=loop)
     """
-    _value: Optional[bool] = None
-    _poll_task: Optional[asyncio.Task] = None
+    _value = None  # type: Optional[bool]
+    _poll_task = None  # type: Optional[asyncio.Task]
     _last_check = 0.0
 
     def __init__(
@@ -73,7 +73,7 @@ class ServiceCheck(CheckBase):
         self._check_ttl = check_ttl
         self._check_timeout = check_timeout
 
-        self._events: Set[asyncio.Event] = set()
+        self._events = set()  # type: Set[asyncio.Event]
 
         self._check_lock = asyncio.Event(loop=loop)
         self._check_lock.set()
@@ -169,8 +169,8 @@ class ServiceStatus(CheckBase):
         :param loop: asyncio-compatible event loop
         """
         self._loop = loop
-        self._value: Optional[bool] = None
-        self._events: Set[asyncio.Event] = set()
+        self._value = None  # type: Optional[bool]
+        self._events = set()  # type: Set[asyncio.Event]
 
     def set(self, value: Optional[bool]) -> None:
         """Sets current status of a check

@@ -42,7 +42,7 @@ class Stream(StreamIterator[_TRequest], Generic[_TRequest, _TResponse]):
     .. code-block:: python
 
         async def MakeLatte(self, stream: grpclib.server.Stream):
-            task: cafe_pb2.LatteOrder = await stream.recv_message()
+            task = await stream.recv_message()  # type: cafe_pb2.LatteOrder
             ...
             await stream.send_message(empty_pb2.Empty())
 
@@ -191,7 +191,7 @@ class Stream(StreamIterator[_TRequest], Generic[_TRequest, _TResponse]):
                                 .format(status))
 
         if self._send_initial_metadata_done:
-            headers: List[Tuple[str, str]] = []
+            headers = []  # type: List[Tuple[str, str]]
         else:
             # trailers-only response
             headers = [(':status', '200')]
@@ -381,8 +381,8 @@ class Handler(_GC, AbstractHandler):
         self.mapping = mapping
         self.codec = codec
         self.loop = loop
-        self._tasks: Dict[ProtocolStream, asyncio.Task[None]] = {}
-        self._cancelled: Set[asyncio.Task[None]] = set()
+        self._tasks = {}  # type: Dict[ProtocolStream, asyncio.Task[None]]
+        self._cancelled = set()  # type: Set[asyncio.Task[None]]
 
     def __gc_collect__(self) -> None:
         self._tasks = {s: t for s, t in self._tasks.items()
@@ -429,7 +429,7 @@ class Server(_GC, asyncio.AbstractServer):
         class CoffeeMachine(cafe_grpc.CoffeeMachineBase):
 
             async def MakeLatte(self, stream):
-                task: cafe_pb2.LatteOrder = await stream.recv_message()
+                task = await stream.recv_message()  # type: cafe_pb2.LatteOrder
                 ...
                 await stream.send_message(empty_pb2.Empty())
 
@@ -442,7 +442,7 @@ class Server(_GC, asyncio.AbstractServer):
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
         """
-        mapping: Dict[str, Handler] = {}
+        mapping = {}  # type: Dict[str, Handler]
         for handler in handlers:
             mapping.update(handler.__mapping__())
 
@@ -454,8 +454,8 @@ class Server(_GC, asyncio.AbstractServer):
             header_encoding='ascii',
         )
 
-        self._server: Optional[asyncio.AbstractServer] = None
-        self._handlers: Set[Handler] = set()
+        self._server = None  # type: Optional[asyncio.AbstractServer]
+        self._handlers = set()  # type: Set[Handler]
 
     def __gc_collect__(self) -> None:
         self._handlers = {h for h in self._handlers

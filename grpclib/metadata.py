@@ -130,7 +130,7 @@ def encode_metadata(metadata: Metadata) -> List[Tuple[str, str]]:
     if hasattr(metadata, 'items'):
         metadata = metadata.items()  # type: ignore
 
-    result: List[Tuple[str, str]] = []
+    result = []  # type: List[Tuple[str, str]]
     for key, value in metadata:
         if key in _SPECIAL or key.startswith('grpc-') or not _KEY_RE.match(key):
             raise ValueError('Invalid metadata key: {!r}'.format(key))
