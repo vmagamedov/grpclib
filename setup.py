@@ -9,12 +9,18 @@ with open(
 ) as f:
     VERSION = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
 
+with open(
+    os.path.join(os.path.dirname(__file__), 'README.rst')
+) as f:
+    long_description = f.read()
 
 setup(
     name='grpclib',
     version=VERSION,
     description='Pure-Python gRPC implementation, based on asyncio and '
                 'hyper-h2',
+    long_description=long_description,
+    long_description_content_type='text/x-rst',
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',
     url='https://github.com/vmagamedov/grpclib',
