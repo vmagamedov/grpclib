@@ -4,6 +4,9 @@ Changelog
 0.2.3rc1
 ~~~~~~~~
 
+  - Generate ``*_grpc.py`` stub files even if service definitions don't exist
+    in the .proto files
+  - Fixed bug in the Channel.request method, deadline argument was ignored
   - Implemented ``graceful_exit`` context-manager
 
 0.2.2

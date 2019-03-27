@@ -12,14 +12,13 @@ with open(
 with open(
     os.path.join(os.path.dirname(__file__), 'README.rst')
 ) as f:
-    long_description = f.read()
+    DESCRIPTION = f.read()
 
 setup(
     name='grpclib',
     version=VERSION,
-    description='Pure-Python gRPC implementation, based on asyncio and '
-                'hyper-h2',
-    long_description=long_description,
+    description='Pure-Python gRPC implementation for asyncio',
+    long_description=DESCRIPTION,
     long_description_content_type='text/x-rst',
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',
