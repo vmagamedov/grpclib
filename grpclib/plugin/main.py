@@ -7,8 +7,8 @@ from collections import namedtuple
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
-from .. import const
-from .. import client
+from grpclib import const
+from grpclib import client
 
 
 SUFFIX = '_grpc.py'
