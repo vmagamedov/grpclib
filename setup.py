@@ -1,13 +1,11 @@
-import re
 import os.path
 
 from setuptools import setup, find_packages
 
+import grpclib
 
-with open(
-    os.path.join(os.path.dirname(__file__), 'grpclib', '__init__.py')
-) as f:
-    VERSION = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
+
+VERSION = grpclib.__version__
 
 with open(
     os.path.join(os.path.dirname(__file__), 'README.rst')
