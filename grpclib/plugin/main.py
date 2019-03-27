@@ -184,3 +184,7 @@ def main():
 
     with os.fdopen(sys.stdout.fileno(), 'wb') as out:
         out.write(response.SerializeToString())
+
+
+if __name__ == '__main__':
+    main()
