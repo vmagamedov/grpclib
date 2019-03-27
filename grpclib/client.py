@@ -504,7 +504,7 @@ class Channel:
 
     .. code-block:: python3
 
-        channel = Channel()
+        channel = Channel(host, port)
         client = cafe_grpc.CoffeeMachineStub(channel)
 
         ...

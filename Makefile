@@ -29,7 +29,7 @@ proto: clean
 	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --grpc_python_out=examples --mypy_out=examples examples/helloworld/helloworld.proto
 	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --mypy_out=examples examples/streaming/helloworld.proto
 	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --mypy_out=examples examples/multiproc/primes.proto
-	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=. dummy.proto
+	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --grpc_python_out=. --mypy_out=. dummy.proto
 
 release: proto
 	./scripts/release_check.sh
