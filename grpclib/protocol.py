@@ -159,6 +159,8 @@ class Connection:
     Holds connection state (write_ready), and manages
     H2Connection <-> Transport communication
     """
+    _transport = None
+
     def __init__(self, connection: H2Connection, transport: Transport,
                  *, loop: AbstractEventLoop) -> None:
         self._connection = connection
@@ -189,7 +191,12 @@ class Connection:
             self._transport.write(data)
 
     def close(self):
-        self._transport.close()
+        if self._transport:
+            self._transport.close()
+            # remove cyclic references to improve memory usage
+            del self._transport
+            if hasattr(self._connection, '_frame_dispatch_table'):
+                del self._connection._frame_dispatch_table
 
 
 class Stream:
@@ -410,6 +417,9 @@ class EventsProcessor:
         self.handler.close()
         for stream in self.streams.values():
             stream.__terminated__('Connection was closed')
+        # remove cyclic references to improve memory usage
+        if hasattr(self, 'processors'):
+            del self.processors
 
     def process(self, event):
         try:
