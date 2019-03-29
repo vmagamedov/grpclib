@@ -57,7 +57,7 @@ files.
 
 Plugin, which implements ``--python_grpc_out`` option is available for
 ``protoc`` compiler as ``protoc-gen-python_grpc`` executable, which will be
-installed by ``setuptools`` into your ``PATH`` during installation of the
+installed by ``pip/setuptools`` into your ``$PATH`` during installation of the
 ``grpclib`` library.
 
 Example

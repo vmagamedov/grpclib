@@ -1,9 +1,10 @@
 Changelog
 =========
 
-0.2.3rc1
+0.2.3rc3
 ~~~~~~~~
 
+  - Removed circular references and added tests to detect them
   - Generate ``*_grpc.py`` stub files even if service definitions don't exist
     in the .proto files
   - Fixed bug in the Channel.request method, deadline argument was ignored
