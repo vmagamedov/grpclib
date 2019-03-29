@@ -91,11 +91,10 @@ async def main():
         await server.wait_closed()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())
 """
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7, 0), reason='Python < 3.7.0')
 @pytest.mark.parametrize('sig_num', [signal.SIGINT, signal.SIGTERM])
 def test_graceful_exit_normal_server(sig_num):
     cmd = [sys.executable, '-u', '-c', NORMAL_SERVER]
@@ -125,11 +124,10 @@ async def main():
         await asyncio.sleep(10)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())
 """
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7, 0), reason='Python < 3.7.0')
 @pytest.mark.parametrize('sig1, sig2', [
     (signal.SIGINT, signal.SIGINT),
     (signal.SIGTERM, signal.SIGTERM),
