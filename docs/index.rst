@@ -13,6 +13,7 @@ User's Guide
   metadata
   errors
   encoding
+  interceptors
   reflection
   health
   testing
