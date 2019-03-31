@@ -46,19 +46,20 @@ event:
 
     async def recv_request(event: RecvRequest):
         if event.metadata.get('auth-token') != SECRET:
+            # provide custom RPC handler
             event.method_func = authn_error
             event.interrupt()
 
     listen(server, RecvRequest, recv_request)
 
-Common
-~~~~~~
+Common Events
+~~~~~~~~~~~~~
 
 .. automodule:: grpclib.events
   :members: listen, SendMessage, RecvMessage
 
-Client-Side
-~~~~~~~~~~~
+Client-Side Events
+~~~~~~~~~~~~~~~~~~
 
 See also :py:class:`~grpclib.events.SendMessage` and
 :py:class:`~grpclib.events.RecvMessage`. You can listen for them on the
@@ -67,8 +68,8 @@ client-side.
 .. automodule:: grpclib.events
   :members: SendRequest, RecvInitialMetadata, RecvTrailingMetadata
 
-Server-Side
-~~~~~~~~~~~
+Server-Side Events
+~~~~~~~~~~~~~~~~~~
 
 See also :py:class:`~grpclib.events.RecvMessage` and
 :py:class:`~grpclib.events.SendMessage`. You can listen for them on the
