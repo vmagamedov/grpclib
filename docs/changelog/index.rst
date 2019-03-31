@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.2.3rc3
-~~~~~~~~
+0.2.3
+~~~~~
 
   - Removed circular references and added tests to detect them
   - Generate ``*_grpc.py`` stub files even if service definitions don't exist
