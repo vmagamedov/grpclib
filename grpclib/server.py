@@ -176,9 +176,13 @@ class Stream(StreamIterator):
         if self._send_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already sent')
 
-        if not self._send_message_count and status is Status.OK:
-            raise ProtocolError('{!r} requires non-empty response'
-                                .format(status))
+        if (
+            not self._cardinality.server_streaming
+            and not self._send_message_count
+            and status is Status.OK
+        ):
+            raise ProtocolError('Unary response with OK status requires '
+                                'a single message to be sent')
 
         if self._send_initial_metadata_done:
             headers = []

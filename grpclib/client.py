@@ -11,7 +11,7 @@ from h2.config import H2Configuration
 from multidict import MultiDict
 
 from .utils import Wrapper, DeadlineWrapper
-from .const import Status
+from .const import Status, Cardinality
 from .stream import send_message, recv_message
 from .stream import StreamIterator
 from .events import _DispatchChannelEvents
@@ -104,11 +104,13 @@ class Stream(StreamIterator):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata = None
 
-    def __init__(self, channel, method_name, metadata, send_type, recv_type,
-                 *, codec, dispatch: _DispatchChannelEvents, deadline=None):
+    def __init__(self, channel, method_name, metadata, cardinality, send_type,
+                 recv_type, *, codec, dispatch: _DispatchChannelEvents,
+                 deadline=None):
         self._channel = channel
         self._method_name = method_name
         self._metadata = metadata
+        self._cardinality = cardinality
         self._send_type = send_type
         self._recv_type = recv_type
         self._codec = codec
@@ -208,6 +210,13 @@ class Stream(StreamIterator):
         """
         if self._end_done:
             raise ProtocolError('Stream was already ended')
+
+        if (
+            not self._cardinality.client_streaming
+            and not self._send_message_count
+        ):
+            raise ProtocolError('Unary request requires a single message '
+                                'to be sent')
 
         await self._stream.end()
         self._end_done = True
@@ -354,7 +363,10 @@ class Stream(StreamIterator):
         if not self._end_done:
             raise ProtocolError('Outgoing stream was not ended')
 
-        if not self._recv_message_count:
+        if (
+            not self._cardinality.server_streaming
+            and not self._recv_message_count
+        ):
             raise ProtocolError('No messages were received before waiting '
                                 'for trailing metadata')
 
@@ -399,12 +411,14 @@ class Stream(StreamIterator):
             return
         try:
             if (
-                not self._recv_trailing_metadata_done
+                not exc_type
                 and not self._cancel_done
                 and not self._stream._transport.is_closing()
-                and not (exc_type or exc_val or exc_tb)
             ):
-                await self.recv_trailing_metadata()
+                if not self._recv_initial_metadata_done:
+                    await self.recv_initial_metadata()
+                if not self._recv_trailing_metadata_done:
+                    await self.recv_trailing_metadata()
         finally:
             if self._stream.closable:
                 self._stream.reset_nowait()
@@ -527,8 +541,8 @@ class Channel:
 
         return ctx
 
-    def request(self, name, request_type, reply_type, *, timeout=None,
-                deadline=None, metadata=None):
+    def request(self, name, cardinality, request_type, reply_type,
+                *, timeout=None, deadline=None, metadata=None):
         if timeout is not None and deadline is None:
             deadline = Deadline.from_timeout(timeout)
         elif timeout is not None and deadline is not None:
@@ -536,9 +550,9 @@ class Channel:
 
         metadata = MultiDict(metadata or ())
 
-        return Stream(self, name, metadata, request_type, reply_type,
-                      codec=self._codec, dispatch=self.__dispatch__,
-                      deadline=deadline)
+        return Stream(self, name, metadata, cardinality,
+                      request_type, reply_type, codec=self._codec,
+                      dispatch=self.__dispatch__, deadline=deadline)
 
     def close(self):
         """Closes connection to the server.
@@ -562,11 +576,15 @@ class ServiceMethod:
     """
     Base class for all gRPC method types
     """
-    def __init__(self, channel, name, request_type, reply_type):
+    def __init__(self, channel: Channel, name, request_type, reply_type):
         self.channel = channel
         self.name = name
         self.request_type = request_type
         self.reply_type = reply_type
+
+    def __init_subclass__(cls, cardinality, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._cardinality = cardinality
 
     def open(self, *, timeout=None, metadata=None) -> Stream:
         """Creates and returns :py:class:`Stream` object to perform request
@@ -581,12 +599,12 @@ class ServiceMethod:
         :param metadata: custom request metadata, dict or list of pairs
         :return: :py:class:`Stream` object
         """
-        return self.channel.request(self.name, self.request_type,
-                                    self.reply_type, timeout=timeout,
-                                    metadata=metadata)
+        return self.channel.request(self.name, self._cardinality,
+                                    self.request_type, self.reply_type,
+                                    timeout=timeout, metadata=metadata)
 
 
-class UnaryUnaryMethod(ServiceMethod):
+class UnaryUnaryMethod(ServiceMethod, cardinality=Cardinality.UNARY_UNARY):
     """
     Represents UNARY-UNARY gRPC method type.
 
@@ -607,7 +625,7 @@ class UnaryUnaryMethod(ServiceMethod):
             return await stream.recv_message()
 
 
-class UnaryStreamMethod(ServiceMethod):
+class UnaryStreamMethod(ServiceMethod, cardinality=Cardinality.UNARY_STREAM):
     """
     Represents UNARY-STREAM gRPC method type.
 
@@ -628,7 +646,7 @@ class UnaryStreamMethod(ServiceMethod):
             return [message async for message in stream]
 
 
-class StreamUnaryMethod(ServiceMethod):
+class StreamUnaryMethod(ServiceMethod, cardinality=Cardinality.STREAM_UNARY):
     """
     Represents STREAM-UNARY gRPC method type.
 
@@ -654,7 +672,7 @@ class StreamUnaryMethod(ServiceMethod):
             return await stream.recv_message()
 
 
-class StreamStreamMethod(ServiceMethod):
+class StreamStreamMethod(ServiceMethod, cardinality=Cardinality.STREAM_STREAM):
     """
     Represents STREAM-STREAM gRPC method type.
 

@@ -49,13 +49,15 @@ class ClientStream:
 
     def __init__(self, *, loop, client_conn=None,
                  send_type=None, recv_type=None,
-                 path='/foo/bar', codec=ProtoCodec(), connect_time=None,
+                 path='/foo/bar', codec=ProtoCodec(),
+                 cardinality=Cardinality.UNARY_UNARY,
+                 connect_time=None,
                  timeout=None, deadline=None, metadata=None):
         self.client_conn = client_conn or ClientConn(loop=loop)
 
         channel = client.Channel(port=-1, loop=loop, codec=codec)
         self.client_stream = channel.request(
-            path, send_type, recv_type,
+            path, cardinality, send_type, recv_type,
             timeout=timeout, deadline=deadline, metadata=metadata,
         )
         self.client_stream._channel = ChannelStub(self.client_conn.client_proto,

@@ -207,11 +207,29 @@ async def test_send_trailing_metadata_twice(stream):
 
 
 @pytest.mark.asyncio
-async def test_send_trailing_metadata_and_empty_response(stream):
+async def test_no_messages_for_unary(stream):
     async with stream:
         with pytest.raises(ProtocolError) as err:
             await stream.send_trailing_metadata()
-    err.match(r'<Status\.OK: 0> requires non-empty response')
+    err.match('OK status requires a single message to be sent')
+
+
+@pytest.mark.asyncio
+async def test_no_messages_for_stream(stream_streaming, stub):
+    async with stream_streaming:
+        await stream_streaming.send_initial_metadata()
+        await stream_streaming.send_trailing_metadata()
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto')],
+            end_stream=False,
+        ),
+        SendHeaders(
+            [('grpc-status', str(Status.OK.value))],
+            end_stream=True,
+        ),
+    ]
 
 
 @pytest.mark.asyncio

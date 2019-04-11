@@ -6,10 +6,11 @@ import pytest
 import async_timeout
 
 from faker import Faker
-from h2.settings import SettingCodes
+from h2.events import StreamReset
 from multidict import MultiDict
+from h2.settings import SettingCodes
 
-from grpclib.const import Status
+from grpclib.const import Status, Cardinality
 from grpclib.client import Stream
 from grpclib.events import _DispatchChannelEvents
 from grpclib.metadata import USER_AGENT
@@ -104,8 +105,8 @@ async def test_connection_error():
             raise IOError('Intentionally broken connection')
 
     stream = Stream(BrokenChannel(), '/foo/bar', MultiDict(),
-                    DummyRequest, DummyReply, codec=ProtoCodec(),
-                    dispatch=_DispatchChannelEvents())
+                    Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
+                    codec=ProtoCodec(), dispatch=_DispatchChannelEvents())
 
     with pytest.raises(IOError) as err:
         async with stream:
@@ -698,3 +699,33 @@ async def test_request_headers_with_deadline(loop):
             ('user-agent', USER_AGENT),
         ]
         await stream.cancel()
+
+
+@pytest.mark.asyncio
+async def test_no_messages_for_unary(loop, cs: ClientStream):
+    with pytest.raises(ProtocolError, match='Unary request requires'):
+        async with cs.client_stream as stream:
+            await stream.send_request()
+            cs.client_conn.to_server_transport.events()
+            await stream.end()
+    reset_event, = cs.client_conn.to_server_transport.events()
+    assert isinstance(reset_event, StreamReset)
+
+
+@pytest.mark.asyncio
+async def test_no_messages_for_stream(loop):
+    cs = ClientStream(loop=loop, cardinality=Cardinality.STREAM_STREAM,
+                      send_type=DummyRequest, recv_type=DummyReply)
+    async with cs.client_stream as stream:
+        await stream.send_request()
+        await stream.end()
+        events = cs.client_conn.to_server_transport.events()
+        stream_id = events[-1].stream_id
+        cs.client_conn.server_h2c.send_headers(stream_id, [
+            (':status', '200'),
+            ('content-type', 'application/grpc+proto'),
+        ])
+        cs.client_conn.server_h2c.send_headers(stream_id, [
+            ('grpc-status', str(Status.OK.value)),
+        ], end_stream=True)
+        cs.client_conn.server_flush()
