@@ -7,7 +7,8 @@ from h2.settings import SettingCodes
 from h2.connection import H2Connection
 from h2.exceptions import StreamClosedError
 
-from grpclib.protocol import _slice, Connection, EventsProcessor
+from grpclib.const import Status
+from grpclib.protocol import Connection, EventsProcessor
 
 from stubs import TransportStub, DummyHandler
 
@@ -60,30 +61,30 @@ def create_headers(*, path='/any/path'):
     ]
 
 
-def test_slice():
-    data, tail = _slice([b'a', b'b', b'c', b'd', b'e', b'f'], 5)
-    assert data == [b'a', b'b', b'c', b'd', b'e']
-    assert tail == [b'f']
-
-    data, tail = _slice([b'a', b'b', b'cdef'], 5)
-    assert data == [b'a', b'b', b'cde']
-    assert tail == [b'f']
-
-    data, tail = _slice([b'abc', b'def', b'gh'], 5)
-    assert data == [b'abc', b'de']
-    assert tail == [b'f', b'gh']
-
-    data, tail = _slice([b'abcde', b'fgh'], 5)
-    assert data == [b'abcde']
-    assert tail == [b'fgh']
-
-    data, tail = _slice([b'abcdefgh', b'ij'], 5)
-    assert data == [b'abcde']
-    assert tail == [b'fgh', b'ij']
-
-    data, tail = _slice([b'abcdefgh', b'ij'], 100)
-    assert data == [b'abcdefgh', b'ij']
-    assert tail == []
+# def test_buffer():
+#     data, tail = _slice([b'a', b'b', b'c', b'd', b'e', b'f'], 5)
+#     assert data == [b'a', b'b', b'c', b'd', b'e']
+#     assert tail == [b'f']
+#
+#     data, tail = _slice([b'a', b'b', b'cdef'], 5)
+#     assert data == [b'a', b'b', b'cde']
+#     assert tail == [b'f']
+#
+#     data, tail = _slice([b'abc', b'def', b'gh'], 5)
+#     assert data == [b'abc', b'de']
+#     assert tail == [b'f', b'gh']
+#
+#     data, tail = _slice([b'abcde', b'fgh'], 5)
+#     assert data == [b'abcde']
+#     assert tail == [b'fgh']
+#
+#     data, tail = _slice([b'abcdefgh', b'ij'], 5)
+#     assert data == [b'abcde']
+#     assert tail == [b'fgh', b'ij']
+#
+#     data, tail = _slice([b'abcdefgh', b'ij'], 100)
+#     assert data == [b'abcdefgh', b'ij']
+#     assert tail == []
 
 
 @pytest.mark.asyncio
@@ -140,8 +141,7 @@ async def test_recv_data_larger_than_window_size(loop):
     server_stream, = server_processor.streams.values()
     recv_task = loop.create_task(server_stream.recv_data(size))
     await asyncio.wait([recv_task], timeout=.01, loop=loop)
-    assert server_stream.__buffer__._read_size == size
-    assert server_stream.__buffer__._size == initial_window - 1
+    assert server_stream.__buffer__._acked_size == initial_window - 1
 
     # check that server acknowledged received partial data
     assert client_h2c.local_flow_control_window(client_stream.id) > 1
@@ -151,7 +151,7 @@ async def test_recv_data_larger_than_window_size(loop):
     for event in to_server_transport.events():
         server_processor.process(event)
     await asyncio.wait_for(recv_task, 0.01, loop=loop)
-    assert server_stream.__buffer__._size == 0
+    assert server_stream.__buffer__._acked_size == 0
 
 
 @pytest.mark.asyncio
@@ -296,3 +296,75 @@ async def test_ping(loop):
     ping_ack, = to_client_transport.process(client_processor)
     assert isinstance(ping_ack, PingAcknowledged)
     assert ping_ack.ping_data == b'12345678'
+
+
+@pytest.mark.asyncio
+async def test_unread_data_ack(loop):
+    client_h2c, server_h2c = create_connections()
+    initial_window = client_h2c.outbound_flow_control_window
+    # should be large enough to trigger WINDOW_UPDATE frame
+    data_size = initial_window - 1
+
+    to_client_transport = TransportStub(client_h2c)
+    server_handler = DummyHandler()
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_proc = EventsProcessor(server_handler, server_conn)
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_stream = client_conn.create_stream()
+
+    await client_stream.send_request(create_headers(), _processor=client_proc)
+    await client_stream.send_data(b'x' * data_size)
+    assert client_h2c.outbound_flow_control_window == initial_window - data_size
+    to_server_transport.process(server_proc)
+
+    # server_handler.stream.recv_data(data_size) intentionally not called
+    await server_handler.stream.send_headers([  # trailers-only error
+        (':status', '200'),
+        ('content-type', 'application/grpc+proto'),
+        ('grpc-status', str(Status.UNKNOWN.value)),
+    ], end_stream=True)
+    to_client_transport.process(client_proc)
+
+    assert client_h2c.outbound_flow_control_window == initial_window - data_size
+    server_handler.release_stream()  # should ack received data
+    assert client_h2c.outbound_flow_control_window == initial_window
+
+
+@pytest.mark.asyncio
+async def test_released_stream_data_ack(loop):
+    client_h2c, server_h2c = create_connections()
+    initial_window = client_h2c.outbound_flow_control_window
+    # should be large enough to trigger WINDOW_UPDATE frame
+    data_size = initial_window - 1
+
+    to_client_transport = TransportStub(client_h2c)
+    server_handler = DummyHandler()
+    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_proc = EventsProcessor(server_handler, server_conn)
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_stream = client_conn.create_stream()
+
+    await client_stream.send_request(create_headers(), _processor=client_proc)
+    to_server_transport.process(server_proc)
+
+    # server_handler.stream.recv_data(data_size) intentionally not called
+    await server_handler.stream.send_headers([  # trailers-only error
+        (':status', '200'),
+        ('content-type', 'application/grpc+proto'),
+        ('grpc-status', str(Status.UNKNOWN.value)),
+    ], end_stream=True)
+    to_client_transport.process(client_proc)
+    server_handler.release_stream()
+
+    assert client_h2c.outbound_flow_control_window == initial_window
+    await client_stream.send_data(b'x' * data_size)
+    assert client_h2c.outbound_flow_control_window == 1
+    to_server_transport.process(server_proc)
+    # client-side flow control window will increase to initial value eventually
+    assert client_h2c.outbound_flow_control_window > 1

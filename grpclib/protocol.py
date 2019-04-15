@@ -1,10 +1,13 @@
 import socket
+import typing
 
 from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict  # noqa
 from asyncio import Transport, Protocol, Event, AbstractEventLoop
 from asyncio import Queue, QueueEmpty
+from functools import partial
+from collections import deque
 
 from h2.errors import ErrorCodes
 from h2.config import H2Configuration
@@ -42,83 +45,73 @@ else:
         pass
 
 
-def _slice(chunks: List[bytes], size: int):
-    data, data_size, tail = [], 0, []
-    for chunk in chunks:
-        if data_size < size:
-            if data_size + len(chunk) <= size:
-                data.append(chunk)
-                data_size += len(chunk)
-            else:
-                slice_size = size - data_size
-                data.append(chunk[:slice_size])
-                tail.append(chunk[slice_size:])
-                data_size += slice_size
-        else:
-            tail.append(chunk)
-    return data, tail
+class UnackedData(typing.NamedTuple):
+    data: bytes
+    data_size: int
+    ack_size: int
+
+
+class AckedData(typing.NamedTuple):
+    data: memoryview
+    data_size: int
 
 
 class Buffer:
 
-    def __init__(self, stream_id, connection, h2_connection,
-                 *, loop: AbstractEventLoop) -> None:
-        self._stream_id = stream_id
-        self._connection = connection
-        self._h2_connection = h2_connection
-        self._chunks = []  # type: List[bytes]
-        self._size = 0
-        self._read_size = None
-        self._ready_event = Event(loop=loop)
+    def __init__(self, ack_callback, *, loop):
+        self._ack_callback = ack_callback
         self._eof = False
+        self._unacked = Queue(loop=loop)
+        self._acked = deque()
+        self._acked_size = 0
 
-    def _ack(self, size):
-        if size:
-            self._h2_connection.acknowledge_received_data(size, self._stream_id)
-            self._connection.flush()
-
-    def append(self, data):
-        size = len(data)
-        self._chunks.append(data)
-        self._size += size
-
-        if self._read_size is not None:
-            self._ack(min(max(size - self._size + self._read_size, 0), size))
-            if self._size >= self._read_size:
-                self._ready_event.set()
+    def add(self, data, ack_size):
+        self._unacked.put_nowait(UnackedData(data, len(data), ack_size))
 
     def eof(self):
+        self._unacked.put_nowait(UnackedData(b'', 0, 0))
         self._eof = True
-        self._ready_event.set()
 
     async def read(self, size):
-        if size < 0:
-            raise ValueError('Size can not be negative')
-        elif size == 0:
+        assert size >= 0, 'Size can not be negative'
+        if size == 0:
             return b''
-        else:
-            if self._size < size and not self._eof:
-                self._read_size = size
-                self._ready_event.clear()
-                self._ack(self._size)
-                await self._ready_event.wait()
-                self._read_size = None
-            elif self._size >= size:
-                self._ack(size)
+
+        if not self._eof or not self._unacked.empty():
+            while self._acked_size < size:
+                data, data_size, ack_size = await self._unacked.get()
+                if not ack_size:
+                    break
+                self._acked.append(AckedData(memoryview(data), data_size))
+                self._acked_size += data_size
+                self._ack_callback(ack_size)
+
+        if self._eof and self._acked_size == 0:
+            return b''
+
+        if self._acked_size < size:
+            raise AssertionError('Received less data than expected')
+
+        chunks = []
+        chunks_size = 0
+        while chunks_size < size:
+            next_chunk, next_chunk_size = self._acked[0]
+            if chunks_size + next_chunk_size <= size:
+                chunks.append(next_chunk)
+                chunks_size += next_chunk_size
+                self._acked.popleft()
             else:
-                assert self._eof
-                self._ack(self._size)
+                offset = size - chunks_size
+                chunks.append(next_chunk[:offset])
+                chunks_size += offset
+                self._acked[0] = (next_chunk[offset:], next_chunk_size - offset)
+        self._acked_size -= size
+        assert chunks_size == size
+        return b''.join(chunks)
 
-            data, self._chunks = _slice(self._chunks, size)
-            data_bytes = b''.join(data)
-            data_size = len(data_bytes)
-            self._size -= data_size
-
-            if 0 < data_size < size:
-                # TODO: proper exception
-                raise Exception('Incomplete data, {} instead of {}'
-                                .format(data_size, size))
-            return data_bytes
+    def unacked_size(self):
+        return sum(self._unacked.get_nowait().ack_size
+                   for _ in range(self._unacked.qsize()))
 
 
 class StreamsLimit:
@@ -175,6 +168,11 @@ class Connection:
     def feed(self, data):
         return self._connection.receive_data(data)
 
+    def ack(self, stream_id, size):
+        if size:
+            self._connection.acknowledge_received_data(size, stream_id)
+            self.flush()
+
     def pause_writing(self):
         self.write_ready.clear()
 
@@ -220,13 +218,16 @@ class Stream:
         self.__wrapper__ = wrapper
 
         if stream_id is not None:
-            self.id = stream_id
-            self.__buffer__ = Buffer(self.id, self._connection,
-                                     self._h2_connection, loop=self._loop)
+            self.init_stream(stream_id, self._connection, loop=self._loop)
 
         self.__headers__ = Queue(loop=loop) \
             # type: Queue[List[Tuple[str, str]]]
         self.__window_updated__ = Event(loop=loop)
+
+    def init_stream(self, stream_id, connection, *, loop):
+        self.id = stream_id
+        self.__buffer__ = Buffer(partial(connection.ack, self.id),
+                                 loop=loop)
 
     async def recv_headers(self):
         return await self.__headers__.get()
@@ -271,9 +272,7 @@ class Stream:
                 # if we can write() data
                 continue
             else:
-                self.id = stream_id
-                self.__buffer__ = Buffer(self.id, self._connection,
-                                         self._h2_connection, loop=self._loop)
+                self.init_stream(stream_id, self._connection, loop=self._loop)
                 release_stream = _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
                 return release_stream
@@ -407,8 +406,9 @@ class EventsProcessor:
         self.streams[stream.id] = stream
 
         def release_stream(*, _streams=self.streams, _id=stream.id):
-            _streams.pop(_id)
+            _stream = _streams.pop(_id)
             self.connection.stream_close_waiter.set()
+            self.connection.ack(_id, _stream.__buffer__.unacked_size())
 
         return release_stream
 
@@ -451,7 +451,15 @@ class EventsProcessor:
     def process_data_received(self, event: DataReceived):
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.__buffer__.append(event.data)
+            stream.__buffer__.add(
+                event.data,
+                event.flow_controlled_length,
+            )
+        else:
+            self.connection.ack(
+                event.stream_id,
+                event.flow_controlled_length,
+            )
 
     def process_window_updated(self, event: WindowUpdated):
         if event.stream_id == 0:
