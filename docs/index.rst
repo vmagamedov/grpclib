@@ -1,20 +1,29 @@
 .. include:: ../README.rst
 
-User's Guide
-~~~~~~~~~~~~
+.. toctree::
+  :maxdepth: 2
+  :hidden:
+
+  changelog/index
+  overview
 
 .. toctree::
   :maxdepth: 2
+  :caption: Usage
+  :hidden:
 
-  overview
   client
   server
-  events
   metadata
-  errors
-  encoding
-  interceptors
-  reflection
-  health
   testing
-  changelog/index
+  errors
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Advanced
+  :hidden:
+
+  events
+  encoding
+  health
+  reflection
