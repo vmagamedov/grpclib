@@ -22,7 +22,7 @@
   run: python3 -m helloworld.server
   network-name: server
   environ:
-    PYTHONPATH: example
+    PYTHONPATH: examples
   ports:
     - !Expose { port: 50051, as: 50051 }
 
@@ -31,7 +31,7 @@
   image: env36
   run: python3 -m helloworld.client
   environ:
-    PYTHONPATH: example
+    PYTHONPATH: examples
 
 - !Command
   name: build docs

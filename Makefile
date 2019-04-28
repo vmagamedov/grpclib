@@ -8,10 +8,10 @@ clean:
 	rm -f ./grpclib/reflection/v1/*_grpc.py
 	rm -f ./grpclib/reflection/v1alpha/*_pb2.py
 	rm -f ./grpclib/reflection/v1alpha/*_grpc.py
-	rm -f ./example/helloworld/*_pb2.py
-	rm -f ./example/helloworld/*_grpc.py
-	rm -f ./example/streaming/*_pb2.py
-	rm -f ./example/streaming/*_grpc.py
+	rm -f ./examples/helloworld/*_pb2.py
+	rm -f ./examples/helloworld/*_grpc.py
+	rm -f ./examples/streaming/*_pb2.py
+	rm -f ./examples/streaming/*_grpc.py
 	rm -f ./tests/*_pb2.py
 	rm -f ./tests/*_grpc.py
 
@@ -19,8 +19,8 @@ proto: clean
 	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. grpclib/health/v1/health.proto
 	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. grpclib/reflection/v1/reflection.proto
 	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. grpclib/reflection/v1alpha/reflection.proto
-	python3 -m grpc_tools.protoc -Iexample --python_out=example --python_grpc_out=example --grpc_python_out=example example/helloworld/helloworld.proto
-	python3 -m grpc_tools.protoc -Iexample --python_out=example --python_grpc_out=example example/streaming/helloworld.proto
+	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --grpc_python_out=examples examples/helloworld/helloworld.proto
+	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples examples/streaming/helloworld.proto
 	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. dummy.proto
 
 release: proto
@@ -29,22 +29,22 @@ release: proto
 	python setup.py sdist
 
 server:
-	@PYTHONPATH=example python3 -m reflection.server
+	@PYTHONPATH=examples python3 -m reflection.server
 
 server_streaming:
-	@PYTHONPATH=example python3 -m streaming.server
+	@PYTHONPATH=examples python3 -m streaming.server
 
 _server:
-	@PYTHONPATH=example python3 -m _reference.server
+	@PYTHONPATH=examples python3 -m _reference.server
 
 client:
-	@PYTHONPATH=example python3 -m helloworld.client
+	@PYTHONPATH=examples python3 -m helloworld.client
 
 client_streaming:
-	@PYTHONPATH=example python3 -m streaming.client
+	@PYTHONPATH=examples python3 -m streaming.client
 
 _client:
-	@PYTHONPATH=example python3 -m _reference.client
+	@PYTHONPATH=examples python3 -m _reference.client
 
 _bench:
-	@PYTHONPATH=example python3 -m _reference.bench
+	@PYTHONPATH=examples python3 -m _reference.bench

@@ -138,7 +138,7 @@ Use Tox_ in order to test and lint your changes.
 .. _hyper-h2: https://github.com/python-hyper/hyper-h2
 .. _grpcio: https://pypi.org/project/grpcio/
 .. _Tox: https://tox.readthedocs.io/
-.. _examples: https://github.com/vmagamedov/grpclib/tree/master/example
+.. _examples: https://github.com/vmagamedov/grpclib/tree/master/examples
 .. |version| image:: https://img.shields.io/pypi/v/grpclib.svg?label=stable&color=green
 .. _version: https://pypi.org/project/grpclib/
 .. |license| image:: https://img.shields.io/pypi/l/grpclib.svg

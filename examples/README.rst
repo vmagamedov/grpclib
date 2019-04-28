@@ -1,4 +1,4 @@
-Assuming you are in the ``example`` directory.
+Assuming you are in the ``examples`` directory.
 
 To start the server:
 
