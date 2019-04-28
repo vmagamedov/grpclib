@@ -2,6 +2,7 @@
 multidict
 protobuf
 pytest
+pytest-cov
 pytest-asyncio
 async_timeout<3.0.0
 faker

@@ -9,7 +9,7 @@ if PY37:
 
     nullcontext = nullcontext
 else:
-    class nullcontext():
+    class nullcontext():  # pragma: no cover
         def __enter__(self):
             pass
 
