@@ -34,7 +34,7 @@ class Stream(StreamIterator):
     As you can see, every method handler accepts single positional argument -
     stream:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         async def MakeLatte(self, stream: grpclib.server.Stream):
             task: cafe_pb2.LatteOrder = await stream.recv_message()
@@ -76,14 +76,14 @@ class Stream(StreamIterator):
         in this case, :py:class:`Stream` class implements async iteration
         protocol, so you can use it like this:
 
-        .. code-block:: python
+        .. code-block:: python3
 
             async for massage in stream:
                 do_smth_with(message)
 
         or even like this:
 
-        .. code-block:: python
+        .. code-block:: python3
 
             messages = [msg async for msg in stream]
 
@@ -424,7 +424,7 @@ class Server(_GC, asyncio.AbstractServer):
     Handler is a subclass of the abstract base class, which was generated
     from .proto file:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         class CoffeeMachine(cafe_grpc.CoffeeMachineBase):
 

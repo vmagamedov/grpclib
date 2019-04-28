@@ -45,7 +45,7 @@ class Health(HealthBase):
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         from grpclib.health.service import Health
 

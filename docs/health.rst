@@ -38,7 +38,7 @@ Overall Server Health
 
 The most simplest health checks:
 
-.. code-block:: python
+.. code-block:: python3
 
   from grpclib.health.service import Health
 
@@ -57,7 +57,7 @@ Overall server status is always ``SERVING``.
 
 If you want to add real checks:
 
-.. code-block:: python
+.. code-block:: python3
 
   from grpclib.health.service import Health, OVERALL
 
@@ -70,7 +70,7 @@ Detailed Services Health
 
 If you want to provide different checks for different services:
 
-.. code-block:: python
+.. code-block:: python3
 
   foo = FooService()
   bar = BarService()
@@ -97,7 +97,7 @@ Testing:
 
 You can also override checks list for overall server's health status:
 
-.. code-block:: python
+.. code-block:: python3
 
   foo = FooService()
   bar = BarService()

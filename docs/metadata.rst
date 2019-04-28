@@ -46,13 +46,13 @@ additional details here: `gRPC Wire Format`_.
 ``grpclib`` encodes and decodes binary metadata automatically. In Python you
 will receive text metadata as ``str`` type:
 
-.. code-block:: python
+.. code-block:: python3
 
     {"auth-token": "0d16ad85-6ce4-4773-a1be-9f62b2e886a3"}
 
 Binary metadata you will receive as ``bytes`` type:
 
-.. code-block:: python
+.. code-block:: python3
 
     {"auth-token-bin": b"\r\x16\xad\x85l\xe4Gs\xa1\xbe\x9fb\xb2\xe8\x86\xa3"}
 
@@ -61,13 +61,13 @@ Client-Side
 
 Sending metadata:
 
-.. code-block:: python
+.. code-block:: python3
 
     reply = await stub.Method(Request(), metadata={'auth-token': auth_token})
 
 Sending and receiving metadata:
 
-.. code-block:: python
+.. code-block:: python3
 
     async with stub.Method.open(metadata={'auth-token': auth_token}) as stream:
         await stream.recv_initial_metadata()
@@ -86,7 +86,7 @@ Server-Side
 
 Receiving and sending metadata:
 
-.. code-block:: python
+.. code-block:: python3
 
     class Service(ServiceBase):
 

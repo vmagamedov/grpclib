@@ -67,7 +67,7 @@ class Stream(StreamIterator):
     In order to work directly with stream, you should
     :py:meth:`ServiceMethod.open` request like this:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         request = cafe_pb2.LatteOrder(
             size=cafe_pb2.SMALL,
@@ -320,14 +320,14 @@ class Stream(StreamIterator):
         this case, :py:class:`Stream` implements async iterations protocol, so
         you can use it like this:
 
-        .. code-block:: python
+        .. code-block:: python3
 
             async for massage in stream:
                 do_smth_with(message)
 
         or even like this:
 
-        .. code-block:: python
+        .. code-block:: python3
 
             messages = [msg async for msg in stream]
 
@@ -432,7 +432,7 @@ class Channel:
     Represents a connection to the server, which can be used with generated
     stub classes to perform gRPC calls.
 
-    .. code-block:: python
+    .. code-block:: python3
 
         channel = Channel(loop=loop)
         client = cafe_grpc.CoffeeMachineStub(channel)

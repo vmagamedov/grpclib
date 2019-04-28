@@ -71,7 +71,7 @@ Example:
 
   - service X immediately converts timeout into deadline:
 
-    .. code-block:: python
+    .. code-block:: python3
 
       deadline = time.monotonic() + grpc_timeout
 
@@ -80,7 +80,7 @@ Example:
   - now service X wants to make outgoing request to service Y, so it computes
     how much time remains to perform this request:
 
-    .. code-block:: python
+    .. code-block:: python3
 
       new_timeout = max(deadline - time.monotonic(), 0)  # == 80ms
 

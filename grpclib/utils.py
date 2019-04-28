@@ -16,7 +16,7 @@ class Wrapper:
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         w = Wrapper()
 
@@ -65,7 +65,7 @@ class DeadlineWrapper(Wrapper):
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         dw = DeadlineWrapper()
 
@@ -145,7 +145,7 @@ def graceful_exit(servers, *, loop,
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         async def main(...):
             ...
@@ -167,7 +167,7 @@ def graceful_exit(servers, *, loop,
     This context-manager is designed to work in cooperation with
     :py:func:`python:asyncio.run` function:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         if __name__ == '__main__':
             asyncio.run(main())

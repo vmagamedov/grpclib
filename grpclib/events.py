@@ -91,7 +91,7 @@ class _DispatchMeta(type):
 def listen(target, event_type, callback):
     """Registers a listener function for the given target and event type
 
-    .. code-block:: python
+    .. code-block:: python3
 
         async def callback(event: SomeEvent):
             print(event.data)

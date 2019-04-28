@@ -4,7 +4,7 @@ Events
 You can :py:func:`~grpclib.events.listen` for client-side events by using
 :py:class:`~grpclib.client.Channel` instance as a target:
 
-.. code-block:: python
+.. code-block:: python3
 
     from grpclib.events import SendRequest
 
@@ -18,7 +18,7 @@ You can :py:func:`~grpclib.events.listen` for client-side events by using
 For the server-side events you can :py:func:`~grpclib.events.listen`
 :py:class:`~grpclib.server.Server` instance:
 
-.. code-block:: python
+.. code-block:: python3
 
     from grpclib.events import RecvRequest
 
@@ -39,7 +39,7 @@ Listening callbacks are called in order: first added, first called. Each
 callback can :py:meth:`event.interrupt` sequence of calls for a particular
 event:
 
-.. code-block:: python
+.. code-block:: python3
 
     async def authn_error(stream):
         raise GRPCError(Status.UNAUTHENTICATED)

@@ -37,7 +37,7 @@ class ChannelFor:
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         class Greeter(GreeterBase):
             ...

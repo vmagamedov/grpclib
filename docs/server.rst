@@ -4,7 +4,7 @@ Server
 Single :py:class:`~grpclib.server.Server` can serve arbitrary
 number of services:
 
-.. code-block:: python
+.. code-block:: python3
 
   server = Server([services], loop=loop)
 
@@ -17,7 +17,7 @@ It is as simple as using curl.
 
 And it is also important to handle server's exit properly:
 
-.. code-block:: python
+.. code-block:: python3
 
   with graceful_exit([server]):
       await server.start(host, port)
@@ -31,7 +31,7 @@ When things become complicated you can start using
 :py:func:`~python:contextlib.asynccontextmanager` to manage lifecycle of your
 application and used resources:
 
-.. code-block:: python
+.. code-block:: python3
 
   async with AsyncExitStack() as stack:
       db = await stack.enter_async_context(setup_db())

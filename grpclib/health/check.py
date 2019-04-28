@@ -39,7 +39,7 @@ class ServiceCheck(CheckBase):
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         async def db_test():
             # raised exceptions are the same as returning False,
@@ -148,7 +148,7 @@ class ServiceStatus(CheckBase):
 
     Example:
 
-    .. code-block:: python
+    .. code-block:: python3
 
         redis_status = ServiceStatus(loop=loop)
 

@@ -6,14 +6,14 @@ server. Because gRPC is based on HTTP/2, there is no need to create multiple
 connections to the server, many concurrent RPC calls can be performed through
 a single multiplexed connection. See :doc:`overview` for more details.
 
-.. code-block:: python
+.. code-block:: python3
 
   a_channel = Channel(a_host, a_port, loop=loop)
 
 ``Channel`` can also be shared between all service stubs, if those services are
 implemented by the server, to which this channel is connected to.
 
-.. code-block:: python
+.. code-block:: python3
 
   foo_svc = FooServiceStub(a_channel)
   bar_svc = BarServiceStub(a_channel)
@@ -31,13 +31,13 @@ There are two ways to call these method types:
 
 - simple:
 
-  .. code-block:: python
+  .. code-block:: python3
 
     reply = await stub.Method(Request())
 
 - advanced:
 
-  .. code-block:: python
+  .. code-block:: python3
 
     async with stub.Method.open() as stream:
         await stream.send_message(Request())
@@ -49,7 +49,7 @@ simple synchronous sequences. To overcome this issue you may use
 ``async with method.open() as stream:`` context-manager and you will be able
 to control every detail of a RPC call:
 
-.. code-block:: python
+.. code-block:: python3
 
   async with stub.SomeBiDiMethod.open(metadata=request_metadata) as stream:
       await stream.send_request()

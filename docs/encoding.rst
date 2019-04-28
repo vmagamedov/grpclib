@@ -20,7 +20,7 @@ Codec
 In order to use custom serialization format, you should implement
 :py:class:`~grpclib.encoding.base.CodecBase` abstract base class:
 
-.. code-block:: python
+.. code-block:: python3
 
     from grpclib.encoding.base import CodecBase
 
@@ -58,7 +58,7 @@ header::
 Server example
 ~~~~~~~~~~~~~~
 
-.. code-block:: python
+.. code-block:: python3
 
     from grpclib.const import Cardinality, Handler
     from grpclib.server import Server
@@ -86,7 +86,7 @@ Server example
 Client example
 ~~~~~~~~~~~~~~
 
-.. code-block:: python
+.. code-block:: python3
 
     from grpclib.client import Channel, UnaryUnaryMethod
 

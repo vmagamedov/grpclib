@@ -145,7 +145,7 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
         """
         Extends services list with reflection service:
 
-        .. code-block:: python
+        .. code-block:: python3
 
             from grpclib.reflection.service import ServerReflection
 
