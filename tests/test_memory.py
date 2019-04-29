@@ -81,6 +81,7 @@ def test_connection():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(sys.version_info < (3, 7), reason='Python < 3.7')
 async def test_stream(loop):
     cs = ClientServer(DummyService, DummyServiceStub, loop=loop)
     async with cs as (_, stub):
@@ -99,7 +100,7 @@ async def test_stream(loop):
             diff.discard(id(pre))
             for i in diff:
                 try:
-                    print(post[i])
+                    print(repr(post[i])[:120])
                 except Exception:
                     print('...')
                 else:
