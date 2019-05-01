@@ -45,6 +45,3 @@ client_streaming:
 
 _client:
 	@PYTHONPATH=examples python3 -m _reference.client
-
-_bench:
-	@PYTHONPATH=examples python3 -m _reference.bench
