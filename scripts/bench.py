@@ -70,8 +70,7 @@ def serve_grpcio():
         pass
 
 
-@serve.command('aiohttp')
-def serve_aiohttp():
+def _aiohttp_server(*, host='127.0.0.1', port=8000):
     from aiohttp import web
 
     async def handle(request):
@@ -81,12 +80,26 @@ def serve_aiohttp():
 
     app = web.Application()
     app.add_routes([web.post('/', handle)])
-    web.run_app(app, port=8000, access_log=None)
+    web.run_app(app, host=host, port=port, access_log=None)
+
+
+@serve.command('aiohttp')
+def serve_aiohttp():
+    _aiohttp_server()
+
+
+@serve.command('aiohttp+uvloop')
+def serve_aiohttp_uvloop():
+    import uvloop
+    uvloop.install()
+
+    _aiohttp_server()
 
 
 @bench.command('grpc')
+@click.option('-n', type=int, default=1000)
 @click.option('--seq', is_flag=True)
-def bench_grpc(seq):
+def bench_grpc(n, seq):
     connections = 1 if seq else 10
     streams = 1 if seq else 10
     with tempfile.NamedTemporaryFile() as f:
@@ -97,15 +110,16 @@ def bench_grpc(seq):
             '-d', f.name,
             '-H', 'te: trailers',
             '-H', 'content-type: application/grpc+proto',
-            '-n', '1000',
+            '-n', str(n),
             '-c', str(connections),
             '-m', str(streams),
         ])
 
 
 @bench.command('http')
+@click.option('-n', type=int, default=1000)
 @click.option('--seq', is_flag=True)
-def bench_http(seq):
+def bench_http(n, seq):
     connections = 1 if seq else 10
     with tempfile.NamedTemporaryFile() as f:
         f.write(REQUEST.SerializeToString())
@@ -115,7 +129,7 @@ def bench_http(seq):
             '--h1',
             '-d', f.name,
             '-H', 'content-type: application/protobuf',
-            '-n', '1000',
+            '-n', str(n),
             '-c', str(connections),
         ])
 
