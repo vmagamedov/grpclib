@@ -9,6 +9,13 @@ Changelog
   - Implemented ability to listen for "events" from grpclib, see
     :doc:`../events` for more information
 
+0.2.4
+~~~~~
+
+  - Fixed and refactored protocol.Buffer class to properly acknowledge received
+    data, which is critical for flow control mechanism. Also added logic to
+    acknowledge all unread by user data before and after stream release.
+
 0.2.3
 ~~~~~
 
