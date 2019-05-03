@@ -1,5 +1,4 @@
 import socket
-import typing
 
 from io import BytesIO
 from abc import ABC, abstractmethod
@@ -7,7 +6,7 @@ from typing import Optional, List, Tuple, Dict  # noqa
 from asyncio import Transport, Protocol, Event, AbstractEventLoop
 from asyncio import Queue, QueueEmpty
 from functools import partial
-from collections import deque
+from collections import deque, namedtuple
 
 from h2.errors import ErrorCodes
 from h2.config import H2Configuration
@@ -45,15 +44,9 @@ else:
         pass
 
 
-class UnackedData(typing.NamedTuple):
-    data: bytes
-    data_size: int
-    ack_size: int
+UnackedData = namedtuple('UnackedData', ['data', 'data_size', 'ack_size'])
 
-
-class AckedData(typing.NamedTuple):
-    data: memoryview
-    data_size: int
+AckedData = namedtuple('AckedData', ['data', 'data_size'])
 
 
 class Buffer:
