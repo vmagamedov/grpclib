@@ -434,7 +434,7 @@ class Channel:
 
     .. code-block:: python3
 
-        channel = Channel(loop=loop)
+        channel = Channel()
         client = cafe_grpc.CoffeeMachineStub(channel)
 
         ...
@@ -452,16 +452,21 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host=None, port=None, *, loop,  path=None, codec=None,
-                 ssl=None):
+    def __init__(self, host=None, port=None, *, loop=None,  path=None,
+                 codec=None, ssl=None):
         """Initialize connection to the server
 
         :param host: server host name.
 
         :param port: server port number.
 
+        :param loop: asyncio-compatible event loop
+
         :param path: server socket path. If specified, host and port should be
             omitted (must be None).
+
+        :param codec: instance of a codec to encode and decode messages,
+            if omitted ``ProtoCodec`` is used by default
 
         :param ssl: ``True`` or :py:class:`~python:ssl.SSLContext` object; if
             ``True``, default SSL context is used.
@@ -478,7 +483,7 @@ class Channel:
 
         self._host = host
         self._port = port
-        self._loop = loop
+        self._loop = loop or asyncio.get_event_loop()
         self._path = path
 
         self._codec = codec or ProtoCodec()
@@ -519,6 +524,10 @@ class Channel:
                 and not self._protocol.handler.connection_lost)
 
     async def __connect__(self):
+        if self._loop is None:
+            self._loop = asyncio.get_running_loop()
+            self._connect_lock = asyncio.Lock(loop=self._loop)
+
         if not self._connected:
             async with self._connect_lock:
                 if not self._connected:
@@ -562,7 +571,7 @@ class Channel:
             del self._protocol
 
     def __del__(self):
-        if self._protocol is not None:
+        if self._loop is not None and self._protocol is not None:
             message = 'Unclosed connection: {!r}'.format(self)
             warnings.warn(message, ResourceWarning)
             if self._loop.is_closed():

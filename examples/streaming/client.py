@@ -7,7 +7,7 @@ from .helloworld_grpc import GreeterStub
 
 
 async def main():
-    channel = Channel(loop=asyncio.get_event_loop())
+    channel = Channel()
     stub = GreeterStub(channel)
 
     # ------------------------------------------------------------------------

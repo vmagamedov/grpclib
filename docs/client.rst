@@ -8,7 +8,7 @@ a single multiplexed connection. See :doc:`overview` for more details.
 
 .. code-block:: python3
 
-  a_channel = Channel(a_host, a_port, loop=loop)
+  a_channel = Channel(a_host, a_port)
 
 ``Channel`` can also be shared between all service stubs, if those services are
 implemented by the server, to which this channel is connected to.

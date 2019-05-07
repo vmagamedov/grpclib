@@ -27,10 +27,9 @@ async def recv_request(event: RecvRequest):
 
 
 async def main(*, host='127.0.0.1', port=50051):
-    loop = asyncio.get_running_loop()
-    server = Server([Greeter()], loop=loop)
+    server = Server([Greeter()])
     listen(server, RecvRequest, recv_request)
-    with graceful_exit([server], loop=loop):
+    with graceful_exit([server]):
         await server.start(host, port)
         print(f'Serving on {host}:{port}')
         await server.wait_closed()

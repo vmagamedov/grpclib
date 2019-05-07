@@ -8,7 +8,7 @@ You can :py:func:`~grpclib.events.listen` for client-side events by using
 
     from grpclib.events import SendRequest
 
-    channel = Channel(loop=loop)
+    channel = Channel()
 
     async def send_request(event: SendRequest):
         event.metadata['injected'] = 'successfully'
@@ -22,7 +22,7 @@ For the server-side events you can :py:func:`~grpclib.events.listen`
 
     from grpclib.events import RecvRequest
 
-    server = Server([service], loop=loop)
+    server = Server([service])
 
     async def recv_request(event: RecvRequest):
         print(event.metadata.get('injected'))

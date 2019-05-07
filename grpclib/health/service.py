@@ -57,7 +57,7 @@ class Health(HealthBase):
             billing: [db_check],
         })
 
-        server = Server([auth, billing, health], loop=loop)
+        server = Server([auth, billing, health])
 
     """
     def __init__(self, checks=None):

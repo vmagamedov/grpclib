@@ -433,11 +433,11 @@ class Server(_GC, asyncio.AbstractServer):
                 ...
                 await stream.send_message(empty_pb2.Empty())
 
-        server = Server([CoffeeMachine()], loop=loop)
+        server = Server([CoffeeMachine()])
     """
     __gc_interval__ = 10
 
-    def __init__(self, handlers, *, loop, codec=None):
+    def __init__(self, handlers, *, loop=None, codec=None):
         """
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
@@ -447,7 +447,7 @@ class Server(_GC, asyncio.AbstractServer):
             mapping.update(handler.__mapping__())
 
         self._mapping = mapping
-        self._loop = loop
+        self._loop = loop or asyncio.get_event_loop()
         self._codec = codec or ProtoCodec()
         self._config = h2.config.H2Configuration(
             client_side=False,

@@ -84,8 +84,8 @@ from grpclib.utils import graceful_exit
 from grpclib.server import Server
 
 async def main():
-    server = Server([], loop=asyncio.get_event_loop())
-    with graceful_exit([server], loop=asyncio.get_event_loop()):
+    server = Server([])
+    with graceful_exit([server]):
         await server.start('127.0.0.1')
         print("Started!")
         await server.wait_closed()
@@ -116,8 +116,8 @@ from grpclib.utils import graceful_exit
 from grpclib.server import Server
 
 async def main():
-    server = Server([], loop=asyncio.get_event_loop())
-    with graceful_exit([server], loop=asyncio.get_event_loop()):
+    server = Server([])
+    with graceful_exit([server]):
         await server.start('127.0.0.1')
         print("Started!")
         await server.wait_closed()

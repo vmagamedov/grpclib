@@ -44,7 +44,7 @@ The most simplest health checks:
 
   health = Health()
 
-  server = Server(handlers + [health], loop=loop)
+  server = Server(handlers + [health])
 
 Testing:
 

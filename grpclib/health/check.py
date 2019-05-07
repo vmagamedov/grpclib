@@ -47,13 +47,13 @@ class ServiceCheck(CheckBase):
             await db.execute('SELECT 1;')
             return True
 
-        db_check = ServiceCheck(db_test, loop=loop)
+        db_check = ServiceCheck(db_test)
     """
     _value = None
     _poll_task = None
     _last_check = 0.0
 
-    def __init__(self, func, *, loop, check_ttl=DEFAULT_CHECK_TTL,
+    def __init__(self, func, *, loop=None, check_ttl=DEFAULT_CHECK_TTL,
                  check_timeout=DEFAULT_CHECK_TIMEOUT):
         """
         :param func: callable object which returns awaitable object, where
@@ -69,6 +69,7 @@ class ServiceCheck(CheckBase):
 
         self._events = set()
 
+        loop = loop or asyncio.get_event_loop()
         self._check_lock = asyncio.Event(loop=loop)
         self._check_lock.set()
 
@@ -150,7 +151,7 @@ class ServiceStatus(CheckBase):
 
     .. code-block:: python3
 
-        redis_status = ServiceStatus(loop=loop)
+        redis_status = ServiceStatus()
 
         # detected that Redis is available
         redis_status.set(True)
@@ -158,11 +159,11 @@ class ServiceStatus(CheckBase):
         # detected that Redis is unavailable
         redis_status.set(False)
     """
-    def __init__(self, *, loop):
+    def __init__(self, *, loop=None):
         """
         :param loop: asyncio-compatible event loop
         """
-        self._loop = loop
+        self._loop = loop or asyncio.get_event_loop()
         self._value = None
         self._events = set()
 

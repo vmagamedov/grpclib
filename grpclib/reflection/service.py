@@ -152,7 +152,7 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
             services = [Greeter()]
             services = ServerReflection.extend(services)
 
-            server = Server(services, loop=loop)
+            server = Server(services)
             ...
 
         Returns new services list with reflection support added.

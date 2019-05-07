@@ -131,7 +131,7 @@ def _exit_handler(sig_num, servers, flag):
 
 
 @contextmanager
-def graceful_exit(servers, *, loop,
+def graceful_exit(servers, *, loop=None,
                   signals=frozenset({signal.SIGINT, signal.SIGTERM})):
     """Utility context-manager to help properly shutdown server in response to
     the OS signals
@@ -149,7 +149,7 @@ def graceful_exit(servers, *, loop,
 
         async def main(...):
             ...
-            with graceful_exit([server], loop=loop):
+            with graceful_exit([server]):
                 await server.start(host, port)
                 print('Serving on {}:{}'.format(host, port))
                 await server.wait_closed()
@@ -176,6 +176,7 @@ def graceful_exit(servers, *, loop,
     :param loop: asyncio-compatible event loop
     :param signals: set of the OS signals to handle
     """
+    loop = loop or asyncio.get_event_loop()
     signals = set(signals)
     flag = []
     for sig_num in signals:

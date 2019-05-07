@@ -80,8 +80,7 @@ Server example
                 ),
             }
 
-    loop = asyncio.get_event_loop()
-    server = Server([PingServiceHandler()], loop=loop, codec=JSONCodec())
+    server = Server([PingServiceHandler()], codec=JSONCodec())
 
 Client example
 ~~~~~~~~~~~~~~
@@ -100,8 +99,7 @@ Client example
                 None,
             )
 
-    loop = asyncio.get_event_loop()
-    channel = Channel(loop=loop, codec=JSONCodec())
+    channel = Channel(codec=JSONCodec())
     ping_stub = PingServiceStub(channel)
     ...
     await ping_stub.Ping({'value': 'ping'})

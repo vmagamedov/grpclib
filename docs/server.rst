@@ -6,7 +6,7 @@ number of services:
 
 .. code-block:: python3
 
-  server = Server([services], loop=loop)
+  server = Server([services])
 
 To monitor health of your services you can use standard gRPC health checking
 protocol, details are here: :doc:`health`.
@@ -38,8 +38,8 @@ application and used resources:
       foo_svc = await stack.enter_async_context(setup_foo_svc())
 
       bar_svc = BarService(db, foo_svc)
-      server = Server([bar_svc], loop=loop)
-      stack.enter_context(graceful_exit([server], loop=loop))
+      server = Server([bar_svc])
+      stack.enter_context(graceful_exit([server]))
       await server.start(host, port)
       await server.wait_closed()
 

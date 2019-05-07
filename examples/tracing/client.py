@@ -14,8 +14,7 @@ async def send_request(event: SendRequest):
 
 
 async def main():
-    loop = asyncio.get_event_loop()
-    channel = Channel('127.0.0.1', 50051, loop=loop)
+    channel = Channel('127.0.0.1', 50051)
     listen(channel, SendRequest, send_request)
 
     stub = GreeterStub(channel)
