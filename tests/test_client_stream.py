@@ -380,6 +380,7 @@ async def test_unimplemented_error(cs: ClientStream):
 
             cs.client_conn.server_h2c.send_headers(stream_id, [
                 (':status', '200'),
+                ('content-type', 'application/grpc+proto'),
                 ('grpc-status', str(Status.UNIMPLEMENTED.value)),
             ], end_stream=True)
             cs.client_conn.server_flush()
@@ -402,6 +403,7 @@ async def test_unimplemented_error_with_stream_reset(cs: ClientStream):
 
             cs.client_conn.server_h2c.send_headers(stream_id, [
                 (':status', '200'),
+                ('content-type', 'application/grpc+proto'),
                 ('grpc-status', str(Status.UNIMPLEMENTED.value)),
             ], end_stream=True)
             cs.client_conn.server_h2c.reset_stream(stream_id)
@@ -491,6 +493,7 @@ async def test_invalid_grpc_status_in_headers(cs: ClientStream, grpc_status):
 
             cs.client_conn.server_h2c.send_headers(stream_id, [
                 (':status', '200'),
+                ('content-type', 'application/grpc+proto'),
                 ('grpc-status', grpc_status),
             ], end_stream=True)
             cs.client_conn.server_flush()
@@ -554,6 +557,7 @@ async def test_non_ok_grpc_status_in_headers(cs: ClientStream, grpc_message):
 
             headers = [
                 (':status', '200'),
+                ('content-type', 'application/grpc+proto'),
                 ('grpc-status', str(Status.DATA_LOSS.value)),
             ]
             if grpc_message is not None:
@@ -713,8 +717,8 @@ async def test_no_messages_for_unary(loop, cs: ClientStream):
 
 
 @pytest.mark.asyncio
-async def test_no_messages_for_stream(loop):
-    cs = ClientStream(loop=loop, cardinality=Cardinality.STREAM_STREAM,
+async def test_empty_request(loop):
+    cs = ClientStream(loop=loop, cardinality=Cardinality.STREAM_UNARY,
                       send_type=DummyRequest, recv_type=DummyReply)
     async with cs.client_stream as stream:
         await stream.send_request()
@@ -725,7 +729,52 @@ async def test_no_messages_for_stream(loop):
             (':status', '200'),
             ('content-type', 'application/grpc+proto'),
         ])
+        cs.client_conn.server_h2c.send_data(
+            stream_id,
+            grpc_encode(DummyReply(value='pong'), DummyReply),
+        )
         cs.client_conn.server_h2c.send_headers(stream_id, [
             ('grpc-status', str(Status.OK.value)),
         ], end_stream=True)
         cs.client_conn.server_flush()
+
+        reply = await stream.recv_message()
+        assert reply == DummyReply(value='pong')
+
+
+@pytest.mark.asyncio
+async def test_empty_response(loop):
+    cs = ClientStream(loop=loop, cardinality=Cardinality.UNARY_STREAM,
+                      send_type=DummyRequest, recv_type=DummyReply)
+    async with cs.client_stream as stream:
+        await stream.send_message(DummyRequest(value='ping'), end=True)
+        events = cs.client_conn.to_server_transport.events()
+        stream_id = events[-1].stream_id
+        cs.client_conn.server_h2c.send_headers(stream_id, [
+            (':status', '200'),
+            ('content-type', 'application/grpc+proto'),
+        ])
+        cs.client_conn.server_h2c.send_headers(stream_id, [
+            ('grpc-status', str(Status.OK.value)),
+        ], end_stream=True)
+        cs.client_conn.server_flush()
+        reply = await stream.recv_message()
+        assert reply is None
+
+
+@pytest.mark.asyncio
+async def test_empty_trailers_only_response(loop):
+    cs = ClientStream(loop=loop, cardinality=Cardinality.UNARY_STREAM,
+                      send_type=DummyRequest, recv_type=DummyReply)
+    async with cs.client_stream as stream:
+        await stream.send_message(DummyRequest(value='ping'), end=True)
+        events = cs.client_conn.to_server_transport.events()
+        stream_id = events[-1].stream_id
+        cs.client_conn.server_h2c.send_headers(stream_id, [
+            (':status', '200'),
+            ('content-type', 'application/grpc+proto'),
+            ('grpc-status', str(Status.OK.value)),
+        ], end_stream=True)
+        cs.client_conn.server_flush()
+        reply = await stream.recv_message()
+        assert reply is None

@@ -188,7 +188,10 @@ class Stream(StreamIterator):
             headers = []
         else:
             # trailers-only response
-            headers = [(':status', '200')]
+            headers = [
+                (':status', '200'),
+                ('content-type', self._content_type),
+            ]
 
         headers.append(('grpc-status', str(status.value)))
         if status_message is not None:

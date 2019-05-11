@@ -160,6 +160,7 @@ async def test_deadline(loop):
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '200'),
+            ('content-type', 'application/grpc+proto'),
             ('grpc-status', '4'),  # DEADLINE_EXCEEDED
         ], end_stream=True),
         Reset(ErrorCodes.NO_ERROR),

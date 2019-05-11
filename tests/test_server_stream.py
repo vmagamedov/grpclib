@@ -145,6 +145,7 @@ async def test_no_response(stream, stub):
     assert stub.__events__ == [
         SendHeaders(
             [(':status', '200'),
+             ('content-type', 'application/grpc+proto'),
              ('grpc-status', str(Status.UNKNOWN.value)),
              ('grpc-message', 'Empty response')],
             end_stream=True,
@@ -248,6 +249,7 @@ async def test_error_before_send_initial_metadata(stream, stub):
     assert stub.__events__ == [
         SendHeaders(
             [(':status', '200'),
+             ('content-type', 'application/grpc+proto'),
              ('grpc-status', str(Status.UNKNOWN.value)),
              ('grpc-message', 'Internal Server Error')],
             end_stream=True,
@@ -330,6 +332,7 @@ async def test_grpc_error(stream, stub):
     assert stub.__events__ == [
         SendHeaders(
             [(':status', '200'),
+             ('content-type', 'application/grpc+proto'),
              ('grpc-status', str(Status.DEADLINE_EXCEEDED.value))],
             end_stream=True,
         ),

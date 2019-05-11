@@ -228,14 +228,26 @@ class Stream(StreamIterator):
             raise GRPCError(grpc_status,
                             'Received :status = {!r}'.format(status))
 
-    def _raise_for_grpc_status(self, headers_map, *, optional=False):
+    def _raise_for_content_type(self, headers_map):
+        content_type = headers_map.get('content-type')
+        if content_type is None:
+            raise GRPCError(Status.UNKNOWN,
+                            'Missing content-type header')
+
+        base_content_type, _, sub_type = content_type.partition('+')
+        sub_type = sub_type or ProtoCodec.__content_subtype__
+        if (
+                base_content_type != GRPC_CONTENT_TYPE
+                or sub_type != self._codec.__content_subtype__
+        ):
+            raise GRPCError(Status.UNKNOWN,
+                            'Invalid content-type: {!r}'
+                            .format(content_type))
+
+    def _raise_for_grpc_status(self, headers_map):
         grpc_status = headers_map.get('grpc-status')
         if grpc_status is None:
-            if optional:
-                return
-            else:
-                raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
-
+            raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
         try:
             grpc_status_enum = Status(int(grpc_status))
         except ValueError:
@@ -273,29 +285,26 @@ class Stream(StreamIterator):
             with self._wrapper:
                 headers = await self._stream.recv_headers()
                 self._recv_initial_metadata_done = True
-
-                metadata = decode_metadata(headers)
-                metadata, = await self._dispatch.recv_initial_metadata(metadata)
-                self.initial_metadata = metadata
-
                 headers_map = dict(headers)
                 self._raise_for_status(headers_map)
-                self._raise_for_grpc_status(headers_map, optional=True)
+                self._raise_for_content_type(headers_map)
+                if 'grpc-status' in headers_map:  # trailers-only response
+                    self._recv_trailing_metadata_done = True
 
-                content_type = headers_map.get('content-type')
-                if content_type is None:
-                    raise GRPCError(Status.UNKNOWN,
-                                    'Missing content-type header')
+                    im = MultiDict()
+                    im, = await self._dispatch.recv_initial_metadata(im)
+                    self.initial_metadata = im
 
-                base_content_type, _, sub_type = content_type.partition('+')
-                sub_type = sub_type or ProtoCodec.__content_subtype__
-                if (
-                    base_content_type != GRPC_CONTENT_TYPE
-                    or sub_type != self._codec.__content_subtype__
-                ):
-                    raise GRPCError(Status.UNKNOWN,
-                                    'Invalid content-type: {!r}'
-                                    .format(content_type))
+                    tm = decode_metadata(headers)
+                    tm, = await self._dispatch.recv_trailing_metadata(tm)
+                    self.trailing_metadata = tm
+
+                    self._raise_for_grpc_status(headers_map)
+                else:
+                    im = decode_metadata(headers)
+                    im, = await self._dispatch.recv_initial_metadata(im)
+                    self.initial_metadata = im
+
         except StreamTerminatedError:
             # Server can send RST_STREAM frame right after sending trailers-only
             # response, so we have to check received headers and probably raise
@@ -306,7 +315,8 @@ class Stream(StreamIterator):
             else:
                 headers_map = dict(headers)
                 self._raise_for_status(headers_map)
-                self._raise_for_grpc_status(headers_map, optional=True)
+                if 'grpc-status' in headers_map:  # trailers-only response
+                    self._raise_for_grpc_status(headers_map)
                 # If there are no errors in the headers, just reraise original
                 # StreamTerminatedError
                 raise
@@ -377,9 +387,9 @@ class Stream(StreamIterator):
             headers = await self._stream.recv_headers()
             self._recv_trailing_metadata_done = True
 
-            metadata = decode_metadata(headers)
-            metadata, = await self._dispatch.recv_trailing_metadata(metadata)
-            self.trailing_metadata = metadata
+            tm = decode_metadata(headers)
+            tm, = await self._dispatch.recv_trailing_metadata(tm)
+            self.trailing_metadata = tm
 
             self._raise_for_grpc_status(dict(headers))
 
