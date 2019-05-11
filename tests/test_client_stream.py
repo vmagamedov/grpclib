@@ -778,3 +778,4 @@ async def test_empty_trailers_only_response(loop):
         cs.client_conn.server_flush()
         reply = await stream.recv_message()
         assert reply is None
+        await stream.recv_trailing_metadata()  # should be noop

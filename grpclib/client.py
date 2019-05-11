@@ -87,6 +87,7 @@ class Stream(StreamIterator):
     _recv_message_count = 0
     _recv_trailing_metadata_done = False
     _cancel_done = False
+    _trailers_only = None
 
     _stream = None
     _release_stream = None
@@ -289,7 +290,7 @@ class Stream(StreamIterator):
                 self._raise_for_status(headers_map)
                 self._raise_for_content_type(headers_map)
                 if 'grpc-status' in headers_map:  # trailers-only response
-                    self._recv_trailing_metadata_done = True
+                    self._trailers_only = True
 
                     im = MultiDict()
                     im, = await self._dispatch.recv_initial_metadata(im)
@@ -373,25 +374,32 @@ class Stream(StreamIterator):
         if not self._end_done:
             raise ProtocolError('Outgoing stream was not ended')
 
+        if not self._recv_initial_metadata_done:
+            raise ProtocolError('Initial metadata was not received before '
+                                'waiting for trailing metadata')
+
         if (
             not self._cardinality.server_streaming
             and not self._recv_message_count
         ):
-            raise ProtocolError('No messages were received before waiting '
+            raise ProtocolError('Message was not received before waiting '
                                 'for trailing metadata')
 
         if self._recv_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already received')
 
-        with self._wrapper:
-            headers = await self._stream.recv_headers()
+        if self._trailers_only:
             self._recv_trailing_metadata_done = True
+        else:
+            with self._wrapper:
+                headers = await self._stream.recv_headers()
+                self._recv_trailing_metadata_done = True
 
-            tm = decode_metadata(headers)
-            tm, = await self._dispatch.recv_trailing_metadata(tm)
-            self.trailing_metadata = tm
+                tm = decode_metadata(headers)
+                tm, = await self._dispatch.recv_trailing_metadata(tm)
+                self.trailing_metadata = tm
 
-            self._raise_for_grpc_status(dict(headers))
+                self._raise_for_grpc_status(dict(headers))
 
     async def cancel(self):
         """Coroutine to cancel this request/stream.
