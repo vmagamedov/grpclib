@@ -2,10 +2,13 @@ import abc
 import struct
 
 
+NOTHING = object()
+
+
 async def recv_message(stream, codec, message_type):
     meta = await stream.recv_data(5)
     if not meta:
-        return
+        return NOTHING
 
     compressed_flag = struct.unpack('?', meta[:1])[0]
     if compressed_flag:

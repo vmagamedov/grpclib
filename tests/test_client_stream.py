@@ -6,7 +6,7 @@ import pytest
 import async_timeout
 
 from faker import Faker
-from h2.events import StreamReset
+from h2.events import StreamReset, StreamEnded
 from multidict import MultiDict
 from h2.settings import SettingCodes
 
@@ -721,10 +721,11 @@ async def test_empty_request(loop):
     cs = ClientStream(loop=loop, cardinality=Cardinality.STREAM_UNARY,
                       send_type=DummyRequest, recv_type=DummyReply)
     async with cs.client_stream as stream:
-        await stream.send_request()
-        await stream.end()
+        await stream.send_request(end=True)
         events = cs.client_conn.to_server_transport.events()
-        stream_id = events[-1].stream_id
+        stream_ended = events[-1]
+        assert isinstance(stream_ended, StreamEnded)
+        stream_id = stream_ended.stream_id
         cs.client_conn.server_h2c.send_headers(stream_id, [
             (':status', '200'),
             ('content-type', 'application/grpc+proto'),

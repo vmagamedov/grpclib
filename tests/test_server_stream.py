@@ -169,7 +169,7 @@ async def test_send_message_twice(stream):
         await stream.send_message(DummyReply(value='pong1'))
         with pytest.raises(ProtocolError) as err:
             await stream.send_message(DummyReply(value='pong2'))
-    err.match('Server should send exactly one message in response')
+    err.match('Message was already sent')
 
 
 @pytest.mark.asyncio

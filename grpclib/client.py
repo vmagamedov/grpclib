@@ -12,7 +12,7 @@ from multidict import MultiDict
 
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status, Cardinality
-from .stream import send_message, recv_message
+from .stream import send_message, recv_message, NOTHING
 from .stream import StreamIterator
 from .events import _DispatchChannelEvents
 from .protocol import H2Protocol, AbstractHandler
@@ -81,10 +81,9 @@ class Stream(StreamIterator):
     """
     # stream state
     _send_request_done = False
-    _send_message_count = 0
+    _send_message_done = False
     _end_done = False
     _recv_initial_metadata_done = False
-    _recv_message_count = 0
     _recv_trailing_metadata_done = False
     _cancel_done = False
     _trailers_only = None
@@ -118,7 +117,7 @@ class Stream(StreamIterator):
         self._dispatch = dispatch
         self._deadline = deadline
 
-    async def send_request(self):
+    async def send_request(self, *, end=False):
         """Coroutine to send request headers with metadata to the server.
 
         New HTTP/2 stream will be created during this coroutine call.
@@ -126,9 +125,16 @@ class Stream(StreamIterator):
         .. note:: This coroutine will be called implicitly during first
             :py:meth:`send_message` coroutine call, if not called before
             explicitly.
+
+        :param end: end outgoing stream if there are no messages to send in
+            a streaming request
         """
         if self._send_request_done:
             raise ProtocolError('Request is already sent')
+
+        if end and not self._cardinality.client_streaming:
+            raise ProtocolError('Unary request requires a message to be sent '
+                                'before ending outgoing stream')
 
         with self._wrapper:
             protocol = await self._channel.__connect__()
@@ -159,11 +165,13 @@ class Stream(StreamIterator):
             )
             headers.extend(encode_metadata(metadata))
             release_stream = await stream.send_request(
-                headers, _processor=protocol.processor,
+                headers, end_stream=end, _processor=protocol.processor,
             )
             self._stream = stream
             self._release_stream = release_stream
             self._send_request_done = True
+            if end:
+                self._end_done = True
 
     async def send_message(self, message, *, end=False):
         """Coroutine to send message to the server.
@@ -188,14 +196,21 @@ class Stream(StreamIterator):
         if not self._send_request_done:
             await self.send_request()
 
-        if end and self._end_done:
-            raise ProtocolError('Stream was already ended')
+        end_stream = end
+        if not self._cardinality.client_streaming:
+            if self._send_message_done:
+                raise ProtocolError('Message was already sent')
+            else:
+                end_stream = True
+
+        if self._end_done:
+            raise ProtocolError('Stream is ended')
 
         with self._wrapper:
             message, = await self._dispatch.send_message(message)
             await send_message(self._stream, self._codec, message,
-                               self._send_type, end=end)
-            self._send_message_count += 1
+                               self._send_type, end=end_stream)
+            self._send_message_done = True
             if end:
                 self._end_done = True
 
@@ -209,18 +224,23 @@ class Stream(StreamIterator):
         HTTP/2 stream will have half-closed (local) state after this coroutine
         call.
         """
+        if not self._send_request_done:
+            raise ProtocolError('Request was not sent')
+
         if self._end_done:
             raise ProtocolError('Stream was already ended')
 
-        if (
-            not self._cardinality.client_streaming
-            and not self._send_message_count
-        ):
-            raise ProtocolError('Unary request requires a single message '
-                                'to be sent')
-
-        await self._stream.end()
-        self._end_done = True
+        if not self._cardinality.client_streaming:
+            if not self._send_message_done:
+                raise ProtocolError('Unary request requires a single message '
+                                    'to be sent')
+            else:
+                # `send_message` must already ended stream
+                self._end_done = True
+                return
+        else:
+            await self._stream.end()
+            self._end_done = True
 
     def _raise_for_status(self, headers_map):
         status = headers_map[':status']
@@ -347,16 +367,15 @@ class Stream(StreamIterator):
 
         :returns: message
         """
-        # TODO: check that messages were sent for non-stream-stream requests
         if not self._recv_initial_metadata_done:
             await self.recv_initial_metadata()
 
         with self._wrapper:
             message = await recv_message(self._stream, self._codec,
                                          self._recv_type)
-            self._recv_message_count += 1
-            message, = await self._dispatch.recv_message(message)
-            return message
+            if message is not NOTHING:
+                message, = await self._dispatch.recv_message(message)
+                return message
 
     async def recv_trailing_metadata(self):
         """Coroutine to wait for trailers with trailing metadata from the
@@ -377,13 +396,6 @@ class Stream(StreamIterator):
         if not self._recv_initial_metadata_done:
             raise ProtocolError('Initial metadata was not received before '
                                 'waiting for trailing metadata')
-
-        if (
-            not self._cardinality.server_streaming
-            and not self._recv_message_count
-        ):
-            raise ProtocolError('Message was not received before waiting '
-                                'for trailing metadata')
 
         if self._recv_trailing_metadata_done:
             raise ProtocolError('Trailing metadata was already received')
@@ -408,6 +420,9 @@ class Stream(StreamIterator):
         explicitly informed that there is nothing to expect from the client
         regarding this request/stream.
         """
+        if not self._send_request_done:
+            raise ProtocolError('Request was not sent yet')
+
         if self._cancel_done:
             raise ProtocolError('Stream was already cancelled')
 

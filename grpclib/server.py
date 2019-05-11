@@ -2,7 +2,6 @@ import abc
 import socket
 import logging
 import asyncio
-import warnings
 
 import h2.config
 import h2.exceptions
@@ -12,7 +11,7 @@ from multidict import MultiDict
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status
 from .compat import nullcontext
-from .stream import send_message, recv_message
+from .stream import send_message, recv_message, NOTHING
 from .stream import StreamIterator
 from .events import _DispatchServerEvents
 from .metadata import Deadline, encode_grpc_message
@@ -45,7 +44,7 @@ class Stream(StreamIterator):
     """
     # stream state
     _send_initial_metadata_done = False
-    _send_message_count = 0
+    _send_message_done = False
     _send_trailing_metadata_done = False
     _cancel_done = False
 
@@ -93,8 +92,9 @@ class Stream(StreamIterator):
         :returns: message
         """
         message = await recv_message(self._stream, self._codec, self._recv_type)
-        message, = await self._dispatch.recv_message(message)
-        return message
+        if message is not NOTHING:
+            message, = await self._dispatch.recv_message(message)
+            return message
 
     async def send_initial_metadata(self, *, metadata=None):
         """Coroutine to send headers with initial metadata to the client.
@@ -125,7 +125,7 @@ class Stream(StreamIterator):
         await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
 
-    async def send_message(self, message, **kwargs):
+    async def send_message(self, message):
         """Coroutine to send message to the client.
 
         If server sends UNARY response, then you should call this coroutine only
@@ -134,28 +134,16 @@ class Stream(StreamIterator):
 
         :param message: message object
         """
-        if 'end' in kwargs:
-            warnings.warn('"end" argument is deprecated, use '
-                          '"stream.send_trailing_metadata" explicitly',
-                          stacklevel=2)
-
-        end = kwargs.pop('end', False)
-        assert not kwargs, kwargs
-
         if not self._send_initial_metadata_done:
             await self.send_initial_metadata()
 
         if not self._cardinality.server_streaming:
-            if self._send_message_count:
-                raise ProtocolError('Server should send exactly one message '
-                                    'in response')
+            if self._send_message_done:
+                raise ProtocolError('Message was already sent')
 
         message, = await self._dispatch.send_message(message)
         await send_message(self._stream, self._codec, message, self._send_type)
-        self._send_message_count += 1
-
-        if end:
-            await self.send_trailing_metadata()
+        self._send_message_done = True
 
     async def send_trailing_metadata(self, *, status=Status.OK,
                                      status_message=None, metadata=None):
@@ -178,7 +166,7 @@ class Stream(StreamIterator):
 
         if (
             not self._cardinality.server_streaming
-            and not self._send_message_count
+            and not self._send_message_done
             and status is Status.OK
         ):
             raise ProtocolError('Unary response with OK status requires '
@@ -243,7 +231,7 @@ class Stream(StreamIterator):
             else:
                 # propagate exception
                 return
-        elif not self._send_message_count:
+        elif not self._send_message_done:
             status = Status.UNKNOWN
             status_message = 'Empty response'
         else:
