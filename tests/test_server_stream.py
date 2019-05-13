@@ -234,6 +234,34 @@ async def test_no_messages_for_stream(stream_streaming, stub):
 
 
 @pytest.mark.asyncio
+async def test_no_messages_trailers_only_explicit(stream_streaming, stub):
+    async with stream_streaming:
+        await stream_streaming.send_trailing_metadata()
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto'),
+             ('grpc-status', str(Status.OK.value))],
+            end_stream=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_no_messages_trailers_only_implicit(stream_streaming, stub):
+    async with stream_streaming:
+        pass
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto'),
+             ('grpc-status', str(Status.OK.value))],
+            end_stream=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_cancel_twice(stream):
     async with stream:
         await stream.cancel()
