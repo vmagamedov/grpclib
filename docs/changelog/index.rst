@@ -1,9 +1,20 @@
 Changelog
 =========
 
-0.3.0rc1
+0.3.0rc2
 ~~~~~~~~
 
+  - Fixed implicit trailers-only response for streaming calls
+  - Added ``end`` argument to the ``client.Stream.send_request`` method
+  - **BREAKING:** Removed deprecated ``end`` argument from the
+    ``server.Stream.send_message`` method
+  - Fixed server to send content-type header in a trailers-only responses
+  - Implemented support for the trailers-only empty response on the client-side
+  - Made ``loop`` argument optional in a user-facing apis
+  - Added more checks to verify that streams are used accordingly to the gRPC
+    protocol spec
+  - **BREAKING:** Undocumented ``Channel.request`` method was changed in a
+    backward-incompatible way
   - Dropped Python 3.5 support for async generators and better typing support
   - **BREAKING:** Removed undocumented ``grpclib.metadata.Metadata`` class
   - Implemented ability to listen for "events" from grpclib, see
