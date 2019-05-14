@@ -84,7 +84,8 @@ def _stub(loop):
 
 @pytest.fixture(name='stream')
 def _stream(stub):
-    stream = Stream(stub, Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
+    stream = Stream(stub, '/svc/Method', Cardinality.UNARY_UNARY,
+                    DummyRequest, DummyReply,
                     codec=ProtoCodec(), dispatch=_DispatchServerEvents())
     stream.metadata = MultiDict()
     return stream
@@ -92,7 +93,8 @@ def _stream(stub):
 
 @pytest.fixture(name='stream_streaming')
 def _stream_streaming(stub):
-    stream = Stream(stub, Cardinality.UNARY_STREAM, DummyRequest, DummyReply,
+    stream = Stream(stub, '/svc/Method', Cardinality.UNARY_STREAM,
+                    DummyRequest, DummyReply,
                     codec=ProtoCodec(), dispatch=_DispatchServerEvents())
     stream.metadata = MultiDict()
     return stream
@@ -139,27 +141,12 @@ async def test_send_custom_metadata(stream, stub):
 
 
 @pytest.mark.asyncio
-async def test_no_response(stream, stub):
-    async with stream:
-        pass
-    assert stub.__events__ == [
-        SendHeaders(
-            [(':status', '200'),
-             ('content-type', 'application/grpc+proto'),
-             ('grpc-status', str(Status.UNKNOWN.value)),
-             ('grpc-message', 'Empty response')],
-            end_stream=True,
-        ),
-        Reset(ErrorCodes.NO_ERROR),
-    ]
-
-
-@pytest.mark.asyncio
 async def test_send_initial_metadata_twice(stream):
     async with stream:
         await stream.send_initial_metadata()
         with pytest.raises(ProtocolError) as err:
             await stream.send_initial_metadata()
+        await stream.send_trailing_metadata(status=Status.UNKNOWN)
     err.match('Initial metadata was already sent')
 
 
@@ -208,10 +195,28 @@ async def test_send_trailing_metadata_twice(stream):
 
 
 @pytest.mark.asyncio
+async def test_no_response(stream, stub):
+    with pytest.raises(ProtocolError, match='requires a single message'):
+        async with stream:
+            pass
+    assert stub.__events__ == [
+        SendHeaders(
+            [(':status', '200'),
+             ('content-type', 'application/grpc+proto'),
+             ('grpc-status', str(Status.UNKNOWN.value)),
+             ('grpc-message', 'Internal Server Error')],
+            end_stream=True,
+        ),
+        Reset(ErrorCodes.NO_ERROR),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_no_messages_for_unary(stream):
     async with stream:
         with pytest.raises(ProtocolError) as err:
             await stream.send_trailing_metadata()
+        raise err.value
     err.match('OK status requires a single message to be sent')
 
 
@@ -234,7 +239,7 @@ async def test_no_messages_for_stream(stream_streaming, stub):
 
 
 @pytest.mark.asyncio
-async def test_no_messages_trailers_only_explicit(stream_streaming, stub):
+async def test_successful_trailers_only_explicit(stream_streaming, stub):
     async with stream_streaming:
         await stream_streaming.send_trailing_metadata()
     assert stub.__events__ == [
@@ -248,7 +253,7 @@ async def test_no_messages_trailers_only_explicit(stream_streaming, stub):
 
 
 @pytest.mark.asyncio
-async def test_no_messages_trailers_only_implicit(stream_streaming, stub):
+async def test_successful_trailers_only_implicit(stream_streaming, stub):
     async with stream_streaming:
         pass
     assert stub.__events__ == [
@@ -369,8 +374,8 @@ async def test_grpc_error(stream, stub):
 
 
 def mk_stream(h2_stream, metadata):
-    stream = Stream(h2_stream, Cardinality.UNARY_UNARY, DummyRequest,
-                    DummyReply, codec=ProtoCodec(),
+    stream = Stream(h2_stream, '/svc/Method', Cardinality.UNARY_UNARY,
+                    DummyRequest, DummyReply, codec=ProtoCodec(),
                     dispatch=_DispatchServerEvents())
     stream.metadata = metadata
     return stream
@@ -407,6 +412,9 @@ async def test_exit_and_stream_was_closed(loop):
         # simulating client closing stream
         await client_h2_stream.reset()
         to_server_transport.process(server_proc)
+
+        # we should fail here on this attempt to send something
+        await server_stream.send_message(DummyReply(value='pong'))
 
 
 @pytest.mark.asyncio

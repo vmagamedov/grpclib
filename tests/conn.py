@@ -113,6 +113,7 @@ class ServerStream:
 
         self.server_stream = server.Stream(
             self.server_h2s,
+            path,
             Cardinality.UNARY_UNARY,
             recv_type,
             send_type,

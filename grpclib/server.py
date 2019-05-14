@@ -48,9 +48,10 @@ class Stream(StreamIterator):
     _send_trailing_metadata_done = False
     _cancel_done = False
 
-    def __init__(self, stream, cardinality, recv_type, send_type,
+    def __init__(self, stream, method_name, cardinality, recv_type, send_type,
                  *, codec, dispatch: _DispatchServerEvents, deadline=None):
         self._stream = stream
+        self._method_name = method_name
         self._cardinality = cardinality
         self._recv_type = recv_type
         self._send_type = send_type
@@ -221,7 +222,11 @@ class Stream(StreamIterator):
             # to suppress exception propagation
             return True
 
+        protocol_error = None
         if exc_val is not None:
+            # This error should be logged by ``request_handler``, here we
+            # have to convert it into trailers and send to the client using
+            # ``send_trailing_metadata`` method.
             if isinstance(exc_val, GRPCError):
                 status = exc_val.status
                 status_message = exc_val.message
@@ -231,9 +236,18 @@ class Stream(StreamIterator):
             else:
                 # propagate exception
                 return
-        elif not self._send_message_done:
+        elif (
+            # There is a possibility of a ``ProtocolError`` in the
+            # ``send_trailing_metadata`` method, so we are checking for such
+            # errors here
+            not self._cardinality.server_streaming
+            and not self._send_message_done
+        ):
             status = Status.UNKNOWN
-            status_message = 'Empty response'
+            status_message = 'Internal Server Error'
+            protocol_error = ('Unary response with OK status requires '
+                              'a single message to be sent: {!r}'
+                              .format(self._method_name))
         else:
             status = Status.OK
             status_message = None
@@ -243,6 +257,9 @@ class Stream(StreamIterator):
                                               status_message=status_message)
         except h2.exceptions.StreamClosedError:
             pass
+
+        if protocol_error is not None:
+            raise ProtocolError(protocol_error)
 
         # to suppress exception propagation
         return True
@@ -306,7 +323,8 @@ async def request_handler(mapping, _stream, headers, codec, dispatch,
         metadata = decode_metadata(headers)
 
         async with Stream(
-            _stream, method.cardinality, method.request_type, method.reply_type,
+            _stream, method_name, method.cardinality,
+            method.request_type, method.reply_type,
             codec=codec, dispatch=dispatch, deadline=deadline
         ) as stream:
             if deadline is None:
@@ -338,6 +356,8 @@ async def request_handler(mapping, _stream, headers, codec, dispatch,
             except Exception:
                 log.exception('Application error')
                 raise
+    except ProtocolError:
+        log.exception('Application error')
     except Exception:
         log.exception('Server error')
     finally:
