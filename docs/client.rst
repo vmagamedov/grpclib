@@ -35,6 +35,7 @@ There are two ways to call RPC methods:
         while True:
             task = await task_queue.get()
             if task is None:
+                await stream.end()
                 break
             else:
                 await stream.send_message(task)
