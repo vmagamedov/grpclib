@@ -390,7 +390,9 @@ class Stream(StreamIterator):
         When this coroutine finishes, you can access received trailing metadata
         by using :py:attr:`trailing_metadata` attribute.
         """
-        if not self._end_done:
+        if (not self._end_done  # explicit end
+            and not (not self._cardinality.client_streaming  # implicit end
+                     and self._send_message_done)):
             raise ProtocolError('Outgoing stream was not ended')
 
         if not self._recv_initial_metadata_done:

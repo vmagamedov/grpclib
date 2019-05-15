@@ -40,10 +40,12 @@ class ErrorDetected(Exception):
 @pytest.mark.asyncio
 async def test_unary_unary(cs: ClientStream):
     async with cs.client_stream as stream:
-        await stream.send_message(DummyRequest(value='ping'), end=True)
+        await stream.send_message(DummyRequest(value='ping'))
 
         events = cs.client_conn.to_server_transport.events()
-        stream_id = events[-1].stream_id
+        event = events[-1]
+        assert isinstance(event, StreamEnded)
+        stream_id = event.stream_id
 
         cs.client_conn.server_h2c.send_headers(
             stream_id,
@@ -71,7 +73,9 @@ async def test_no_request(cs: ClientStream):
 
 
 @pytest.mark.asyncio
-async def test_no_end(cs: ClientStream):
+async def test_no_end(loop):
+    cs = ClientStream(loop=loop, send_type=DummyRequest, recv_type=DummyReply,
+                      cardinality=Cardinality.STREAM_UNARY)
     with pytest.raises(ProtocolError) as exc:
         async with cs.client_stream as stream:
             await stream.send_request()
