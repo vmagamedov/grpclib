@@ -4,6 +4,7 @@ env
 *.egg-info
 *.pyc
 *.pyo
+*.pyi
 .venv
 .tox
 .coverage
