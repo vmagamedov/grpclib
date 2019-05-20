@@ -2,9 +2,12 @@
 # source: dummy.proto
 # plugin: grpclib.plugin.main
 import abc
+import typing
 
 import grpclib.const
 import grpclib.client
+if typing.TYPE_CHECKING:
+    import grpclib.server
 
 import dummy_pb2
 
@@ -12,22 +15,22 @@ import dummy_pb2
 class DummyServiceBase(abc.ABC):
 
     @abc.abstractmethod
-    async def UnaryUnary(self, stream):
+    async def UnaryUnary(self, stream: 'grpclib.server.Stream[dummy_pb2.DummyRequest, dummy_pb2.DummyReply]') -> None:
         pass
 
     @abc.abstractmethod
-    async def UnaryStream(self, stream):
+    async def UnaryStream(self, stream: 'grpclib.server.Stream[dummy_pb2.DummyRequest, dummy_pb2.DummyReply]') -> None:
         pass
 
     @abc.abstractmethod
-    async def StreamUnary(self, stream):
+    async def StreamUnary(self, stream: 'grpclib.server.Stream[dummy_pb2.DummyRequest, dummy_pb2.DummyReply]') -> None:
         pass
 
     @abc.abstractmethod
-    async def StreamStream(self, stream):
+    async def StreamStream(self, stream: 'grpclib.server.Stream[dummy_pb2.DummyRequest, dummy_pb2.DummyReply]') -> None:
         pass
 
-    def __mapping__(self):
+    def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
             '/dummy.DummyService/UnaryUnary': grpclib.const.Handler(
                 self.UnaryUnary,

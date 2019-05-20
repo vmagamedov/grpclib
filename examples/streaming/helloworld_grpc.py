@@ -2,9 +2,12 @@
 # source: streaming/helloworld.proto
 # plugin: grpclib.plugin.main
 import abc
+import typing
 
 import grpclib.const
 import grpclib.client
+if typing.TYPE_CHECKING:
+    import grpclib.server
 
 import streaming.helloworld_pb2
 
@@ -12,22 +15,22 @@ import streaming.helloworld_pb2
 class GreeterBase(abc.ABC):
 
     @abc.abstractmethod
-    async def UnaryUnaryGreeting(self, stream):
+    async def UnaryUnaryGreeting(self, stream: 'grpclib.server.Stream[streaming.helloworld_pb2.HelloRequest, streaming.helloworld_pb2.HelloReply]') -> None:
         pass
 
     @abc.abstractmethod
-    async def UnaryStreamGreeting(self, stream):
+    async def UnaryStreamGreeting(self, stream: 'grpclib.server.Stream[streaming.helloworld_pb2.HelloRequest, streaming.helloworld_pb2.HelloReply]') -> None:
         pass
 
     @abc.abstractmethod
-    async def StreamUnaryGreeting(self, stream):
+    async def StreamUnaryGreeting(self, stream: 'grpclib.server.Stream[streaming.helloworld_pb2.HelloRequest, streaming.helloworld_pb2.HelloReply]') -> None:
         pass
 
     @abc.abstractmethod
-    async def StreamStreamGreeting(self, stream):
+    async def StreamStreamGreeting(self, stream: 'grpclib.server.Stream[streaming.helloworld_pb2.HelloRequest, streaming.helloworld_pb2.HelloReply]') -> None:
         pass
 
-    def __mapping__(self):
+    def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
             '/helloworld.Greeter/UnaryUnaryGreeting': grpclib.const.Handler(
                 self.UnaryUnaryGreeting,

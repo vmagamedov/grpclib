@@ -9,6 +9,7 @@ from google.protobuf.compiler.plugin_pb2 import CodeGeneratorResponse
 
 from .. import const
 from .. import client
+from .. import server
 
 
 SUFFIX = '_grpc.py'
@@ -52,9 +53,14 @@ def render(proto_file, package, imports, services):
         return buf.content()
 
     buf.add('import abc')
+    buf.add('import typing')
     buf.add('')
     buf.add('import {}', const.__name__)
     buf.add('import {}', client.__name__)
+    buf.add('if typing.TYPE_CHECKING:')
+    with buf.indent():
+        buf.add('import {}', server.__name__)
+
     buf.add('')
     for mod in imports:
         buf.add('import {}', mod)
@@ -67,14 +73,18 @@ def render(proto_file, package, imports, services):
         buf.add('')
         buf.add('class {}Base(abc.ABC):', service.name)
         with buf.indent():
-            for (name, _, _, _) in service.methods:
+            for (name, _, request_type, reply_type) in service.methods:
                 buf.add('')
                 buf.add('@abc.abstractmethod')
-                buf.add('async def {}(self, stream):', name)
+                buf.add("async def {}(self, stream: '{}.{}[{}, {}]') -> None:",
+                        name, server.__name__, server.Stream.__name__,
+                        request_type, reply_type)
                 with buf.indent():
                     buf.add('pass')
             buf.add('')
-            buf.add('def __mapping__(self):')
+            buf.add('def __mapping__(self) -> typing.Dict[str, {}.{}]:',
+                    const.__name__,
+                    const.Handler.__name__)
             with buf.indent():
                 buf.add('return {{')
                 with buf.indent():

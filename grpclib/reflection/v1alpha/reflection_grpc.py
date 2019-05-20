@@ -2,9 +2,12 @@
 # source: grpclib/reflection/v1alpha/reflection.proto
 # plugin: grpclib.plugin.main
 import abc
+import typing
 
 import grpclib.const
 import grpclib.client
+if typing.TYPE_CHECKING:
+    import grpclib.server
 
 import grpclib.reflection.v1alpha.reflection_pb2
 
@@ -12,10 +15,10 @@ import grpclib.reflection.v1alpha.reflection_pb2
 class ServerReflectionBase(abc.ABC):
 
     @abc.abstractmethod
-    async def ServerReflectionInfo(self, stream):
+    async def ServerReflectionInfo(self, stream: 'grpclib.server.Stream[grpclib.reflection.v1alpha.reflection_pb2.ServerReflectionRequest, grpclib.reflection.v1alpha.reflection_pb2.ServerReflectionResponse]') -> None:
         pass
 
-    def __mapping__(self):
+    def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
             '/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo': grpclib.const.Handler(
                 self.ServerReflectionInfo,
