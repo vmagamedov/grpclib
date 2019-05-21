@@ -6,7 +6,7 @@ from .helloworld_pb2 import HelloRequest
 from .helloworld_grpc import GreeterStub
 
 
-async def main():
+async def main() -> None:
     channel = Channel()
     stub = GreeterStub(channel)
 

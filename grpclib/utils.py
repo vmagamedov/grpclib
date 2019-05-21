@@ -2,6 +2,7 @@ import sys
 import signal
 import asyncio
 
+from typing import Optional, Iterable, TYPE_CHECKING, Sequence
 from contextlib import contextmanager
 
 
@@ -9,6 +10,13 @@ if sys.version_info > (3, 7):
     _current_task = asyncio.current_task
 else:
     _current_task = asyncio.Task.current_task
+
+
+if TYPE_CHECKING:
+    from typing_extensions import Protocol
+
+    class _Closable(Protocol):
+        def close(self) -> None: ...
 
 
 class Wrapper:
@@ -131,8 +139,12 @@ def _exit_handler(sig_num, servers, flag):
 
 
 @contextmanager
-def graceful_exit(servers, *, loop=None,
-                  signals=frozenset({signal.SIGINT, signal.SIGTERM})):
+def graceful_exit(
+    servers: Sequence['_Closable'],
+    *,
+    loop: Optional[asyncio.AbstractEventLoop] = None,
+    signals: Iterable[int] = (signal.SIGINT, signal.SIGTERM),
+):
     """Utility context-manager to help properly shutdown server in response to
     the OS signals
 

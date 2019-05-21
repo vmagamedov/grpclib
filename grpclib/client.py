@@ -2,10 +2,12 @@ import http
 import asyncio
 import warnings
 
+from typing import Generic, Optional, Union, Type, List, Sequence
+
 try:
-    import ssl
+    import ssl as _ssl
 except ImportError:
-    ssl = None
+    _ssl = None
 
 from h2.config import H2Configuration
 from multidict import MultiDict
@@ -13,13 +15,13 @@ from multidict import MultiDict
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status, Cardinality
 from .stream import send_message, recv_message, NOTHING
-from .stream import StreamIterator
+from .stream import StreamIterator, _RecvType, _SendType
 from .events import _DispatchChannelEvents
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
-from .metadata import encode_metadata, decode_metadata
+from .metadata import encode_metadata, decode_metadata, _MetadataLike, _Metadata
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
-from .encoding.base import GRPC_CONTENT_TYPE
+from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
 from .encoding.proto import ProtoCodec
 
 
@@ -59,7 +61,7 @@ class Handler(AbstractHandler):
         self.connection_lost = True
 
 
-class Stream(StreamIterator):
+class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     """
     Represents gRPC method call - HTTP/2 request/stream, and everything you
     need to communicate with server in order to get response.
@@ -97,12 +99,12 @@ class Stream(StreamIterator):
     #: This property contains initial metadata, received with headers from
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_initial_metadata` coroutine succeeds.
-    initial_metadata = None
+    initial_metadata: Optional[_Metadata] = None
 
     #: This property contains trailing metadata, received with trailers from
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
-    trailing_metadata = None
+    trailing_metadata: Optional[_Metadata] = None
 
     def __init__(self, channel, method_name, metadata, cardinality, send_type,
                  recv_type, *, codec, dispatch: _DispatchChannelEvents,
@@ -117,7 +119,7 @@ class Stream(StreamIterator):
         self._dispatch = dispatch
         self._deadline = deadline
 
-    async def send_request(self, *, end=False):
+    async def send_request(self, *, end: bool = False) -> None:
         """Coroutine to send request headers with metadata to the server.
 
         New HTTP/2 stream will be created during this coroutine call.
@@ -173,7 +175,12 @@ class Stream(StreamIterator):
             if end:
                 self._end_done = True
 
-    async def send_message(self, message, *, end=False):
+    async def send_message(
+        self,
+        message: _SendType,
+        *,
+        end: bool = False,
+    ) -> None:
         """Coroutine to send message to the server.
 
         If client sends UNARY request, then you should call this coroutine only
@@ -214,7 +221,7 @@ class Stream(StreamIterator):
             if end:
                 self._end_done = True
 
-    async def end(self):
+    async def end(self) -> None:
         """Coroutine to end stream from the client-side.
 
         It should be used to finally end stream from the client-side when we're
@@ -282,7 +289,7 @@ class Stream(StreamIterator):
                     status_message = decode_grpc_message(status_message)
                 raise GRPCError(grpc_status_enum, status_message)
 
-    async def recv_initial_metadata(self):
+    async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
 
         .. note:: This coroutine will be called implicitly during first
@@ -342,7 +349,7 @@ class Stream(StreamIterator):
                 # StreamTerminatedError
                 raise
 
-    async def recv_message(self):
+    async def recv_message(self) -> Optional[_RecvType]:
         """Coroutine to receive incoming message from the server.
 
         If server sends UNARY response, then you can call this coroutine only
@@ -377,7 +384,7 @@ class Stream(StreamIterator):
                 message, = await self._dispatch.recv_message(message)
                 return message
 
-    async def recv_trailing_metadata(self):
+    async def recv_trailing_metadata(self) -> None:
         """Coroutine to wait for trailers with trailing metadata from the
         server.
 
@@ -415,7 +422,7 @@ class Stream(StreamIterator):
 
                 self._raise_for_grpc_status(dict(headers))
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """Coroutine to cancel this request/stream.
 
         Client will send RST_STREAM frame to the server, so it will be
@@ -432,7 +439,7 @@ class Stream(StreamIterator):
             await self._stream.reset()  # TODO: specify error code
             self._cancel_done = True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'Stream[_SendType, _RecvType]':
         if self._deadline is None:
             self._wrapper = Wrapper()
         else:
@@ -487,8 +494,16 @@ class Channel:
     """
     _protocol = None
 
-    def __init__(self, host=None, port=None, *, loop=None,  path=None,
-                 codec=None, ssl=None):
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        *,
+        loop: asyncio.AbstractEventLoop = None,
+        path: Optional[str] = None,
+        codec: CodecBase = None,
+        ssl: Union[None, bool, '_ssl.SSLContext'] = None,
+    ):
         """Initialize connection to the server
 
         :param host: server host name.
@@ -571,11 +586,11 @@ class Channel:
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
     def _get_default_ssl_context(self):
-        if not ssl:
+        if _ssl is None:
             raise RuntimeError('SSL is not supported.')
 
-        ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
-        ctx.options |= (ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1)
+        ctx = _ssl.create_default_context(purpose=_ssl.Purpose.SERVER_AUTH)
+        ctx.options |= (_ssl.OP_NO_TLSv1 | _ssl.OP_NO_TLSv1_1)
         ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
         ctx.set_alpn_protocols(['h2'])
         try:
@@ -598,7 +613,7 @@ class Channel:
                       request_type, reply_type, codec=self._codec,
                       dispatch=self.__dispatch__, deadline=deadline)
 
-    def close(self):
+    def close(self) -> None:
         """Closes connection to the server.
         """
         if self._protocol is not None:
@@ -616,21 +631,32 @@ class Channel:
                 self._loop.call_exception_handler({'message': message})
 
 
-class ServiceMethod:
+class ServiceMethod(Generic[_SendType, _RecvType]):
     """
     Base class for all gRPC method types
     """
-    def __init__(self, channel: Channel, name, request_type, reply_type):
+    def __init__(
+        self,
+        channel: Channel,
+        name: str,
+        request_type: Type[_SendType],
+        reply_type: Type[_RecvType],
+    ):
         self.channel = channel
         self.name = name
         self.request_type = request_type
         self.reply_type = reply_type
 
-    def __init_subclass__(cls, cardinality, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls._cardinality = cardinality
+    @property
+    def _cardinality(self):
+        raise NotImplementedError
 
-    def open(self, *, timeout=None, metadata=None) -> Stream:
+    def open(
+        self,
+        *,
+        timeout: Optional[float] = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> Stream[_SendType, _RecvType]:
         """Creates and returns :py:class:`Stream` object to perform request
         to the server.
 
@@ -648,7 +674,7 @@ class ServiceMethod:
                                     timeout=timeout, metadata=metadata)
 
 
-class UnaryUnaryMethod(ServiceMethod, cardinality=Cardinality.UNARY_UNARY):
+class UnaryUnaryMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents UNARY-UNARY gRPC method type.
 
@@ -656,7 +682,15 @@ class UnaryUnaryMethod(ServiceMethod, cardinality=Cardinality.UNARY_UNARY):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message, *, timeout=None, metadata=None):
+    _cardinality = Cardinality.UNARY_UNARY
+
+    async def __call__(
+        self,
+        message: _SendType,
+        *,
+        timeout: float = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> _RecvType:
         """Coroutine to perform defined call.
 
         :param message: message
@@ -669,7 +703,7 @@ class UnaryUnaryMethod(ServiceMethod, cardinality=Cardinality.UNARY_UNARY):
             return await stream.recv_message()
 
 
-class UnaryStreamMethod(ServiceMethod, cardinality=Cardinality.UNARY_STREAM):
+class UnaryStreamMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents UNARY-STREAM gRPC method type.
 
@@ -677,7 +711,15 @@ class UnaryStreamMethod(ServiceMethod, cardinality=Cardinality.UNARY_STREAM):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message, *, timeout=None, metadata=None):
+    _cardinality = Cardinality.UNARY_STREAM
+
+    async def __call__(
+        self,
+        message: _SendType,
+        *,
+        timeout: float = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> List[_RecvType]:
         """Coroutine to perform defined call.
 
         :param message: message
@@ -690,7 +732,7 @@ class UnaryStreamMethod(ServiceMethod, cardinality=Cardinality.UNARY_STREAM):
             return [message async for message in stream]
 
 
-class StreamUnaryMethod(ServiceMethod, cardinality=Cardinality.STREAM_UNARY):
+class StreamUnaryMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents STREAM-UNARY gRPC method type.
 
@@ -698,7 +740,15 @@ class StreamUnaryMethod(ServiceMethod, cardinality=Cardinality.STREAM_UNARY):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, messages, *, timeout=None, metadata=None):
+    _cardinality = Cardinality.STREAM_UNARY
+
+    async def __call__(
+        self,
+        messages: Sequence[_SendType],
+        *,
+        timeout: float = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> _RecvType:
         """Coroutine to perform defined call.
 
         :param messages: sequence of messages
@@ -716,7 +766,7 @@ class StreamUnaryMethod(ServiceMethod, cardinality=Cardinality.STREAM_UNARY):
             return await stream.recv_message()
 
 
-class StreamStreamMethod(ServiceMethod, cardinality=Cardinality.STREAM_STREAM):
+class StreamStreamMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents STREAM-STREAM gRPC method type.
 
@@ -724,7 +774,15 @@ class StreamStreamMethod(ServiceMethod, cardinality=Cardinality.STREAM_STREAM):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, messages, *, timeout=None, metadata=None):
+    _cardinality = Cardinality.STREAM_STREAM
+
+    async def __call__(
+        self,
+        messages: Sequence[_SendType],
+        *,
+        timeout: float = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> List[_RecvType]:
         """Coroutine to perform defined call.
 
         :param messages: sequence of messages

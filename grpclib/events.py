@@ -1,10 +1,21 @@
-from typing import Type, Optional, Callable, TYPE_CHECKING, Coroutine, Any
+from typing import TYPE_CHECKING, Type, TypeVar
+from typing import Optional, Callable, Coroutine, Any
 from itertools import chain
 from collections import defaultdict
 
-from multidict import MultiDict
+from .metadata import Deadline, _Metadata
 
-from .metadata import Deadline
+
+if TYPE_CHECKING:
+    from typing_extensions import Protocol
+
+    from . import server
+
+    class _Target(Protocol):
+        __dispatch__: '_Dispatch'
+
+    class _MethodFunc(Protocol):
+        async def __call__(self, stream: 'server.Stream'): ...
 
 
 class _Event:
@@ -26,6 +37,9 @@ class _Event:
 
     def interrupt(self):
         super().__setattr__('__interrupted__', True)
+
+
+_EventType = TypeVar('_EventType', bound=_Event)
 
 
 class _EventMeta(type):
@@ -88,7 +102,11 @@ class _DispatchMeta(type):
         return super().__new__(mcs, name, bases, params)
 
 
-def listen(target, event_type, callback):
+def listen(
+    target: '_Target',
+    event_type: Type[_EventType],
+    callback: Callable[[_EventType], Coroutine],
+):
     """Registers a listener function for the given target and event type
 
     .. code-block:: python3
@@ -136,10 +154,6 @@ class _DispatchCommonEvents(_Dispatch, metaclass=_DispatchMeta):
         ))
 
 
-if TYPE_CHECKING:
-    from . import server  # noqa
-
-
 class RecvRequest(_Event, metaclass=_EventMeta):
     """Dispatches after request was received from the client
 
@@ -152,8 +166,8 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     """
     __payload__ = ('metadata', 'method_func')
 
-    metadata: MultiDict
-    method_func: Callable[['server.Stream'], Coroutine]
+    metadata: _Metadata
+    method_func: '_MethodFunc'
     method_name: str
     deadline: Optional[Deadline]
     content_type: str
@@ -166,7 +180,7 @@ class SendInitialMetadata(_Event, metaclass=_EventMeta):
     """
     __payload__ = ('metadata',)
 
-    metadata: MultiDict
+    metadata: _Metadata
 
 
 class SendTrailingMetadata(_Event, metaclass=_EventMeta):
@@ -176,7 +190,7 @@ class SendTrailingMetadata(_Event, metaclass=_EventMeta):
     """
     __payload__ = ('metadata',)
 
-    metadata: MultiDict
+    metadata: _Metadata
 
 
 class _DispatchServerEvents(_DispatchCommonEvents):
@@ -215,7 +229,7 @@ class SendRequest(_Event, metaclass=_EventMeta):
     """
     __payload__ = ('metadata',)
 
-    metadata: MultiDict
+    metadata: _Metadata
     method_name: str
     deadline: Optional[Deadline]
     content_type: str
@@ -229,7 +243,7 @@ class RecvInitialMetadata(_Event, metaclass=_EventMeta):
     """
     __payload__ = ('metadata',)
 
-    metadata: MultiDict
+    metadata: _Metadata
 
 
 class RecvTrailingMetadata(_Event, metaclass=_EventMeta):
@@ -240,7 +254,7 @@ class RecvTrailingMetadata(_Event, metaclass=_EventMeta):
     """
     __payload__ = ('metadata',)
 
-    metadata: MultiDict
+    metadata: _Metadata
 
 
 class _DispatchChannelEvents(_DispatchCommonEvents):

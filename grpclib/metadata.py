@@ -3,6 +3,7 @@ import time
 import platform
 
 from base64 import b64encode, b64decode
+from typing import Union, Mapping, Sequence, Tuple, NewType
 from urllib.parse import quote, unquote
 
 from multidict import MultiDict
@@ -114,7 +115,12 @@ _SPECIAL = {
 }
 
 
-def decode_metadata(headers):
+_Value = Union[str, bytes]
+_Metadata = NewType('_Metadata', 'MultiDict[_Value]')
+_MetadataLike = Union[Mapping[str, _Value], Sequence[Tuple[str, _Value]]]
+
+
+def decode_metadata(headers) -> _Metadata:
     metadata = MultiDict()
     for key, value in headers:
         if key.startswith((':', 'grpc-')) or key in _SPECIAL:
@@ -127,7 +133,7 @@ def decode_metadata(headers):
     return metadata
 
 
-def encode_metadata(metadata):
+def encode_metadata(metadata: _MetadataLike):
     if hasattr(metadata, 'items'):
         metadata = metadata.items()
     result = []

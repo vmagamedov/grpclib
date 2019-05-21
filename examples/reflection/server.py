@@ -7,9 +7,8 @@ from grpclib.reflection.service import ServerReflection
 from helloworld.server import Greeter
 
 
-async def main(*, host='127.0.0.1', port=50051):
-    services = [Greeter()]
-    services = ServerReflection.extend(services)
+async def main(*, host: str = '127.0.0.1', port: int = 50051) -> None:
+    services = ServerReflection.extend([Greeter()])
 
     server = Server(services)
     with graceful_exit([server]):

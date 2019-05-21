@@ -1,11 +1,16 @@
 import abc
 import struct
 
+from typing import Type, TypeVar, Optional, AsyncIterator
+
 
 NOTHING = object()
 
+_SendType = TypeVar('_SendType')
+_RecvType = TypeVar('_RecvType')
 
-async def recv_message(stream, codec, message_type):
+
+async def recv_message(stream, codec, message_type: Type[_RecvType]):
     meta = await stream.recv_data(5)
     if not meta:
         return NOTHING
@@ -22,7 +27,8 @@ async def recv_message(stream, codec, message_type):
     return message
 
 
-async def send_message(stream, codec, message, message_type, *, end=False):
+async def send_message(stream, codec, message, message_type: Type[_SendType],
+                       *, end=False):
     reply_bin = codec.encode(message, message_type)
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))
@@ -30,16 +36,16 @@ async def send_message(stream, codec, message, message_type, *, end=False):
     await stream.send_data(reply_data, end_stream=end)
 
 
-class StreamIterator(abc.ABC):
+class StreamIterator(AsyncIterator[_RecvType], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    async def recv_message(self):
+    async def recv_message(self) -> Optional[_RecvType]:
         pass
 
-    def __aiter__(self):
+    def __aiter__(self) -> AsyncIterator[_RecvType]:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> _RecvType:
         message = await self.recv_message()
         if message is None:
             raise StopAsyncIteration()

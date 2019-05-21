@@ -3,6 +3,8 @@ import socket
 import logging
 import asyncio
 
+from typing import TYPE_CHECKING, Optional, Mapping, Sequence, Generic
+
 import h2.config
 import h2.exceptions
 
@@ -11,21 +13,32 @@ from multidict import MultiDict
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status
 from .compat import nullcontext
-from .stream import send_message, recv_message, NOTHING
+from .stream import send_message, recv_message, NOTHING, _RecvType, _SendType
 from .stream import StreamIterator
 from .events import _DispatchServerEvents
-from .metadata import Deadline, encode_grpc_message
-from .metadata import encode_metadata, decode_metadata
+from .metadata import Deadline, encode_grpc_message, _Metadata
+from .metadata import encode_metadata, decode_metadata, _MetadataLike
 from .protocol import H2Protocol, AbstractHandler
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
-from .encoding.base import GRPC_CONTENT_TYPE
+from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
 from .encoding.proto import ProtoCodec
+
+
+if TYPE_CHECKING:
+    import ssl as _ssl  # noqa
+
+    from typing_extensions import Protocol
+
+    from . import const
+
+    class _Servable(Protocol):
+        def __mapping__(self) -> Mapping[str, const.Handler]: ...
 
 
 log = logging.getLogger(__name__)
 
 
-class Stream(StreamIterator):
+class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
     """
     Represents gRPC method call – HTTP/2 request/stream, and everything you
     need to communicate with client in order to handle this request.
@@ -42,6 +55,9 @@ class Stream(StreamIterator):
 
     This is true for every gRPC method type.
     """
+    deadline: Optional[Deadline]
+    metadata: Optional[_Metadata]
+
     # stream state
     _send_initial_metadata_done = False
     _send_message_done = False
@@ -67,7 +83,7 @@ class Stream(StreamIterator):
     def _content_type(self):
         return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
-    async def recv_message(self):
+    async def recv_message(self) -> Optional[_RecvType]:
         """Coroutine to receive incoming message from the client.
 
         If client sends UNARY request, then you can call this coroutine
@@ -97,7 +113,11 @@ class Stream(StreamIterator):
             message, = await self._dispatch.recv_message(message)
             return message
 
-    async def send_initial_metadata(self, *, metadata=None):
+    async def send_initial_metadata(
+        self,
+        *,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> None:
         """Coroutine to send headers with initial metadata to the client.
 
         In gRPC you can send initial metadata as soon as possible, because
@@ -126,7 +146,7 @@ class Stream(StreamIterator):
         await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
 
-    async def send_message(self, message):
+    async def send_message(self, message: _SendType) -> None:
         """Coroutine to send message to the client.
 
         If server sends UNARY response, then you should call this coroutine only
@@ -146,8 +166,13 @@ class Stream(StreamIterator):
         await send_message(self._stream, self._codec, message, self._send_type)
         self._send_message_done = True
 
-    async def send_trailing_metadata(self, *, status=Status.OK,
-                                     status_message=None, metadata=None):
+    async def send_trailing_metadata(
+        self,
+        *,
+        status: Status = Status.OK,
+        status_message: Optional[str] = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> None:
         """Coroutine to send trailers with trailing metadata to the client.
 
         This coroutine allows sending trailers-only responses, in case of some
@@ -197,7 +222,7 @@ class Stream(StreamIterator):
         if status != Status.OK and self._stream.closable:
             self._stream.reset_nowait()
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """Coroutine to cancel this request/stream.
 
         Server will send RST_STREAM frame to the client, so it will be
@@ -210,7 +235,7 @@ class Stream(StreamIterator):
         await self._stream.reset()  # TODO: specify error code
         self._cancel_done = True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'Stream[_RecvType, _SendType]':
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -448,7 +473,13 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
-    def __init__(self, handlers, *, loop=None, codec=None):
+    def __init__(
+        self,
+        handlers: Sequence['_Servable'],
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+        codec: Optional[CodecBase] = None,
+    ) -> None:
         """
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
@@ -481,10 +512,20 @@ class Server(_GC, asyncio.AbstractServer):
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 
-    async def start(self, host=None, port=None, *, path=None,
-                    family=socket.AF_UNSPEC, flags=socket.AI_PASSIVE,
-                    sock=None, backlog=100, ssl=None, reuse_address=None,
-                    reuse_port=None):
+    async def start(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        *,
+        path: Optional[str] = None,
+        family: 'socket.AddressFamily' = socket.AF_UNSPEC,
+        flags: 'socket.AddressInfo' = socket.AI_PASSIVE,
+        sock: Optional[socket.socket] = None,
+        backlog: int = 100,
+        ssl: Optional['_ssl.SSLContext'] = None,
+        reuse_address: Optional[bool] = None,
+        reuse_port: Optional[bool] = None,
+    ) -> None:
         """Coroutine to start the server.
 
         :param host: can be a string, containing IPv4/v6 address or domain name.
@@ -539,7 +580,7 @@ class Server(_GC, asyncio.AbstractServer):
                 reuse_address=reuse_address, reuse_port=reuse_port
             )
 
-    def close(self):
+    def close(self) -> None:
         """Stops accepting new connections, cancels all currently running
         requests. Request handlers are able to handle `CancelledError` and
         exit properly.
@@ -550,7 +591,7 @@ class Server(_GC, asyncio.AbstractServer):
         for handler in self._handlers:
             handler.close()
 
-    async def wait_closed(self):
+    async def wait_closed(self) -> None:
         """Coroutine to wait until all existing request handlers will exit
         properly.
         """
