@@ -1,7 +1,25 @@
 - !Image
   name: env36
-  from: !DockerImage python:3.6-slim
+  from: !DockerImage python:3.6.0-slim
   repository: localhost/grpclib/env36
+  tasks:
+  - run: pip3 install --no-cache-dir h2==3.1.0
+  - run: pip3 install --no-cache-dir -r {{reqs}}
+    reqs: !File "requirements.txt"
+
+- !Image
+  name: env37
+  from: !DockerImage python:3.7.0-slim
+  repository: localhost/grpclib/env37
+  tasks:
+  - run: pip3 install --no-cache-dir h2==3.1.0
+  - run: pip3 install --no-cache-dir -r {{reqs}}
+    reqs: !File "requirements.txt"
+
+- !Image
+  name: env38
+  from: !DockerImage python:3.8.0a4-slim
+  repository: localhost/grpclib/env38
   tasks:
   - run: pip3 install --no-cache-dir h2==3.1.0
   - run: pip3 install --no-cache-dir -r {{reqs}}
@@ -43,6 +61,20 @@
 - !Command
   name: test36
   image: env36
+  run: py.test
+  environ:
+    PYTHONPATH: .
+
+- !Command
+  name: test37
+  image: env37
+  run: py.test
+  environ:
+    PYTHONPATH: .
+
+- !Command
+  name: test38
+  image: env38
   run: py.test
   environ:
     PYTHONPATH: .
