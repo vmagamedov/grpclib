@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package primes;
+
+import "google/protobuf/wrappers.proto";
+
+message Request {
+    int64 number = 1;
+}
+
+message Reply {
+    google.protobuf.BoolValue is_prime = 1;
+}
+
+service Primes {
+    rpc Check (Request) returns (Reply) {}
+}

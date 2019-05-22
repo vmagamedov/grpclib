@@ -17,6 +17,9 @@ clean:
 	rm -f ./examples/streaming/*_pb2.py
 	rm -f ./examples/streaming/*_grpc.py
 	rm -f ./examples/streaming/*.pyi
+	rm -f ./examples/multiproc/*_pb2.py
+	rm -f ./examples/multiproc/*_grpc.py
+	rm -f ./examples/multiproc/*.pyi
 	rm -f ./tests/*_pb2.py
 	rm -f ./tests/*_grpc.py
 	rm -f ./tests/*.pyi
@@ -27,6 +30,7 @@ proto: clean
 	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=. grpclib/reflection/v1alpha/reflection.proto
 	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --grpc_python_out=examples --mypy_out=examples examples/helloworld/helloworld.proto
 	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --mypy_out=examples examples/streaming/helloworld.proto
+	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --mypy_out=examples examples/multiproc/primes.proto
 	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=. dummy.proto
 
 release: proto
