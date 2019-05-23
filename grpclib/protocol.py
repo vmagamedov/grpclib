@@ -301,10 +301,12 @@ class Stream:
                 await self._connection.write_ready.wait()
 
             window = self._h2_connection.local_flow_control_window(self.id)
-            if not window:
+            if not window > 0:
                 self.__window_updated__.clear()
                 await self.__window_updated__.wait()
-                window = self._h2_connection.local_flow_control_window(self.id)
+                # during "await" above other streams were able to send data and
+                # decrease current window size, so try from the beginning
+                continue
 
             max_frame_size = self._h2_connection.max_outbound_frame_size
             f_chunk = f.read(min(window, max_frame_size, f_last - f_pos))
