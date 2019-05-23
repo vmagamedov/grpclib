@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.2.5
+~~~~~
+
+  - Fixed ``protocol.Stream.send_data`` method to properly wait for a positive
+    window size
+
 0.2.4
 ~~~~~
 
