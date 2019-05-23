@@ -1,9 +1,12 @@
 Changelog
 =========
 
-0.3.0rc2
+0.3.0rc3
 ~~~~~~~~
 
+  - Added example of using ``ProcessPoolExecutor`` for CPU-intensive tasks
+  - Covered examples and most user-facing apis with type annotations, many
+    thanks and credit to Callum Ryan @c-ryan747 for his work on #64
   - Fixed implicit trailers-only response for streaming calls
   - Added ``end`` argument to the ``client.Stream.send_request`` method
   - **BREAKING:** Removed deprecated ``end`` argument from the
@@ -19,6 +22,12 @@ Changelog
   - **BREAKING:** Removed undocumented ``grpclib.metadata.Metadata`` class
   - Implemented ability to listen for "events" from grpclib, see
     :doc:`../events` for more information
+
+0.2.5
+~~~~~
+
+  - Fixed ``protocol.Stream.send_data`` method to properly wait for a positive
+    window size
 
 0.2.4
 ~~~~~
