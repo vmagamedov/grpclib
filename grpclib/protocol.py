@@ -204,6 +204,7 @@ class Stream:
     id = None
     __buffer__ = None
     __wrapper__ = None
+    __headers__: 'Queue[List[Tuple[str, str]]]'
 
     def __init__(
         self, connection: Connection, h2_connection: H2Connection,
@@ -220,8 +221,7 @@ class Stream:
         if stream_id is not None:
             self.init_stream(stream_id, self._connection, loop=self._loop)
 
-        self.__headers__ = Queue(loop=loop) \
-            # type: Queue[List[Tuple[str, str]]]
+        self.__headers__ = Queue(loop=loop)
         self.__window_updated__ = Event(loop=loop)
 
     def init_stream(self, stream_id, connection, *, loop):
@@ -374,6 +374,8 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
+    streams: Dict[int, Stream]
+
     def __init__(self, handler: AbstractHandler,
                  connection: Connection) -> None:
         self.handler = handler
@@ -396,7 +398,7 @@ class EventsProcessor:
             PingAcknowledged: self.process_ping_ack_received,  # deprecated
         }
 
-        self.streams = {}  # type: Dict[int, Stream]
+        self.streams = {}
 
     def create_stream(self):
         stream = self.connection.create_stream()
@@ -507,8 +509,8 @@ class EventsProcessor:
 
 
 class H2Protocol(Protocol):
-    connection = None  # type: Optional[Connection]
-    processor = None  # type: Optional[EventsProcessor]
+    connection: Optional[Connection] = None
+    processor: Optional[EventsProcessor] = None
 
     def __init__(self, handler: AbstractHandler, config: H2Configuration,
                  *, loop) -> None:
@@ -516,7 +518,7 @@ class H2Protocol(Protocol):
         self.config = config
         self.loop = loop
 
-    def connection_made(self, transport: Transport):  # type: ignore
+    def connection_made(self, transport: Transport):
         sock = transport.get_extra_info('socket')
         if sock is not None:
             _set_nodelay(sock)
