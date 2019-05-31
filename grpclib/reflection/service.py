@@ -14,52 +14,61 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Collection, List
+from typing import TYPE_CHECKING, Collection, List, Any
 
-from google.protobuf import descriptor_pool
+from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
+from google.protobuf.descriptor_pool import Default
 
 from ..const import Status
 from ..utils import _service_name
+from ..server import Stream
 
-from .v1 import reflection_pb2
+from .v1.reflection_pb2 import ServerReflectionRequest, ServerReflectionResponse
+from .v1.reflection_pb2 import ErrorResponse, ListServiceResponse
+from .v1.reflection_pb2 import ServiceResponse, ExtensionNumberResponse
+from .v1.reflection_pb2 import FileDescriptorResponse
 from .v1.reflection_grpc import ServerReflectionBase
-
-from .v1alpha import reflection_pb2 as reflection_pb2_v1alpha
-from .v1alpha.reflection_grpc import (
-    ServerReflectionBase as ServerReflectionBaseV1Alpha
-)
 
 
 if TYPE_CHECKING:
-    from ..server import _Servable  # noqa
+    from .._protocols import IServable  # noqa
 
 
-class _ServerReflection:
+class ServerReflection(ServerReflectionBase):
+    """
+    Implements server reflection protocol.
+    """
+    _pool: Any  # FIXME: DescriptorPool has incomplete typings
 
-    def __init__(self, pb, service_names):
-        self._pb = pb
-        self._service_names = service_names
-        self._pool = descriptor_pool.Default()
+    def __init__(self, *, _service_names: Collection[str]):
+        self._service_names = _service_names
+        self._pool = Default()  # type: ignore
 
-    def _not_found_response(self):
-        return self._pb.ServerReflectionResponse(
-            error_response=self._pb.ErrorResponse(
+    def _not_found_response(self) -> ServerReflectionResponse:
+        return ServerReflectionResponse(
+            error_response=ErrorResponse(
                 error_code=Status.NOT_FOUND.value,
                 error_message='not found',
             ),
         )
 
-    def _file_descriptor_response(self, file_descriptor):
+    def _file_descriptor_response(
+        self,
+        file_descriptor: FileDescriptor,
+    ) -> ServerReflectionResponse:
         proto = FileDescriptorProto()
-        file_descriptor.CopyToProto(proto)
-        return self._pb.ServerReflectionResponse(
-            file_descriptor_response=self._pb.FileDescriptorResponse(
+        file_descriptor.CopyToProto(proto)  # type: ignore
+        return ServerReflectionResponse(
+            file_descriptor_response=FileDescriptorResponse(
                 file_descriptor_proto=[proto.SerializeToString()],
             ),
         )
 
-    def _file_by_filename_response(self, file_name):
+    def _file_by_filename_response(
+        self,
+        file_name: str,
+    ) -> ServerReflectionResponse:
         try:
             file = self._pool.FindFileByName(file_name)
         except KeyError:
@@ -67,7 +76,10 @@ class _ServerReflection:
         else:
             return self._file_descriptor_response(file)
 
-    def _file_containing_symbol_response(self, symbol):
+    def _file_containing_symbol_response(
+        self,
+        symbol: str,
+    ) -> ServerReflectionResponse:
         try:
             file = self._pool.FindFileContainingSymbol(symbol)
         except KeyError:
@@ -75,7 +87,11 @@ class _ServerReflection:
         else:
             return self._file_descriptor_response(file)
 
-    def _file_containing_extension_response(self, msg_name, ext_number):
+    def _file_containing_extension_response(
+        self,
+        msg_name: str,
+        ext_number: int,
+    ) -> ServerReflectionResponse:
         try:
             message = self._pool.FindMessageTypeByName(msg_name)
             extension = self._pool.FindExtensionByNumber(message, ext_number)
@@ -85,29 +101,35 @@ class _ServerReflection:
         else:
             return self._file_descriptor_response(file)
 
-    def _all_extension_numbers_of_type_response(self, type_name):
+    def _all_extension_numbers_of_type_response(
+        self,
+        type_name: str,
+    ) -> ServerReflectionResponse:
         try:
             message = self._pool.FindMessageTypeByName(type_name)
             extensions = self._pool.FindAllExtensions(message)
         except KeyError:
             return self._not_found_response()
         else:
-            return self._pb.ServerReflectionResponse(
-                all_extension_numbers_response=self._pb.ExtensionNumberResponse(
+            return ServerReflectionResponse(
+                all_extension_numbers_response=ExtensionNumberResponse(
                     base_type_name=message.full_name,
                     extension_number=[ext.number for ext in extensions],
                 )
             )
 
-    def _list_services_response(self):
-        return self._pb.ServerReflectionResponse(
-            list_services_response=self._pb.ListServiceResponse(
-                service=[self._pb.ServiceResponse(name=service_name)
+    def _list_services_response(self) -> ServerReflectionResponse:
+        return ServerReflectionResponse(
+            list_services_response=ListServiceResponse(
+                service=[ServiceResponse(name=service_name)
                          for service_name in self._service_names],
             )
         )
 
-    async def ServerReflectionInfo(self, stream):
+    async def ServerReflectionInfo(
+        self,
+        stream: Stream[ServerReflectionRequest, ServerReflectionResponse],
+    ) -> None:
         async for request in stream:
             if request.HasField('file_by_filename'):
                 response = self._file_by_filename_response(
@@ -129,25 +151,16 @@ class _ServerReflection:
             elif request.HasField('list_services'):
                 response = self._list_services_response()
             else:
-                response = self._pb.ServerReflectionResponse(
-                    error_response=self._pb.ErrorResponse(
+                response = ServerReflectionResponse(
+                    error_response=ErrorResponse(
                         error_code=Status.INVALID_ARGUMENT.value,
                         error_message='invalid argument',
                     )
                 )
             await stream.send_message(response)
 
-
-class ServerReflectionV1Alpha(_ServerReflection, ServerReflectionBaseV1Alpha):
-    pass
-
-
-class ServerReflection(_ServerReflection, ServerReflectionBase):
-    """
-    Implements server reflection protocol.
-    """
     @classmethod
-    def extend(cls, services: 'Collection[_Servable]') -> 'List[_Servable]':
+    def extend(cls, services: 'Collection[IServable]') -> 'List[IServable]':
         """
         Extends services list with reflection service:
 
@@ -167,7 +180,5 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
         for service in services:
             service_names.append(_service_name(service))
         services = list(services)
-        services.append(cls(reflection_pb2, service_names))
-        services.append(ServerReflectionV1Alpha(reflection_pb2_v1alpha,
-                                                service_names))
+        services.append(cls(_service_names=service_names))
         return services

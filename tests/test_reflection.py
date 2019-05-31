@@ -6,13 +6,11 @@ from google.protobuf.descriptor_pb2 import FileDescriptorProto
 
 from grpclib.client import Channel
 from grpclib.server import Server
-from grpclib.reflection.v1 import reflection_pb2
 from grpclib.reflection.service import ServerReflection
-from grpclib.reflection.v1alpha import reflection_pb2 as reflection_pb2_v1alpha
+from grpclib.reflection.v1.reflection_pb2 import ServerReflectionRequest
+from grpclib.reflection.v1.reflection_pb2 import ServerReflectionResponse
+from grpclib.reflection.v1.reflection_pb2 import ErrorResponse
 from grpclib.reflection.v1.reflection_grpc import ServerReflectionStub
-from grpclib.reflection.v1alpha.reflection_grpc import (
-    ServerReflectionStub as ServerReflectionStubV1Alpha,
-)
 
 from dummy_pb2 import DESCRIPTOR
 from test_functional import DummyService
@@ -44,16 +42,12 @@ def channel_fixture(loop, port):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('pb, stub_cls', [
-    (reflection_pb2, ServerReflectionStub),
-    (reflection_pb2_v1alpha, ServerReflectionStubV1Alpha),
-])
-async def test_file_by_filename_response(channel, pb, stub_cls):
-    r1, r2 = await stub_cls(channel).ServerReflectionInfo([
-        pb.ServerReflectionRequest(
+async def test_file_by_filename_response(channel):
+    r1, r2 = await ServerReflectionStub(channel).ServerReflectionInfo([
+        ServerReflectionRequest(
             file_by_filename=DESCRIPTOR.name,
         ),
-        pb.ServerReflectionRequest(
+        ServerReflectionRequest(
             file_by_filename='my/missing.proto',
         ),
     ])
@@ -64,8 +58,8 @@ async def test_file_by_filename_response(channel, pb, stub_cls):
     assert dummy_proto.name == DESCRIPTOR.name
     assert dummy_proto.package == DESCRIPTOR.package
 
-    assert r2 == pb.ServerReflectionResponse(
-        error_response=pb.ErrorResponse(
+    assert r2 == ServerReflectionResponse(
+        error_response=ErrorResponse(
             error_code=5,
             error_message='not found',
         ),
@@ -73,18 +67,14 @@ async def test_file_by_filename_response(channel, pb, stub_cls):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('pb, stub_cls', [
-    (reflection_pb2, ServerReflectionStub),
-    (reflection_pb2_v1alpha, ServerReflectionStubV1Alpha),
-])
-async def test_file_containing_symbol_response(channel, pb, stub_cls):
-    r1, r2 = await stub_cls(channel).ServerReflectionInfo([
-        pb.ServerReflectionRequest(
+async def test_file_containing_symbol_response(channel):
+    r1, r2 = await ServerReflectionStub(channel).ServerReflectionInfo([
+        ServerReflectionRequest(
             file_containing_symbol=(
                 DESCRIPTOR.message_types_by_name['DummyRequest'].full_name
             ),
         ),
-        pb.ServerReflectionRequest(
+        ServerReflectionRequest(
             file_containing_symbol='unknown.Symbol',
         ),
     ])
@@ -95,8 +85,8 @@ async def test_file_containing_symbol_response(channel, pb, stub_cls):
     assert dummy_proto.name == DESCRIPTOR.name
     assert dummy_proto.package == DESCRIPTOR.package
 
-    assert r2 == pb.ServerReflectionResponse(
-        error_response=pb.ErrorResponse(
+    assert r2 == ServerReflectionResponse(
+        error_response=ErrorResponse(
             error_code=5,
             error_message='not found',
         ),
@@ -108,13 +98,9 @@ def test_all_extension_numbers_of_type_response():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('pb, stub_cls', [
-    (reflection_pb2, ServerReflectionStub),
-    (reflection_pb2_v1alpha, ServerReflectionStubV1Alpha),
-])
-async def test_list_services_response(channel, pb, stub_cls):
-    r1, = await stub_cls(channel).ServerReflectionInfo([
-        pb.ServerReflectionRequest(
+async def test_list_services_response(channel):
+    r1, = await ServerReflectionStub(channel).ServerReflectionInfo([
+        ServerReflectionRequest(
             list_services='',
         ),
     ])
