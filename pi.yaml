@@ -34,6 +34,13 @@
   - run: pip3 install --no-cache-dir -r {{reqs}}
     reqs: !File "docs/requirements.txt"
 
+- !Image
+  name: flake8
+  from: !DockerImage python:3.6.0-slim
+  repository: localhost/grpclib/flake8
+  tasks:
+  - run: pip3 install --no-cache-dir flake8==3.7.7
+
 - !Command
   name: server
   image: env36
@@ -78,3 +85,8 @@
   run: py.test
   environ:
     PYTHONPATH: .
+
+- !Command
+  name: lint
+  image: flake8
+  run: flake8
