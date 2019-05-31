@@ -20,4 +20,6 @@ if not PY37:
         ) -> Optional[bool]:
             pass
 else:
-    from contextlib import nullcontext  # type: ignore
+    from contextlib import nullcontext as _nullcontext
+
+    nullcontext = _nullcontext  # type: ignore
