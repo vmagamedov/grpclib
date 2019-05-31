@@ -14,7 +14,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Sequence, List
+from typing import TYPE_CHECKING, Collection, List
 
 from google.protobuf import descriptor_pool
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
@@ -32,7 +32,7 @@ from .v1alpha.reflection_grpc import (
 
 
 if TYPE_CHECKING:
-    from ..server import _Servable
+    from ..server import _Servable  # noqa
 
 
 class _ServerReflection:
@@ -147,7 +147,7 @@ class ServerReflection(_ServerReflection, ServerReflectionBase):
     Implements server reflection protocol.
     """
     @classmethod
-    def extend(cls, services: 'Sequence[_Servable]') -> 'List[_Servable]':
+    def extend(cls, services: 'Collection[_Servable]') -> 'List[_Servable]':
         """
         Extends services list with reflection service:
 

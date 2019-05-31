@@ -7,15 +7,7 @@ from .metadata import Deadline, _Metadata
 
 
 if TYPE_CHECKING:
-    from typing_extensions import Protocol
-
-    from . import server
-
-    class _Target(Protocol):
-        __dispatch__: '_Dispatch'
-
-    class _MethodFunc(Protocol):
-        async def __call__(self, stream: 'server.Stream'): ...
+    from ._protocols import IEventsTarget, IServerMethodFunc  # noqa
 
 
 class _Event:
@@ -103,7 +95,7 @@ class _DispatchMeta(type):
 
 
 def listen(
-    target: '_Target',
+    target: 'IEventsTarget',
     event_type: Type[_EventType],
     callback: Callable[[_EventType], Coroutine],
 ):
@@ -167,7 +159,7 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     __payload__ = ('metadata', 'method_func')
 
     metadata: _Metadata
-    method_func: '_MethodFunc'
+    method_func: 'IServerMethodFunc'
     method_name: str
     deadline: Optional[Deadline]
     content_type: str

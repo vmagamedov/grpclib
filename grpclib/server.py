@@ -3,7 +3,7 @@ import socket
 import logging
 import asyncio
 
-from typing import TYPE_CHECKING, Optional, Mapping, Sequence, Generic
+from typing import TYPE_CHECKING, Optional, Collection, Generic
 
 import h2.config
 import h2.exceptions
@@ -26,13 +26,7 @@ from .encoding.proto import ProtoCodec
 
 if TYPE_CHECKING:
     import ssl as _ssl  # noqa
-
-    from typing_extensions import Protocol
-
-    from . import const
-
-    class _Servable(Protocol):
-        def __mapping__(self) -> Mapping[str, const.Handler]: ...
+    from ._protocols import IServable  # noqa
 
 
 log = logging.getLogger(__name__)
@@ -475,7 +469,7 @@ class Server(_GC, asyncio.AbstractServer):
 
     def __init__(
         self,
-        handlers: Sequence['_Servable'],
+        handlers: Collection['IServable'],
         *,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         codec: Optional[CodecBase] = None,

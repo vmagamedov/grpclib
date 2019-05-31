@@ -2,7 +2,9 @@ import sys
 import signal
 import asyncio
 
-from typing import Optional, Iterable, TYPE_CHECKING, Sequence
+from types import TracebackType
+from typing import TYPE_CHECKING, Optional, Set, Type, ContextManager, List
+from typing import Iterator, Collection
 from contextlib import contextmanager
 
 
@@ -13,13 +15,12 @@ else:
 
 
 if TYPE_CHECKING:
-    from typing_extensions import Protocol
+    from typing import Any  # noqa
+    from .metadata import Deadline  # noqa
+    from ._protocols import IServable, IClosable  # noqa
 
-    class _Closable(Protocol):
-        def close(self) -> None: ...
 
-
-class Wrapper:
+class Wrapper(ContextManager[None]):
     """Special wrapper for coroutines to wake them up in case of some error.
 
     Example:
@@ -36,14 +37,15 @@ class Wrapper:
         w.cancel(NoNeedToWaitError('With explanation'))
 
     """
-    _error = None
+    _error: Optional[Exception] = None
+    _tasks: Set['asyncio.Task[Any]']
 
-    cancelled = None
+    cancelled: Optional[bool] = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tasks = set()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._error is not None:
             raise self._error
 
@@ -53,14 +55,19 @@ class Wrapper:
 
         self._tasks.add(task)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         task = _current_task()
         assert task
         self._tasks.discard(task)
         if self._error is not None:
             raise self._error
 
-    def cancel(self, error):
+    def cancel(self, error: Exception) -> None:
         self._error = error
         for task in self._tasks:
             task.cancel()
@@ -88,13 +95,18 @@ class DeadlineWrapper(Wrapper):
 
     """
     @contextmanager
-    def start(self, deadline, *, loop=None):
+    def start(
+        self,
+        deadline: 'Deadline',
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+    ) -> Iterator['DeadlineWrapper']:
         loop = loop or asyncio.get_event_loop()
         timeout = deadline.time_remaining()
         if not timeout:
             raise asyncio.TimeoutError('Deadline exceeded')
 
-        def callback():
+        def callback() -> None:
             self.cancel(asyncio.TimeoutError('Deadline exceeded'))
 
         timer = loop.call_later(timeout, callback)
@@ -104,7 +116,7 @@ class DeadlineWrapper(Wrapper):
             timer.cancel()
 
 
-def _service_name(service):
+def _service_name(service: 'IServable') -> str:
     methods = service.__mapping__()
     method_name = next(iter(methods), None)
     assert method_name is not None
@@ -112,7 +124,10 @@ def _service_name(service):
     return service_name
 
 
-def _first_stage(sig_num, servers):
+def _first_stage(
+    sig_num: 'signal.Signals',
+    servers: Collection['IClosable'],
+) -> None:
     fail = False
     for server in servers:
         try:
@@ -126,11 +141,15 @@ def _first_stage(sig_num, servers):
         _second_stage(sig_num)
 
 
-def _second_stage(sig_num):
+def _second_stage(sig_num: 'signal.Signals') -> None:
     raise SystemExit(128 + sig_num)
 
 
-def _exit_handler(sig_num, servers, flag):
+def _exit_handler(
+    sig_num: 'signal.Signals',
+    servers: Collection['IClosable'],
+    flag: List[bool],
+) -> None:
     if flag:
         _second_stage(sig_num)
     else:
@@ -140,11 +159,11 @@ def _exit_handler(sig_num, servers, flag):
 
 @contextmanager
 def graceful_exit(
-    servers: Sequence['_Closable'],
+    servers: Collection['IClosable'],
     *,
     loop: Optional[asyncio.AbstractEventLoop] = None,
-    signals: Iterable[int] = (signal.SIGINT, signal.SIGTERM),
-):
+    signals: Collection[int] = (signal.SIGINT, signal.SIGTERM),
+) -> Iterator[None]:
     """Utility context-manager to help properly shutdown server in response to
     the OS signals
 
@@ -190,7 +209,7 @@ def graceful_exit(
     """
     loop = loop or asyncio.get_event_loop()
     signals = set(signals)
-    flag = []
+    flag: 'List[bool]' = []
     for sig_num in signals:
         loop.add_signal_handler(sig_num, _exit_handler, sig_num, servers, flag)
     try:

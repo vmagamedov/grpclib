@@ -3,7 +3,7 @@ import time
 import platform
 
 from base64 import b64encode, b64decode
-from typing import Union, Mapping, Sequence, Tuple, NewType
+from typing import Union, Mapping, Tuple, NewType, Optional, cast, Collection
 from urllib.parse import quote, unquote
 
 from multidict import MultiDict
@@ -33,8 +33,10 @@ _UNITS = {
 
 _TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
 
+_Headers = Collection[Tuple[str, str]]
 
-def decode_timeout(value):
+
+def decode_timeout(value: str) -> float:
     match = _TIMEOUT_RE.match(value)
     if match is None:
         raise ValueError('Invalid timeout: {}'.format(value))
@@ -56,23 +58,23 @@ def encode_timeout(timeout: float) -> str:
 class Deadline:
     """Represents request's deadline - fixed point in time
     """
-    def __init__(self, *, _timestamp):
+    def __init__(self, *, _timestamp: float) -> None:
         self._timestamp = _timestamp
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, Deadline):
             raise TypeError('comparison is not supported between '
                             'instances of \'{}\' and \'{}\''
                             .format(type(self).__name__, type(other).__name__))
         return self._timestamp < other._timestamp
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Deadline):
             return False
         return self._timestamp == other._timestamp
 
     @classmethod
-    def from_headers(cls, headers):
+    def from_headers(cls, headers: _Headers) -> Optional['Deadline']:
         timeout = min(map(decode_timeout,
                           (v for k, v in headers if k == 'grpc-timeout')),
                       default=None)
@@ -82,10 +84,10 @@ class Deadline:
             return None
 
     @classmethod
-    def from_timeout(cls, timeout):
+    def from_timeout(cls, timeout: float) -> 'Deadline':
         return cls(_timestamp=time.monotonic() + timeout)
 
-    def time_remaining(self):
+    def time_remaining(self) -> float:
         """Calculates remaining time for the current request completion
 
         This function returns time in seconds as a floating point number,
@@ -117,11 +119,11 @@ _SPECIAL = {
 
 _Value = Union[str, bytes]
 _Metadata = NewType('_Metadata', 'MultiDict[_Value]')
-_MetadataLike = Union[Mapping[str, _Value], Sequence[Tuple[str, _Value]]]
+_MetadataLike = Union[Mapping[str, _Value], Collection[Tuple[str, _Value]]]
 
 
-def decode_metadata(headers) -> _Metadata:
-    metadata = MultiDict()
+def decode_metadata(headers: _Headers) -> _Metadata:
+    metadata = cast(_Metadata, MultiDict())
     for key, value in headers:
         if key.startswith((':', 'grpc-')) or key in _SPECIAL:
             continue
@@ -133,8 +135,8 @@ def decode_metadata(headers) -> _Metadata:
     return metadata
 
 
-def encode_metadata(metadata: _MetadataLike):
-    if hasattr(metadata, 'items'):
+def encode_metadata(metadata: _MetadataLike) -> _Headers:
+    if isinstance(metadata, Mapping):
         metadata = metadata.items()
     result = []
     for key, value in metadata:
