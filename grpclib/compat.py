@@ -1,17 +1,23 @@
 import sys
 
+from types import TracebackType
+from typing import ContextManager, Optional, Type
+
 
 PY37 = sys.version_info >= (3, 7)
 
 
-if PY37:
-    from contextlib import nullcontext
+if not PY37:
+    class nullcontext(ContextManager[None]):  # pragma: nocover
+        def __enter__(self) -> None:
+            pass
 
-    nullcontext = nullcontext
+        def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[TracebackType],
+        ) -> Optional[bool]:
+            pass
 else:
-    class nullcontext():  # pragma: no cover
-        def __enter__(self):
-            pass
-
-        def __exit__(self, *excinfo):
-            pass
+    from contextlib import nullcontext  # type: ignore
