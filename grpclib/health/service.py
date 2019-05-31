@@ -1,15 +1,22 @@
 import asyncio
 
+from typing import TYPE_CHECKING, Set, Collection, Mapping, Dict, Any, Optional
 from itertools import chain
 
 from ..const import Status
 from ..utils import _service_name
+from ..server import Stream
 
-from .v1.health_pb2 import HealthCheckResponse
+from .v1.health_pb2 import HealthCheckRequest, HealthCheckResponse
 from .v1.health_grpc import HealthBase
 
 
-def _status(checks):
+if TYPE_CHECKING:
+    from .check import CheckBase  # noqa
+    from .._protocols import ICheckable  # noqa
+
+
+def _status(checks: Set['CheckBase']) -> 'HealthCheckResponse.ServingStatus':
     statuses = {check.__status__() for check in checks}
     if statuses == {None}:
         return HealthCheckResponse.UNKNOWN
@@ -19,7 +26,10 @@ def _status(checks):
         return HealthCheckResponse.NOT_SERVING
 
 
-def _reset_waits(events, waits):
+def _reset_waits(
+    events: Collection[asyncio.Event],
+    waits: Mapping[asyncio.Event, 'asyncio.Future[bool]'],
+) -> Dict[asyncio.Event, 'asyncio.Future[bool]']:
     new_waits = {}
     for event in events:
         wait = waits.get(event)
@@ -32,12 +42,14 @@ def _reset_waits(events, waits):
 
 class _Overall:
     # `_service_name` should return '' (empty string) for this service
-    def __mapping__(self):
+    def __mapping__(self) -> Dict[str, Any]:
         return {'//': None}
 
 
 #: Represents overall health status of all services
 OVERALL = _Overall()
+
+_ChecksConfig = Mapping['ICheckable', Collection['CheckBase']]
 
 
 class Health(HealthBase):
@@ -60,19 +72,23 @@ class Health(HealthBase):
         server = Server([auth, billing, health])
 
     """
-    def __init__(self, checks=None):
+    def __init__(self, checks: Optional[_ChecksConfig] = None) -> None:
         if checks is None:
             checks = {OVERALL: []}
         elif OVERALL not in checks:
-            checks = checks.copy()
+            checks = dict(checks)
             checks[OVERALL] = list(chain.from_iterable(checks.values()))
 
         self._checks = {_service_name(s): set(check_list)
                         for s, check_list in checks.items()}
 
-    async def Check(self, stream):
+    async def Check(
+        self,
+        stream: Stream[HealthCheckRequest, HealthCheckResponse],
+    ) -> None:
         """Implements synchronous periodic checks"""
         request = await stream.recv_message()
+        assert request is not None
         checks = self._checks.get(request.service)
         if checks is None:
             await stream.send_trailing_metadata(status=Status.NOT_FOUND)
@@ -87,8 +103,12 @@ class Health(HealthBase):
                 status=_status(checks),
             ))
 
-    async def Watch(self, stream):
+    async def Watch(
+        self,
+        stream: Stream[HealthCheckRequest, HealthCheckResponse],
+    ) -> None:
         request = await stream.recv_message()
+        assert request is not None
         checks = self._checks.get(request.service)
         if checks is None:
             await stream.send_message(HealthCheckResponse(

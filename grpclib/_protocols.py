@@ -10,6 +10,10 @@ class IServable(Protocol):
     def __mapping__(self) -> Mapping[str, const.Handler]: ...
 
 
+class ICheckable(Protocol):
+    def __mapping__(self) -> Mapping[str, Any]: ...
+
+
 class IClosable(Protocol):
     def close(self) -> None: ...
 

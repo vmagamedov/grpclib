@@ -3,7 +3,7 @@ import time
 import asyncio
 import logging
 
-from typing import Optional
+from typing import Optional, Set, Callable, Awaitable
 
 from ..utils import DeadlineWrapper
 from ..metadata import Deadline
@@ -14,23 +14,25 @@ log = logging.getLogger(__name__)
 DEFAULT_CHECK_TTL = 30
 DEFAULT_CHECK_TIMEOUT = 10
 
+_Status = Optional[bool]
+
 
 class CheckBase(abc.ABC):
 
     @abc.abstractmethod
-    def __status__(self):
+    def __status__(self) -> _Status:
         pass
 
     @abc.abstractmethod
-    async def __check__(self):
+    async def __check__(self) -> _Status:
         pass
 
     @abc.abstractmethod
-    async def __subscribe__(self):
+    async def __subscribe__(self) -> asyncio.Event:
         pass
 
     @abc.abstractmethod
-    async def __unsubscribe__(self, event):
+    async def __unsubscribe__(self, event: asyncio.Event) -> None:
         pass
 
 
@@ -52,9 +54,16 @@ class ServiceCheck(CheckBase):
     _value = None
     _poll_task = None
     _last_check = 0.0
+    _events: Set[asyncio.Event]
 
-    def __init__(self, func, *, loop=None, check_ttl=DEFAULT_CHECK_TTL,
-                 check_timeout=DEFAULT_CHECK_TIMEOUT):
+    def __init__(
+        self,
+        func: Callable[[], Awaitable[_Status]],
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+        check_ttl: int = DEFAULT_CHECK_TTL,
+        check_timeout: int = DEFAULT_CHECK_TIMEOUT,
+    ) -> None:
         """
         :param func: callable object which returns awaitable object, where
             result is one of: ``True`` (healthy), ``False`` (unhealthy), or
@@ -75,10 +84,10 @@ class ServiceCheck(CheckBase):
 
         self._check_wrapper = DeadlineWrapper()
 
-    def __status__(self):
+    def __status__(self) -> _Status:
         return self._value
 
-    async def __check__(self):
+    async def __check__(self) -> _Status:
         if time.monotonic() - self._last_check < self._check_ttl:
             return self._value
 
@@ -114,7 +123,7 @@ class ServiceCheck(CheckBase):
                 event.set()
         return self._value
 
-    async def _poll(self):
+    async def _poll(self) -> None:
         while True:
             status = await self.__check__()
             if status:
@@ -122,7 +131,7 @@ class ServiceCheck(CheckBase):
             else:
                 await asyncio.sleep(self._check_ttl)  # TODO: change interval?
 
-    async def __subscribe__(self):
+    async def __subscribe__(self) -> asyncio.Event:
         if self._poll_task is None:
             loop = asyncio.get_event_loop()
             self._poll_task = loop.create_task(self._poll())
@@ -131,10 +140,11 @@ class ServiceCheck(CheckBase):
         self._events.add(event)
         return event
 
-    async def __unsubscribe__(self, event):
+    async def __unsubscribe__(self, event: asyncio.Event) -> None:
         self._events.discard(event)
 
         if not self._events:
+            assert self._poll_task is not None
             task = self._poll_task
             self._poll_task = None
             task.cancel()
@@ -159,7 +169,14 @@ class ServiceStatus(CheckBase):
         # detected that Redis is unavailable
         redis_status.set(False)
     """
-    def __init__(self, *, loop=None):
+    _value: _Status
+    _events: Set[asyncio.Event]
+
+    def __init__(
+        self,
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+    ) -> None:
         """
         :param loop: asyncio-compatible event loop
         """
@@ -167,7 +184,7 @@ class ServiceStatus(CheckBase):
         self._value = None
         self._events = set()
 
-    def set(self, value: Optional[bool]):
+    def set(self, value: _Status) -> None:
         """Sets current status of a check
 
         :param value: ``True`` (healthy), ``False`` (unhealthy), or ``None``
@@ -180,16 +197,16 @@ class ServiceStatus(CheckBase):
             for event in self._events:
                 event.set()
 
-    def __status__(self):
+    def __status__(self) -> _Status:
         return self._value
 
-    async def __check__(self):
+    async def __check__(self) -> _Status:
         return self._value
 
-    async def __subscribe__(self):
+    async def __subscribe__(self) -> asyncio.Event:
         event = asyncio.Event(loop=self._loop)
         self._events.add(event)
         return event
 
-    async def __unsubscribe__(self, event):
+    async def __unsubscribe__(self, event: asyncio.Event) -> None:
         self._events.discard(event)
