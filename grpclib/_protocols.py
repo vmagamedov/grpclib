@@ -3,7 +3,6 @@ from typing_extensions import Protocol
 
 from . import const
 from . import server
-from . import events
 
 
 class IServable(Protocol):
@@ -26,7 +25,7 @@ class IProtoMessage(Protocol):
 
 
 class IEventsTarget(Protocol):
-    __dispatch__: 'events._Dispatch'
+    __dispatch__: Any  # FIXME: should be events._Dispatch
 
 
 class IServerMethodFunc(Protocol):
