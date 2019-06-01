@@ -1,5 +1,5 @@
-from typing import TYPE_CHECKING, Type, TypeVar, Tuple
-from typing import Optional, Callable, Coroutine, Any
+from typing import TYPE_CHECKING, Type, TypeVar, Tuple, FrozenSet, Dict
+from typing import Optional, Callable, Any, Collection, List, Coroutine
 from itertools import chain
 from collections import defaultdict
 
@@ -7,28 +7,29 @@ from .metadata import Deadline, _Metadata
 
 
 if TYPE_CHECKING:
-    from .stream import _RecvType
+    from .stream import _SendType, _RecvType
     from ._protocols import IEventsTarget, IServerMethodFunc  # noqa
 
 
 class _Event:
     __slots__ = ('__interrupted__',)
-    __payload__ = ()
-    __readonly__ = frozenset()
+    __payload__: Collection[str] = ()
+    __readonly__: FrozenSet[str] = frozenset()
+    __interrupted__: bool
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs):  # type: ignore
         assert len(kwargs) == len(self.__slots__), self.__slots__
         super().__setattr__('__interrupted__', False)
         for key, value in kwargs.items():
             super().__setattr__(key, value)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         if key in self.__readonly__:
             raise AttributeError('Read-only property: {!r}'.format(key))
         else:
             super().__setattr__(key, value)
 
-    def interrupt(self):
+    def interrupt(self) -> None:
         super().__setattr__('__interrupted__', True)
 
 
@@ -37,7 +38,7 @@ _EventType = TypeVar('_EventType', bound=_Event)
 
 class _EventMeta(type):
 
-    def __new__(mcs, name, bases, params):
+    def __new__(mcs, name, bases, params):  # type: ignore
         annotations = params.get('__annotations__') or {}
         payload = params.get('__payload__') or ()
         params['__slots__'] = tuple(name for name in annotations)
@@ -46,30 +47,38 @@ class _EventMeta(type):
         return super().__new__(mcs, name, bases, params)
 
 
-async def _ident(*args, **_):
+async def _ident(*args, **_):  # type: ignore
     return args
 
 
-def _dispatches(event_type):
-    def decorator(func):
+def _dispatches(event_type: Type[_Event]) -> Callable[[Any], Any]:
+    def decorator(func: Any) -> Any:
         func.__dispatches__ = event_type
         return func
     return decorator
 
 
+_Callback = Callable[[_Event], Coroutine[Any, Any, None]]
+
+
 class _Dispatch:
-    __dispatch_methods__ = {}
+    _listeners: Dict[Type[_Event], List[_Callback]]
+    __dispatch_methods__: Dict[Type[_Event], str] = {}
 
     def __init__(self) -> None:
         self._listeners = defaultdict(list)
         for name in self.__dispatch_methods__.values():
             self.__dict__[name] = _ident
 
-    def add_listener(self, event_type: Type[_Event], callback):
+    def add_listener(
+        self,
+        event_type: Type[_Event],
+        callback: _Callback,
+    ) -> None:
         self.__dict__.pop(self.__dispatch_methods__[event_type], None)
         self._listeners[event_type].append(callback)
 
-    async def __dispatch__(self, event: _Event):
+    async def __dispatch__(self, event: _Event) -> Any:
         for callback in self._listeners[event.__class__]:
             await callback(event)
             if event.__interrupted__:
@@ -79,7 +88,7 @@ class _Dispatch:
 
 class _DispatchMeta(type):
 
-    def __new__(mcs, name, bases, params):
+    def __new__(mcs, name, bases, params):  # type: ignore
         dispatch_methods = dict(chain.from_iterable(
             getattr(base, '__dispatch_methods__', {}).items()
             for base in bases
@@ -98,8 +107,8 @@ class _DispatchMeta(type):
 def listen(
     target: 'IEventsTarget',
     event_type: Type[_EventType],
-    callback: Callable[[_EventType], Coroutine],
-):
+    callback: Callable[[_EventType], Coroutine[Any, Any, None]],
+) -> None:
     """Registers a listener function for the given target and event type
 
     .. code-block:: python3
@@ -135,17 +144,16 @@ class RecvMessage(_Event, metaclass=_EventMeta):
 class _DispatchCommonEvents(_Dispatch, metaclass=_DispatchMeta):
 
     @_dispatches(SendMessage)
-    async def send_message(self, message):
-        return await self.__dispatch__(SendMessage(
+    async def send_message(self, message: '_SendType') -> Tuple['_SendType']:
+        return await self.__dispatch__(SendMessage(  # type: ignore
             message=message,
         ))
 
     @_dispatches(RecvMessage)
     async def recv_message(self, message: '_RecvType') -> Tuple['_RecvType']:
-        payload = await self.__dispatch__(RecvMessage(
+        return await self.__dispatch__(RecvMessage(  # type: ignore
             message=message,
         ))
-        return payload  # type: ignore
 
 
 class RecvRequest(_Event, metaclass=_EventMeta):
@@ -190,9 +198,16 @@ class SendTrailingMetadata(_Event, metaclass=_EventMeta):
 class _DispatchServerEvents(_DispatchCommonEvents):
 
     @_dispatches(RecvRequest)
-    async def recv_request(self, metadata, method_func,
-                           *, method_name, deadline, content_type):
-        return await self.__dispatch__(RecvRequest(
+    async def recv_request(
+        self,
+        metadata: _Metadata,
+        method_func: 'IServerMethodFunc',
+        *,
+        method_name: str,
+        deadline: Optional[Deadline],
+        content_type: str,
+    ) -> Tuple[_Metadata, 'IServerMethodFunc']:
+        return await self.__dispatch__(RecvRequest(  # type: ignore
             metadata=metadata,
             method_func=method_func,
             method_name=method_name,
@@ -201,14 +216,20 @@ class _DispatchServerEvents(_DispatchCommonEvents):
         ))
 
     @_dispatches(SendInitialMetadata)
-    async def send_initial_metadata(self, metadata):
-        return await self.__dispatch__(SendInitialMetadata(
+    async def send_initial_metadata(
+        self,
+        metadata: _Metadata,
+    ) -> Tuple[_Metadata]:
+        return await self.__dispatch__(SendInitialMetadata(  # type: ignore
             metadata=metadata,
         ))
 
     @_dispatches(SendTrailingMetadata)
-    async def send_trailing_metadata(self, metadata):
-        return await self.__dispatch__(SendTrailingMetadata(
+    async def send_trailing_metadata(
+        self,
+        metadata: _Metadata,
+    ) -> Tuple[_Metadata]:
+        return await self.__dispatch__(SendTrailingMetadata(  # type: ignore
             metadata=metadata,
         ))
 
@@ -254,9 +275,15 @@ class RecvTrailingMetadata(_Event, metaclass=_EventMeta):
 class _DispatchChannelEvents(_DispatchCommonEvents):
 
     @_dispatches(SendRequest)
-    async def send_request(self, metadata, *, method_name, deadline,
-                           content_type):
-        return await self.__dispatch__(SendRequest(
+    async def send_request(
+        self,
+        metadata: _Metadata,
+        *,
+        method_name: str,
+        deadline: Optional[Deadline],
+        content_type: str,
+    ) -> Tuple[_Metadata]:
+        return await self.__dispatch__(SendRequest(  # type: ignore
             metadata=metadata,
             method_name=method_name,
             deadline=deadline,
@@ -264,13 +291,19 @@ class _DispatchChannelEvents(_DispatchCommonEvents):
         ))
 
     @_dispatches(RecvInitialMetadata)
-    async def recv_initial_metadata(self, metadata):
-        return await self.__dispatch__(RecvInitialMetadata(
+    async def recv_initial_metadata(
+        self,
+        metadata: _Metadata,
+    ) -> Tuple[_Metadata]:
+        return await self.__dispatch__(RecvInitialMetadata(  # type: ignore
             metadata=metadata,
         ))
 
     @_dispatches(RecvTrailingMetadata)
-    async def recv_trailing_metadata(self, metadata):
-        return await self.__dispatch__(RecvTrailingMetadata(
+    async def recv_trailing_metadata(
+        self,
+        metadata: _Metadata,
+    ) -> Tuple[_Metadata]:
+        return await self.__dispatch__(RecvTrailingMetadata(  # type: ignore
             metadata=metadata,
         ))

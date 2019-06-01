@@ -1,7 +1,7 @@
 import abc
 import struct
 
-from typing import Type, TypeVar, Optional, AsyncIterator, TYPE_CHECKING
+from typing import Type, TypeVar, Optional, AsyncIterator, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from .protocol import Stream
@@ -30,7 +30,7 @@ async def recv_message(
     assert len(message_bin) == message_len, \
         '{} != {}'.format(len(message_bin), message_len)
     message = codec.decode(message_bin, message_type)
-    return message
+    return cast(_RecvType, message)
 
 
 async def send_message(
@@ -40,7 +40,7 @@ async def send_message(
     message_type: Type[_SendType],
     *,
     end: bool = False,
-):
+) -> None:
     reply_bin = codec.encode(message, message_type)
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))
