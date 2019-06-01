@@ -1,19 +1,25 @@
 import abc
 import struct
 
-from typing import Type, TypeVar, Optional, AsyncIterator
+from typing import Type, TypeVar, Optional, AsyncIterator, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .protocol import Stream
+    from .encoding.base import CodecBase
 
-NOTHING = object()
 
 _SendType = TypeVar('_SendType')
 _RecvType = TypeVar('_RecvType')
 
 
-async def recv_message(stream, codec, message_type: Type[_RecvType]):
+async def recv_message(
+    stream: 'Stream',
+    codec: 'CodecBase',
+    message_type: Type[_RecvType],
+) -> Optional[_RecvType]:
     meta = await stream.recv_data(5)
     if not meta:
-        return NOTHING
+        return None
 
     compressed_flag = struct.unpack('?', meta[:1])[0]
     if compressed_flag:
@@ -27,8 +33,14 @@ async def recv_message(stream, codec, message_type: Type[_RecvType]):
     return message
 
 
-async def send_message(stream, codec, message, message_type: Type[_SendType],
-                       *, end=False):
+async def send_message(
+    stream: 'Stream',
+    codec: 'CodecBase',
+    message: _SendType,
+    message_type: Type[_SendType],
+    *,
+    end: bool = False,
+):
     reply_bin = codec.encode(message, message_type)
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))

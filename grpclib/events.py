@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Type, TypeVar
+from typing import TYPE_CHECKING, Type, TypeVar, Tuple
 from typing import Optional, Callable, Coroutine, Any
 from itertools import chain
 from collections import defaultdict
@@ -7,6 +7,7 @@ from .metadata import Deadline, _Metadata
 
 
 if TYPE_CHECKING:
+    from .stream import _RecvType
     from ._protocols import IEventsTarget, IServerMethodFunc  # noqa
 
 
@@ -59,7 +60,7 @@ def _dispatches(event_type):
 class _Dispatch:
     __dispatch_methods__ = {}
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._listeners = defaultdict(list)
         for name in self.__dispatch_methods__.values():
             self.__dict__[name] = _ident
@@ -140,10 +141,11 @@ class _DispatchCommonEvents(_Dispatch, metaclass=_DispatchMeta):
         ))
 
     @_dispatches(RecvMessage)
-    async def recv_message(self, message):
-        return await self.__dispatch__(RecvMessage(
+    async def recv_message(self, message: '_RecvType') -> Tuple['_RecvType']:
+        payload = await self.__dispatch__(RecvMessage(
             message=message,
         ))
+        return payload  # type: ignore
 
 
 class RecvRequest(_Event, metaclass=_EventMeta):

@@ -13,8 +13,8 @@ from multidict import MultiDict
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status
 from .compat import nullcontext
-from .stream import send_message, recv_message, NOTHING, _RecvType, _SendType
-from .stream import StreamIterator
+from .stream import send_message, recv_message, StreamIterator
+from .stream import _RecvType, _SendType
 from .events import _DispatchServerEvents
 from .metadata import Deadline, encode_grpc_message, _Metadata
 from .metadata import encode_metadata, decode_metadata, _MetadataLike
@@ -103,9 +103,11 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         :returns: message
         """
         message = await recv_message(self._stream, self._codec, self._recv_type)
-        if message is not NOTHING:
+        if message is not None:
             message, = await self._dispatch.recv_message(message)
             return message
+        else:
+            return None
 
     async def send_initial_metadata(
         self,

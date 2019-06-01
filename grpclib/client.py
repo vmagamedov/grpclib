@@ -2,20 +2,22 @@ import http
 import asyncio
 import warnings
 
-from typing import Generic, Optional, Union, Type, List, Sequence
+from types import TracebackType
+from typing import Generic, Optional, Union, Type, List, Sequence, Any, cast
+from typing import Dict
 
 try:
     import ssl as _ssl
 except ImportError:
-    _ssl = None
+    _ssl = None  # type: ignore
 
 from h2.config import H2Configuration
 from multidict import MultiDict
 
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status, Cardinality
-from .stream import send_message, recv_message, NOTHING
-from .stream import StreamIterator, _RecvType, _SendType
+from .stream import send_message, recv_message, StreamIterator
+from .stream import _RecvType, _SendType
 from .events import _DispatchChannelEvents
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
@@ -51,13 +53,13 @@ _H2_TO_GRPC_STATUS_MAP = {
 class Handler(AbstractHandler):
     connection_lost = False
 
-    def accept(self, stream, headers, release_stream):
+    def accept(self, stream: Any, headers: Any, release_stream: Any) -> None:
         raise NotImplementedError('Client connection can not accept requests')
 
-    def cancel(self, stream):
+    def cancel(self, stream: Any) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         self.connection_lost = True
 
 
@@ -93,7 +95,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     _stream = None
     _release_stream = None
 
-    _wrapper = None
+    _wrapper: Wrapper
     _wrapper_ctx = None
 
     #: This property contains initial metadata, received with headers from
@@ -106,9 +108,19 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata: Optional[_Metadata] = None
 
-    def __init__(self, channel, method_name, metadata, cardinality, send_type,
-                 recv_type, *, codec, dispatch: _DispatchChannelEvents,
-                 deadline=None):
+    def __init__(
+        self,
+        channel: 'Channel',
+        method_name: str,
+        metadata: _Metadata,
+        cardinality: Cardinality,
+        send_type: Type[_SendType],
+        recv_type: Type[_RecvType],
+        *,
+        codec: CodecBase,
+        dispatch: _DispatchChannelEvents,
+        deadline: Optional[Deadline] = None,
+    ) -> None:
         self._channel = channel
         self._method_name = method_name
         self._metadata = metadata
@@ -249,14 +261,14 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             await self._stream.end()
             self._end_done = True
 
-    def _raise_for_status(self, headers_map):
+    def _raise_for_status(self, headers_map: Dict[str, str]) -> None:
         status = headers_map[':status']
         if status is not None and status != _H2_OK:
             grpc_status = _H2_TO_GRPC_STATUS_MAP.get(status, Status.UNKNOWN)
             raise GRPCError(grpc_status,
                             'Received :status = {!r}'.format(status))
 
-    def _raise_for_content_type(self, headers_map):
+    def _raise_for_content_type(self, headers_map: Dict[str, str]) -> None:
         content_type = headers_map.get('content-type')
         if content_type is None:
             raise GRPCError(Status.UNKNOWN,
@@ -272,7 +284,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                             'Invalid content-type: {!r}'
                             .format(content_type))
 
-    def _raise_for_grpc_status(self, headers_map):
+    def _raise_for_grpc_status(self, headers_map: Dict[str, str]) -> None:
         grpc_status = headers_map.get('grpc-status')
         if grpc_status is None:
             raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
@@ -319,7 +331,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 if 'grpc-status' in headers_map:  # trailers-only response
                     self._trailers_only = True
 
-                    im = MultiDict()
+                    im = cast(_Metadata, MultiDict())
                     im, = await self._dispatch.recv_initial_metadata(im)
                     self.initial_metadata = im
 
@@ -380,9 +392,11 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         with self._wrapper:
             message = await recv_message(self._stream, self._codec,
                                          self._recv_type)
-            if message is not NOTHING:
+            if message is not None:
                 message, = await self._dispatch.recv_message(message)
                 return message
+            else:
+                return None
 
     async def recv_trailing_metadata(self) -> None:
         """Coroutine to wait for trailers with trailing metadata from the
@@ -448,7 +462,12 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._wrapper_ctx.__enter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         if not self._send_request_done:
             return
         try:
@@ -499,9 +518,9 @@ class Channel:
         host: Optional[str] = None,
         port: Optional[int] = None,
         *,
-        loop: asyncio.AbstractEventLoop = None,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
         path: Optional[str] = None,
-        codec: CodecBase = None,
+        codec: Optional[CodecBase] = None,
         ssl: Union[None, bool, '_ssl.SSLContext'] = None,
     ):
         """Initialize connection to the server
@@ -551,29 +570,32 @@ class Channel:
 
         self.__dispatch__ = _DispatchChannelEvents()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('Channel({!r}, {!r}, ..., path={!r})'
                 .format(self._host, self._port, self._path))
 
-    def _protocol_factory(self):
+    def _protocol_factory(self) -> H2Protocol:
         return H2Protocol(Handler(), self._config, loop=self._loop)
 
-    async def _create_connection(self):
+    async def _create_connection(self) -> H2Protocol:
         if self._path is not None:
             _, protocol = await self._loop.create_unix_connection(
-                self._protocol_factory, self._path, ssl=self._ssl)
+                self._protocol_factory, self._path, ssl=self._ssl,
+            )
         else:
-            _, protocol = await self._loop.create_connection(
+            # FIXME: remove ignore after mypy#6909 fix
+            _, protocol = await self._loop.create_connection(  # type: ignore
                 self._protocol_factory, self._host, self._port,
-                ssl=self._ssl)
-        return protocol
+                ssl=self._ssl,
+            )
+        return cast(H2Protocol, protocol)
 
     @property
-    def _connected(self):
+    def _connected(self) -> bool:
         return (self._protocol is not None
                 and not self._protocol.handler.connection_lost)
 
-    async def __connect__(self):
+    async def __connect__(self) -> H2Protocol:
         if self._loop is None:
             self._loop = asyncio.get_running_loop()
             self._connect_lock = asyncio.Lock(loop=self._loop)
@@ -582,10 +604,10 @@ class Channel:
             async with self._connect_lock:
                 if not self._connected:
                     self._protocol = await self._create_connection()
-        return self._protocol
+        return cast(H2Protocol, self._protocol)
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
-    def _get_default_ssl_context(self):
+    def _get_default_ssl_context(self) -> '_ssl.SSLContext':
         if _ssl is None:
             raise RuntimeError('SSL is not supported.')
 
@@ -600,14 +622,23 @@ class Channel:
 
         return ctx
 
-    def request(self, name, cardinality, request_type, reply_type,
-                *, timeout=None, deadline=None, metadata=None):
+    def request(
+        self,
+        name: str,
+        cardinality: Cardinality,
+        request_type: Type[_SendType],
+        reply_type: Type[_RecvType],
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional[Deadline] = None,
+        metadata: Optional[_MetadataLike] = None,
+    ) -> Stream[_SendType, _RecvType]:
         if timeout is not None and deadline is None:
             deadline = Deadline.from_timeout(timeout)
         elif timeout is not None and deadline is not None:
             deadline = min(Deadline.from_timeout(timeout), deadline)
 
-        metadata = MultiDict(metadata or ())
+        metadata = cast(_Metadata, MultiDict(metadata or ()))
 
         return Stream(self, name, metadata, cardinality,
                       request_type, reply_type, codec=self._codec,
@@ -620,7 +651,7 @@ class Channel:
             self._protocol.processor.close()
             del self._protocol
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self._loop is not None and self._protocol is not None:
             message = 'Unclosed connection: {!r}'.format(self)
             warnings.warn(message, ResourceWarning)
@@ -648,7 +679,7 @@ class ServiceMethod(Generic[_SendType, _RecvType]):
         self.reply_type = reply_type
 
     @property
-    def _cardinality(self):
+    def _cardinality(self) -> Cardinality:
         raise NotImplementedError
 
     def open(
@@ -688,7 +719,7 @@ class UnaryUnaryMethod(ServiceMethod[_SendType, _RecvType]):
         self,
         message: _SendType,
         *,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         metadata: Optional[_MetadataLike] = None,
     ) -> _RecvType:
         """Coroutine to perform defined call.
@@ -700,7 +731,9 @@ class UnaryUnaryMethod(ServiceMethod[_SendType, _RecvType]):
         """
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send_message(message, end=True)
-            return await stream.recv_message()
+            reply = await stream.recv_message()
+            assert reply is not None
+            return reply
 
 
 class UnaryStreamMethod(ServiceMethod[_SendType, _RecvType]):
@@ -717,7 +750,7 @@ class UnaryStreamMethod(ServiceMethod[_SendType, _RecvType]):
         self,
         message: _SendType,
         *,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         metadata: Optional[_MetadataLike] = None,
     ) -> List[_RecvType]:
         """Coroutine to perform defined call.
@@ -746,7 +779,7 @@ class StreamUnaryMethod(ServiceMethod[_SendType, _RecvType]):
         self,
         messages: Sequence[_SendType],
         *,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         metadata: Optional[_MetadataLike] = None,
     ) -> _RecvType:
         """Coroutine to perform defined call.
@@ -763,7 +796,9 @@ class StreamUnaryMethod(ServiceMethod[_SendType, _RecvType]):
                 await stream.send_message(messages[-1], end=True)
             else:
                 await stream.end()
-            return await stream.recv_message()
+            reply = await stream.recv_message()
+            assert reply is not None
+            return reply
 
 
 class StreamStreamMethod(ServiceMethod[_SendType, _RecvType]):
@@ -780,7 +815,7 @@ class StreamStreamMethod(ServiceMethod[_SendType, _RecvType]):
         self,
         messages: Sequence[_SendType],
         *,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         metadata: Optional[_MetadataLike] = None,
     ) -> List[_RecvType]:
         """Coroutine to perform defined call.
