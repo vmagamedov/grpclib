@@ -3,7 +3,9 @@ import socket
 import logging
 import asyncio
 
-from typing import TYPE_CHECKING, Optional, Collection, Generic
+from types import TracebackType
+from typing import TYPE_CHECKING, Optional, Collection, Generic, Type, cast
+from typing import List, Tuple, Dict, Any, Callable, ContextManager, Set
 
 import h2.config
 import h2.exceptions
@@ -11,7 +13,7 @@ import h2.exceptions
 from multidict import MultiDict
 
 from .utils import DeadlineWrapper, Wrapper
-from .const import Status
+from .const import Status, Cardinality
 from .compat import nullcontext
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
@@ -26,10 +28,14 @@ from .encoding.proto import ProtoCodec
 
 if TYPE_CHECKING:
     import ssl as _ssl  # noqa
+    from . import const  # noqa
+    from . import protocol  # noqa
     from ._protocols import IServable  # noqa
 
 
 log = logging.getLogger(__name__)
+
+_Headers = List[Tuple[str, str]]
 
 
 class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
@@ -58,8 +64,18 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
     _send_trailing_metadata_done = False
     _cancel_done = False
 
-    def __init__(self, stream, method_name, cardinality, recv_type, send_type,
-                 *, codec, dispatch: _DispatchServerEvents, deadline=None):
+    def __init__(
+        self,
+        stream: 'protocol.Stream',
+        method_name: str,
+        cardinality: Cardinality,
+        recv_type: Type[_RecvType],
+        send_type: Type[_SendType],
+        *,
+        codec: CodecBase,
+        dispatch: _DispatchServerEvents,
+        deadline: Optional[Deadline] = None,
+    ):
         self._stream = stream
         self._method_name = method_name
         self._cardinality = cardinality
@@ -74,7 +90,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         self.metadata = None
 
     @property
-    def _content_type(self):
+    def _content_type(self) -> str:
         return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
     async def recv_message(self) -> Optional[_RecvType]:
@@ -137,7 +153,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         ]
         metadata = MultiDict(metadata or ())
         metadata, = await self._dispatch.send_initial_metadata(metadata)
-        headers.extend(encode_metadata(metadata))
+        headers.extend(encode_metadata(cast(_Metadata, metadata)))
 
         await self._stream.send_headers(headers)
         self._send_initial_metadata_done = True
@@ -195,7 +211,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
                                 'a single message to be sent')
 
         if self._send_initial_metadata_done:
-            headers = []
+            headers: _Headers = []
         else:
             # trailers-only response
             headers = [
@@ -210,7 +226,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
         metadata = MultiDict(metadata or ())
         metadata, = await self._dispatch.send_trailing_metadata(metadata)
-        headers.extend(encode_metadata(metadata))
+        headers.extend(encode_metadata(cast(_Metadata, metadata)))
 
         await self._stream.send_headers(headers, end_stream=True)
         self._send_trailing_metadata_done = True
@@ -234,7 +250,12 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
     async def __aenter__(self) -> 'Stream[_RecvType, _SendType]':
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
         if (
             self._send_trailing_metadata_done
             or self._cancel_done
@@ -256,7 +277,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
                 status_message = 'Internal Server Error'
             else:
                 # propagate exception
-                return
+                return None
         elif (
             # There is a possibility of a ``ProtocolError`` in the
             # ``send_trailing_metadata`` method, so we are checking for such
@@ -286,7 +307,12 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         return True
 
 
-async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None):
+async def _abort(
+    h2_stream: 'protocol.Stream',
+    h2_status: int,
+    grpc_status: Optional[Status] = None,
+    grpc_message: Optional[str] = None,
+) -> None:
     headers = [(':status', str(h2_status))]
     if grpc_status is not None:
         headers.append(('grpc-status', str(grpc_status.value)))
@@ -297,8 +323,14 @@ async def _abort(h2_stream, h2_status, grpc_status=None, grpc_message=None):
         h2_stream.reset_nowait()
 
 
-async def request_handler(mapping, _stream, headers, codec, dispatch,
-                          release_stream):
+async def request_handler(
+    mapping: Dict[str, 'const.Handler'],
+    _stream: 'protocol.Stream',
+    headers: _Headers,
+    codec: CodecBase,
+    dispatch: _DispatchServerEvents,
+    release_stream: Callable[[], Any],
+) -> None:
     try:
         headers_map = dict(headers)
 
@@ -348,6 +380,7 @@ async def request_handler(mapping, _stream, headers, codec, dispatch,
             method.request_type, method.reply_type,
             codec=codec, dispatch=dispatch, deadline=deadline
         ) as stream:
+            deadline_wrapper: 'ContextManager[Any]'
             if deadline is None:
                 wrapper = _stream.__wrapper__ = Wrapper()
                 deadline_wrapper = nullcontext()
@@ -390,14 +423,14 @@ class _GC(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def __gc_interval__(self):
+    def __gc_interval__(self) -> int:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __gc_collect__(self):
+    def __gc_collect__(self) -> None:
         pass
 
-    def __gc_step__(self):
+    def __gc_step__(self) -> None:
         self._gc_counter += 1
         if not (self._gc_counter % self.__gc_interval__):
             self.__gc_collect__()
@@ -408,7 +441,17 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    def __init__(self, mapping, codec, dispatch, *, loop):
+    _tasks: Dict['protocol.Stream', 'asyncio.Task[None]']
+    _cancelled: Set['asyncio.Task[None]']
+
+    def __init__(
+        self,
+        mapping: Dict[str, 'const.Handler'],
+        codec: CodecBase,
+        dispatch: _DispatchServerEvents,
+        *,
+        loop: asyncio.AbstractEventLoop,
+    ) -> None:
         self.mapping = mapping
         self.codec = codec
         self.dispatch = dispatch
@@ -416,35 +459,40 @@ class Handler(_GC, AbstractHandler):
         self._tasks = {}
         self._cancelled = set()
 
-    def __gc_collect__(self):
+    def __gc_collect__(self) -> None:
         self._tasks = {s: t for s, t in self._tasks.items()
                        if not t.done()}
         self._cancelled = {t for t in self._cancelled
                            if not t.done()}
 
-    def accept(self, stream, headers, release_stream):
+    def accept(
+        self,
+        stream: 'protocol.Stream',
+        headers: _Headers,
+        release_stream: Callable[[], Any],
+    ) -> None:
         self.__gc_step__()
         self._tasks[stream] = self.loop.create_task(
             request_handler(self.mapping, stream, headers, self.codec,
                             self.dispatch, release_stream)
         )
 
-    def cancel(self, stream):
+    def cancel(self, stream: 'protocol.Stream') -> None:
         task = self._tasks.pop(stream)
         task.cancel()
         self._cancelled.add(task)
 
-    def close(self):
+    def close(self) -> None:
         for task in self._tasks.values():
             task.cancel()
         self._cancelled.update(self._tasks.values())
         self.closing = True
 
-    async def wait_closed(self):
+    async def wait_closed(self) -> None:
         if self._cancelled:
             await asyncio.wait(self._cancelled, loop=self.loop)
 
-    def check_closed(self):
+    def check_closed(self) -> bool:
         self.__gc_collect__()
         return not self._tasks and not self._cancelled
 
@@ -469,6 +517,10 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
+    _server: Optional[asyncio.AbstractServer]
+    _mapping: Dict[str, 'const.Handler']
+    _handlers: Set[Handler]
+
     def __init__(
         self,
         handlers: Collection['IServable'],
@@ -480,7 +532,7 @@ class Server(_GC, asyncio.AbstractServer):
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
         """
-        mapping = {}
+        mapping = {}  # type: Dict[str, 'const.Handler']
         for handler in handlers:
             mapping.update(handler.__mapping__())
 
@@ -497,11 +549,11 @@ class Server(_GC, asyncio.AbstractServer):
 
         self.__dispatch__ = _DispatchServerEvents()
 
-    def __gc_collect__(self):
+    def __gc_collect__(self) -> None:
         self._handlers = {h for h in self._handlers
                           if not (h.closing and h.check_closed())}
 
-    def _protocol_factory(self):
+    def _protocol_factory(self) -> H2Protocol:
         self.__gc_step__()
         handler = Handler(self._mapping, self._codec, self.__dispatch__,
                           loop=self._loop)
@@ -570,7 +622,8 @@ class Server(_GC, asyncio.AbstractServer):
             )
 
         else:
-            self._server = await self._loop.create_server(
+            # FIXME: false positive
+            self._server = await self._loop.create_server(  # type: ignore
                 self._protocol_factory, host, port,
                 family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
                 reuse_address=reuse_address, reuse_port=reuse_port
@@ -587,7 +640,7 @@ class Server(_GC, asyncio.AbstractServer):
         for handler in self._handlers:
             handler.close()
 
-    async def wait_closed(self) -> None:
+    async def wait_closed(self) -> None:  # type: ignore
         """Coroutine to wait until all existing request handlers will exit
         properly.
         """

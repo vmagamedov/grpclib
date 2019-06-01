@@ -583,7 +583,7 @@ class Channel:
                 self._protocol_factory, self._path, ssl=self._ssl,
             )
         else:
-            # FIXME: remove ignore after mypy#6909 fix
+            # FIXME: false positive
             _, protocol = await self._loop.create_connection(  # type: ignore
                 self._protocol_factory, self._host, self._port,
                 ssl=self._ssl,

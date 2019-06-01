@@ -100,7 +100,7 @@ class DeadlineWrapper(Wrapper):
         deadline: 'Deadline',
         *,
         loop: Optional[asyncio.AbstractEventLoop] = None,
-    ) -> Iterator['DeadlineWrapper']:
+    ) -> Iterator[None]:
         loop = loop or asyncio.get_event_loop()
         timeout = deadline.time_remaining()
         if not timeout:
@@ -111,7 +111,7 @@ class DeadlineWrapper(Wrapper):
 
         timer = loop.call_later(timeout, callback)
         try:
-            yield self
+            yield
         finally:
             timer.cancel()
 
