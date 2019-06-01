@@ -2,8 +2,8 @@ import socket
 
 from io import BytesIO
 from abc import ABC, abstractmethod
-from typing import Optional, List, Tuple, Dict, NamedTuple, Callable, Deque
-from typing import cast
+from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
+from typing import cast, TYPE_CHECKING
 from asyncio import Transport, Protocol, Event, AbstractEventLoop, BaseTransport
 from asyncio import Queue, QueueEmpty
 from functools import partial
@@ -22,6 +22,10 @@ from h2.exceptions import ProtocolError, TooManyStreamsError, StreamClosedError
 
 from .utils import Wrapper
 from .exceptions import StreamTerminatedError
+
+
+if TYPE_CHECKING:
+    from typing import Deque
 
 
 try:
@@ -213,7 +217,7 @@ class Connection:
             self._transport.write(data)
 
     def close(self) -> None:
-        if self._transport:
+        if hasattr(self, '_transport'):
             self._transport.close()
             # remove cyclic references to improve memory usage
             del self._transport
