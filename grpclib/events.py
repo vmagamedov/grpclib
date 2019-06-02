@@ -62,11 +62,10 @@ _Callback = Callable[[_Event], Coroutine[Any, Any, None]]
 
 
 class _Dispatch:
-    _listeners: Dict[Type[_Event], List[_Callback]]
     __dispatch_methods__: Dict[Type[_Event], str] = {}
 
     def __init__(self) -> None:
-        self._listeners = defaultdict(list)
+        self._listeners: Dict[Type[_Event], List[_Callback]] = defaultdict(list)
         for name in self.__dispatch_methods__.values():
             self.__dict__[name] = _ident
 

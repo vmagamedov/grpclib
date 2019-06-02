@@ -95,7 +95,6 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     _stream = None
     _release_stream = None
 
-    _wrapper: Wrapper
     _wrapper_ctx = None
 
     #: This property contains initial metadata, received with headers from

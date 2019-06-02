@@ -61,10 +61,6 @@ class ChannelFor:
             response = await stub.SayHello(HelloRequest(name='Dr. Strange'))
             assert response.message == 'Hello, Dr. Strange!'
     """
-    _channel: Channel
-    _server: Server
-    _server_protocol: 'H2Protocol'
-
     def __init__(self, services: Collection['IServable']) -> None:
         """
         :param services: list of services you want to test

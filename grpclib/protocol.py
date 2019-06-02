@@ -62,8 +62,6 @@ class AckedData(NamedTuple):
 
 
 class Buffer:
-    _unacked: 'Queue[UnackedData]'
-    _acked: 'Deque[AckedData]'
 
     def __init__(
         self,
@@ -73,8 +71,8 @@ class Buffer:
     ) -> None:
         self._ack_callback = ack_callback
         self._eof = False
-        self._unacked = Queue(loop=loop)
-        self._acked = deque()
+        self._unacked: 'Queue[UnackedData]' = Queue(loop=loop)
+        self._acked: 'Deque[AckedData]' = deque()
         self._acked_size = 0
 
     def add(self, data: bytes, ack_size: int) -> None:
@@ -233,9 +231,6 @@ class Stream:
     API for working with streams, used by clients and request handlers
     """
     id: Optional[int] = None
-    __buffer__: Buffer
-    __wrapper__: Optional[Wrapper] = None
-    __headers__: 'Queue[List[Tuple[str, str]]]'
 
     def __init__(
         self,
@@ -256,7 +251,7 @@ class Stream:
         if stream_id is not None:
             self.init_stream(stream_id, self._connection, loop=self._loop)
 
-        self.__headers__ = Queue(loop=loop)
+        self.__headers__: 'Queue[List[Tuple[str, str]]]' = Queue(loop=loop)
         self.__window_updated__ = Event(loop=loop)
 
     def init_stream(
@@ -436,8 +431,6 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
-    streams: _Streams
-
     def __init__(
         self,
         handler: AbstractHandler,
@@ -463,7 +456,7 @@ class EventsProcessor:
             PingAcknowledged: self.process_ping_ack_received,  # deprecated
         }
 
-        self.streams = {}
+        self.streams: _Streams = {}
 
     def create_stream(self) -> Stream:
         stream = self.connection.create_stream()

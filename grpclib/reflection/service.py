@@ -14,7 +14,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Collection, List, Any
+from typing import TYPE_CHECKING, Collection, List
 
 from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
@@ -39,10 +39,9 @@ class ServerReflection(ServerReflectionBase):
     """
     Implements server reflection protocol.
     """
-    _pool: Any  # FIXME: DescriptorPool has incomplete typings
-
     def __init__(self, *, _service_names: Collection[str]):
         self._service_names = _service_names
+        # FIXME: DescriptorPool has incomplete typings
         self._pool = Default()  # type: ignore
 
     def _not_found_response(self) -> ServerReflectionResponse:

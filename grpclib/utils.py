@@ -38,12 +38,11 @@ class Wrapper(ContextManager[None]):
 
     """
     _error: Optional[Exception] = None
-    _tasks: Set['asyncio.Task[Any]']
 
     cancelled: Optional[bool] = None
 
     def __init__(self) -> None:
-        self._tasks = set()
+        self._tasks: Set['asyncio.Task[Any]'] = set()
 
     def __enter__(self) -> None:
         if self._error is not None:

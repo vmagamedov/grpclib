@@ -55,9 +55,6 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
     This is true for every gRPC method type.
     """
-    deadline: Optional[Deadline]
-    metadata: Optional[_Metadata]
-
     # stream state
     _send_initial_metadata_done = False
     _send_message_done = False
@@ -87,7 +84,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         self.deadline = deadline
         #: Invocation metadata, received with headers from the client.
         #: Represented as a multi-dict object.
-        self.metadata = None
+        self.metadata: Optional[_Metadata] = None
 
     @property
     def _content_type(self) -> str:
@@ -441,9 +438,6 @@ class Handler(_GC, AbstractHandler):
 
     closing = False
 
-    _tasks: Dict['protocol.Stream', 'asyncio.Task[None]']
-    _cancelled: Set['asyncio.Task[None]']
-
     def __init__(
         self,
         mapping: Dict[str, 'const.Handler'],
@@ -456,8 +450,8 @@ class Handler(_GC, AbstractHandler):
         self.codec = codec
         self.dispatch = dispatch
         self.loop = loop
-        self._tasks = {}
-        self._cancelled = set()
+        self._tasks: Dict['protocol.Stream', 'asyncio.Task[None]'] = {}
+        self._cancelled: Set['asyncio.Task[None]'] = set()
 
     def __gc_collect__(self) -> None:
         self._tasks = {s: t for s, t in self._tasks.items()
@@ -517,10 +511,6 @@ class Server(_GC, asyncio.AbstractServer):
     """
     __gc_interval__ = 10
 
-    _server: Optional[asyncio.AbstractServer]
-    _mapping: Dict[str, 'const.Handler']
-    _handlers: Set[Handler]
-
     def __init__(
         self,
         handlers: Collection['IServable'],
@@ -532,7 +522,7 @@ class Server(_GC, asyncio.AbstractServer):
         :param handlers: list of handlers
         :param loop: asyncio-compatible event loop
         """
-        mapping = {}  # type: Dict[str, 'const.Handler']
+        mapping: Dict[str, 'const.Handler'] = {}
         for handler in handlers:
             mapping.update(handler.__mapping__())
 
@@ -544,8 +534,8 @@ class Server(_GC, asyncio.AbstractServer):
             header_encoding='ascii',
         )
 
-        self._server = None
-        self._handlers = set()
+        self._server: Optional[asyncio.AbstractServer] = None
+        self._handlers: Set[Handler] = set()
 
         self.__dispatch__ = _DispatchServerEvents()
 

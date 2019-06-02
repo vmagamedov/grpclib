@@ -36,10 +36,9 @@ class Service(NamedTuple):
 
 
 class Buffer:
-    _lines: List[str]
 
     def __init__(self) -> None:
-        self._lines = []
+        self._lines: List[str] = []
         self._indent = 0
 
     def add(

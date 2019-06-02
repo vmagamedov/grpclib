@@ -54,7 +54,6 @@ class ServiceCheck(CheckBase):
     _value = None
     _poll_task = None
     _last_check = 0.0
-    _events: Set[asyncio.Event]
 
     def __init__(
         self,
@@ -76,7 +75,7 @@ class ServiceCheck(CheckBase):
         self._check_ttl = check_ttl
         self._check_timeout = check_timeout
 
-        self._events = set()
+        self._events: Set[asyncio.Event] = set()
 
         loop = loop or asyncio.get_event_loop()
         self._check_lock = asyncio.Event(loop=loop)
@@ -169,9 +168,6 @@ class ServiceStatus(CheckBase):
         # detected that Redis is unavailable
         redis_status.set(False)
     """
-    _value: _Status
-    _events: Set[asyncio.Event]
-
     def __init__(
         self,
         *,
@@ -181,8 +177,8 @@ class ServiceStatus(CheckBase):
         :param loop: asyncio-compatible event loop
         """
         self._loop = loop or asyncio.get_event_loop()
-        self._value = None
-        self._events = set()
+        self._value: _Status = None
+        self._events: Set[asyncio.Event] = set()
 
     def set(self, value: _Status) -> None:
         """Sets current status of a check
