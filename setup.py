@@ -24,6 +24,7 @@ setup(
     author_email='vladimir@magamedov.com',
     url='https://github.com/vmagamedov/grpclib',
     packages=find_packages(),
+    package_data={'grpclib': ['py.typed']},
     license='BSD',
     python_requires='>=3.6',
     install_requires=['h2', 'multidict'],
