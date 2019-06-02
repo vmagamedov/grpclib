@@ -1,11 +1,12 @@
 Changelog
 =========
 
-0.3.0rc3
+0.3.0rc4
 ~~~~~~~~
 
+  - Removed ``v1alpha`` reflection protocol, ``v1`` remains
   - Added example of using ``ProcessPoolExecutor`` for CPU-intensive tasks
-  - Covered examples and most user-facing apis with type annotations, many
+  - Covered library and examples with type annotations, many
     thanks and credit to Callum Ryan @c-ryan747 for his work on #64
   - Fixed implicit trailers-only response for streaming calls
   - Added ``end`` argument to the ``client.Stream.send_request`` method
