@@ -1,3 +1,5 @@
+include examples/mtls/keys/Makefile
+
 __default__:
 	@echo "Please specify a target to make"
 
