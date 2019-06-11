@@ -6,6 +6,7 @@
 
   changelog/index
   overview
+  examples/index
 
 .. toctree::
   :maxdepth: 2
