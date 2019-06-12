@@ -5,6 +5,8 @@ env
 *.pyc
 *.pyo
 *.pyi
+*.key
+*.pem
 .venv
 .tox
 .coverage
