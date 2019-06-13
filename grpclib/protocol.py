@@ -1,4 +1,5 @@
 import socket
+import logging
 
 from io import BytesIO
 from abc import ABC, abstractmethod
@@ -33,6 +34,9 @@ try:
 except ImportError:
     PingReceived = object()
     PingAckReceived = object()
+
+
+log = logging.getLogger(__name__)
 
 
 if hasattr(socket, 'TCP_NODELAY'):
@@ -476,11 +480,11 @@ class EventsProcessor:
 
         return release_stream
 
-    def close(self) -> None:
+    def close(self, reason: str = 'Connection closed') -> None:
         self.connection.close()
         self.handler.close()
         for stream in self.streams.values():
-            stream.__terminated__('Connection was closed')
+            stream.__terminated__(reason)
         # remove cyclic references to improve memory usage
         if hasattr(self, 'processors'):
             del self.processors
@@ -605,7 +609,8 @@ class H2Protocol(Protocol):
         try:
             events = self.connection.feed(data)
         except ProtocolError:
-            self.processor.close()
+            log.debug('Protocol error', exc_info=True)
+            self.processor.close('Protocol error')
         else:
             self.connection.flush()
             for event in events:
