@@ -414,14 +414,14 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._recv_trailing_metadata_done = True
         else:
             with self._wrapper:
-                headers = await self._stream.recv_headers()
+                trailers = await self._stream.recv_trailers()
                 self._recv_trailing_metadata_done = True
 
-                tm = decode_metadata(headers)
+                tm = decode_metadata(trailers)
                 tm, = await self._dispatch.recv_trailing_metadata(tm)
                 self.trailing_metadata = tm
 
-                self._raise_for_grpc_status(dict(headers))
+                self._raise_for_grpc_status(dict(trailers))
 
     async def cancel(self) -> None:
         """Coroutine to cancel this request/stream.

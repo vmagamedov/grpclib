@@ -379,10 +379,10 @@ async def request_handler(
         ) as stream:
             deadline_wrapper: 'ContextManager[Any]'
             if deadline is None:
-                wrapper = _stream.__wrapper__ = Wrapper()
+                wrapper = _stream.wrapper = Wrapper()
                 deadline_wrapper = nullcontext()
             else:
-                wrapper = _stream.__wrapper__ = DeadlineWrapper()
+                wrapper = _stream.wrapper = DeadlineWrapper()
                 deadline_wrapper = wrapper.start(deadline)
             try:
                 with deadline_wrapper, wrapper:

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
 from typing import cast, TYPE_CHECKING
 from asyncio import Transport, Protocol, Event, AbstractEventLoop, BaseTransport
-from asyncio import Queue, QueueEmpty
+from asyncio import Queue
 from functools import partial
 from collections import deque
 
@@ -250,16 +250,16 @@ class Stream:
         self._h2_connection = h2_connection
         self._transport = transport
         self._loop = loop
-        self.__wrapper__ = wrapper
+        self.wrapper = wrapper
 
         if stream_id is not None:
             self.init_stream(stream_id, self._connection, loop=self._loop)
 
-        self.__headers__: 'Queue[_Headers]' = Queue(loop=loop)
-        self.__window_updated__ = Event(loop=loop)
-
+        self.window_updated = Event(loop=loop)
         self.headers: Optional['_Headers'] = None
+        self.headers_received = Event(loop=loop)
         self.trailers: Optional['_Headers'] = None
+        self.trailers_received = Event(loop=loop)
 
     def init_stream(
         self,
@@ -269,19 +269,22 @@ class Stream:
         loop: AbstractEventLoop,
     ) -> None:
         self.id = stream_id
-        self.__buffer__ = Buffer(partial(connection.ack, self.id), loop=loop)
+        self.buffer = Buffer(partial(connection.ack, self.id), loop=loop)
 
     async def recv_headers(self) -> _Headers:
-        return await self.__headers__.get()
-
-    def recv_headers_nowait(self) -> Optional[_Headers]:
-        try:
-            return self.__headers__.get_nowait()
-        except QueueEmpty:
-            return None
+        if self.headers is None:
+            await self.headers_received.wait()
+        assert self.headers is not None
+        return self.headers
 
     async def recv_data(self, size: int) -> bytes:
-        return await self.__buffer__.read(size)
+        return await self.buffer.read(size)
+
+    async def recv_trailers(self) -> _Headers:
+        if self.trailers is None:
+            await self.trailers_received.wait()
+        assert self.trailers is not None
+        return self.trailers
 
     async def send_request(
         self,
@@ -355,8 +358,8 @@ class Stream:
             window = self._h2_connection.local_flow_control_window(self.id)
             # window can become negative
             if not window > 0:
-                self.__window_updated__.clear()
-                await self.__window_updated__.wait()
+                self.window_updated.clear()
+                await self.window_updated.wait()
                 # during "await" above other streams were able to send data and
                 # decrease current window size, so try from the beginning
                 continue
@@ -395,11 +398,11 @@ class Stream:
             self._transport.write(self._h2_connection.data_to_send())
 
     def __ended__(self) -> None:
-        self.__buffer__.eof()
+        self.buffer.eof()
 
     def __terminated__(self, reason: str) -> None:
-        if self.__wrapper__ is not None:
-            self.__wrapper__.cancel(StreamTerminatedError(reason))
+        if self.wrapper is not None:
+            self.wrapper.cancel(StreamTerminatedError(reason))
 
     @property
     def closable(self) -> bool:
@@ -479,7 +482,7 @@ class EventsProcessor:
             assert stream.id is not None
             _stream = _streams.pop(stream.id)
             self.connection.stream_close_waiter.set()
-            self.connection.ack(stream.id, _stream.__buffer__.unacked_size())
+            self.connection.ack(stream.id, _stream.buffer.unacked_size())
 
         return release_stream
 
@@ -509,8 +512,8 @@ class EventsProcessor:
     def process_response_received(self, event: ResponseReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.__headers__.put_nowait(event.headers)
             stream.headers = event.headers
+            stream.headers_received.set()
 
     def process_remote_settings_changed(
         self,
@@ -518,7 +521,7 @@ class EventsProcessor:
     ) -> None:
         if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
             for stream in self.streams.values():
-                stream.__window_updated__.set()
+                stream.window_updated.set()
 
     def process_settings_acknowledged(
         self,
@@ -529,7 +532,7 @@ class EventsProcessor:
     def process_data_received(self, event: DataReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.__buffer__.add(
+            stream.buffer.add(
                 event.data,
                 event.flow_controlled_length,
             )
@@ -542,17 +545,17 @@ class EventsProcessor:
     def process_window_updated(self, event: WindowUpdated) -> None:
         if event.stream_id == 0:
             for value in self.streams.values():
-                value.__window_updated__.set()
+                value.window_updated.set()
         else:
             stream = self.streams.get(event.stream_id)
             if stream is not None:
-                stream.__window_updated__.set()
+                stream.window_updated.set()
 
     def process_trailers_received(self, event: TrailersReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.__headers__.put_nowait(event.headers)
             stream.trailers = event.headers
+            stream.trailers_received.set()
 
     def process_stream_ended(self, event: StreamEnded) -> None:
         stream = self.streams.get(event.stream_id)

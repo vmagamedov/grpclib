@@ -113,7 +113,7 @@ async def test_recv_data_larger_than_window_size(loop):
     server_stream, = server_processor.streams.values()
     recv_task = loop.create_task(server_stream.recv_data(size))
     await asyncio.wait([recv_task], timeout=.01, loop=loop)
-    assert server_stream.__buffer__._acked_size == initial_window - 1
+    assert server_stream.buffer._acked_size == initial_window - 1
 
     # check that server acknowledged received partial data
     assert client_h2c.local_flow_control_window(client_stream.id) > 1
@@ -122,7 +122,7 @@ async def test_recv_data_larger_than_window_size(loop):
     await client_stream.send_data(data[initial_window - 1:])
     to_server_transport.process(server_processor)
     await asyncio.wait_for(recv_task, 0.01, loop=loop)
-    assert server_stream.__buffer__._acked_size == 0
+    assert server_stream.buffer._acked_size == 0
 
 
 @pytest.mark.asyncio
