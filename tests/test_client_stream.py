@@ -398,7 +398,7 @@ async def test_unimplemented_error(cs: ClientStream):
 
 @pytest.mark.asyncio
 async def test_unimplemented_error_with_stream_reset(cs: ClientStream):
-    with pytest.raises(ErrorDetected):
+    with pytest.raises(GRPCError) as err:
         async with cs.client_stream as stream:
             await stream.send_request()
 
@@ -413,11 +413,7 @@ async def test_unimplemented_error_with_stream_reset(cs: ClientStream):
             cs.client_conn.server_h2c.reset_stream(stream_id)
             cs.client_conn.server_flush()
 
-            try:
-                await stream.recv_initial_metadata()
-            except GRPCError as exc:
-                assert exc and exc.status == Status.UNIMPLEMENTED
-                raise ErrorDetected()
+    assert err.value.status == Status.UNIMPLEMENTED
 
 
 @pytest.mark.asyncio
@@ -428,7 +424,7 @@ async def test_unimplemented_error_with_stream_reset(cs: ClientStream):
     ('508', Status.UNKNOWN),
 ])
 async def test_non_ok_status(cs: ClientStream, status, grpc_status):
-    with pytest.raises(ErrorDetected):
+    with pytest.raises(GRPCError) as err:
         async with cs.client_stream as stream:
             await stream.send_request()
 
@@ -441,13 +437,24 @@ async def test_non_ok_status(cs: ClientStream, status, grpc_status):
             cs.client_conn.server_h2c.reset_stream(stream_id)
             cs.client_conn.server_flush()
 
-            try:
-                await stream.recv_initial_metadata()
-            except GRPCError as exc:
-                assert exc
-                assert exc.status == grpc_status
-                assert exc.message == 'Received :status = {!r}'.format(status)
-                raise ErrorDetected()
+    assert err.value.status == grpc_status
+    assert err.value.message == 'Received :status = {!r}'.format(status)
+
+
+@pytest.mark.asyncio
+async def test_reset_after_headers(cs: ClientStream):
+    with pytest.raises(StreamTerminatedError):
+        async with cs.client_stream as stream:
+            await stream.send_request()
+
+            events = cs.client_conn.to_server_transport.events()
+            stream_id = events[-1].stream_id
+
+            cs.client_conn.server_h2c.send_headers(stream_id, [
+                (':status', '200'),
+            ])
+            cs.client_conn.server_h2c.reset_stream(stream_id)
+            cs.client_conn.server_flush()
 
 
 @pytest.mark.asyncio

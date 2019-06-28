@@ -1,10 +1,11 @@
+import sys
 import http
 import asyncio
 import warnings
 
 from types import TracebackType
 from typing import Generic, Optional, Union, Type, List, Sequence, Any, cast
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 
 try:
     import ssl as _ssl
@@ -19,12 +20,16 @@ from .const import Status, Cardinality
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
 from .events import _DispatchChannelEvents
-from .protocol import H2Protocol, AbstractHandler
+from .protocol import H2Protocol, AbstractHandler, Stream as _Stream
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata, _MetadataLike, _Metadata
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
 from .encoding.proto import ProtoCodec
+
+
+if TYPE_CHECKING:
+    from ._protocols import IReleaseStream  # noqa
 
 
 _H2_OK = '200'
@@ -90,10 +95,10 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     _recv_initial_metadata_done = False
     _recv_trailing_metadata_done = False
     _cancel_done = False
-    _trailers_only = None
+    _trailers_only: Optional[bool] = None
 
-    _stream = None
-    _release_stream = None
+    _stream: _Stream
+    _release_stream: 'IReleaseStream'
 
     _wrapper_ctx = None
 
@@ -320,45 +325,28 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if self._recv_initial_metadata_done:
             raise ProtocolError('Initial metadata was already received')
 
-        try:
-            with self._wrapper:
-                headers = await self._stream.recv_headers()
-                self._recv_initial_metadata_done = True
-                headers_map = dict(headers)
-                self._raise_for_status(headers_map)
-                self._raise_for_content_type(headers_map)
-                if 'grpc-status' in headers_map:  # trailers-only response
-                    self._trailers_only = True
+        with self._wrapper:
+            headers = await self._stream.recv_headers()
+            self._recv_initial_metadata_done = True
+            headers_map = dict(headers)
+            self._raise_for_status(headers_map)
+            self._raise_for_content_type(headers_map)
+            if 'grpc-status' in headers_map:  # trailers-only response
+                self._trailers_only = True
 
-                    im = cast(_Metadata, MultiDict())
-                    im, = await self._dispatch.recv_initial_metadata(im)
-                    self.initial_metadata = im
+                im = cast(_Metadata, MultiDict())
+                im, = await self._dispatch.recv_initial_metadata(im)
+                self.initial_metadata = im
 
-                    tm = decode_metadata(headers)
-                    tm, = await self._dispatch.recv_trailing_metadata(tm)
-                    self.trailing_metadata = tm
+                tm = decode_metadata(headers)
+                tm, = await self._dispatch.recv_trailing_metadata(tm)
+                self.trailing_metadata = tm
 
-                    self._raise_for_grpc_status(headers_map)
-                else:
-                    im = decode_metadata(headers)
-                    im, = await self._dispatch.recv_initial_metadata(im)
-                    self.initial_metadata = im
-
-        except StreamTerminatedError:
-            # Server can send RST_STREAM frame right after sending trailers-only
-            # response, so we have to check received headers and probably raise
-            # more descriptive error
-            headers = self._stream.recv_headers_nowait()
-            if headers is None:
-                raise
+                self._raise_for_grpc_status(headers_map)
             else:
-                headers_map = dict(headers)
-                self._raise_for_status(headers_map)
-                if 'grpc-status' in headers_map:  # trailers-only response
-                    self._raise_for_grpc_status(headers_map)
-                # If there are no errors in the headers, just reraise original
-                # StreamTerminatedError
-                raise
+                im = decode_metadata(headers)
+                im, = await self._dispatch.recv_initial_metadata(im)
+                self.initial_metadata = im
 
     async def recv_message(self) -> Optional[_RecvType]:
         """Coroutine to receive incoming message from the server.
@@ -461,6 +449,16 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._wrapper_ctx.__enter__()
         return self
 
+    async def _maybe_finish(self) -> None:
+        if (
+            not self._cancel_done
+            and not self._stream._transport.is_closing()
+        ):
+            if not self._recv_initial_metadata_done:
+                await self.recv_initial_metadata()
+            if not self._recv_trailing_metadata_done:
+                await self.recv_trailing_metadata()
+
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -470,15 +468,27 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if not self._send_request_done:
             return
         try:
-            if (
-                not exc_type
-                and not self._cancel_done
-                and not self._stream._transport.is_closing()
-            ):
-                if not self._recv_initial_metadata_done:
-                    await self.recv_initial_metadata()
-                if not self._recv_trailing_metadata_done:
-                    await self.recv_trailing_metadata()
+            reraise = False
+            if exc_val is None:
+                try:
+                    await self._maybe_finish()
+                except Exception:
+                    exc_type, exc_val, exc_tb = sys.exc_info()
+                    reraise = True
+
+            if isinstance(exc_val, StreamTerminatedError):
+                if self._stream.headers is not None:
+                    self._raise_for_status(dict(self._stream.headers))
+                if self._stream.trailers is not None:
+                    self._raise_for_grpc_status(dict(self._stream.trailers))
+                elif self._stream.headers is not None:
+                    headers_map = dict(self._stream.headers)
+                    if 'grpc-status' in headers_map:
+                        self._raise_for_grpc_status(dict(self._stream.headers))
+
+            if reraise:
+                assert exc_val is not None
+                raise exc_val
         finally:
             if self._stream.closable:
                 self._stream.reset_nowait()

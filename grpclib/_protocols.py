@@ -30,3 +30,7 @@ class IEventsTarget(Protocol):
 
 class IServerMethodFunc(Protocol):
     async def __call__(self, stream: 'server.Stream[Any, Any]') -> None: ...
+
+
+class IReleaseStream(Protocol):
+    def __call__(self) -> None: ...

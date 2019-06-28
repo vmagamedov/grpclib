@@ -255,8 +255,11 @@ class Stream:
         if stream_id is not None:
             self.init_stream(stream_id, self._connection, loop=self._loop)
 
-        self.__headers__: 'Queue[List[Tuple[str, str]]]' = Queue(loop=loop)
+        self.__headers__: 'Queue[_Headers]' = Queue(loop=loop)
         self.__window_updated__ = Event(loop=loop)
+
+        self.headers: Optional['_Headers'] = None
+        self.trailers: Optional['_Headers'] = None
 
     def init_stream(
         self,
@@ -507,6 +510,7 @@ class EventsProcessor:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.__headers__.put_nowait(event.headers)
+            stream.headers = event.headers
 
     def process_remote_settings_changed(
         self,
@@ -548,6 +552,7 @@ class EventsProcessor:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.__headers__.put_nowait(event.headers)
+            stream.trailers = event.headers
 
     def process_stream_ended(self, event: StreamEnded) -> None:
         stream = self.streams.get(event.stream_id)
