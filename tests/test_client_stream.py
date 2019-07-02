@@ -359,14 +359,10 @@ async def test_connection_close_during_send_message(loop, cs: ClientStream):
     with pytest.raises(ErrorDetected):
         async with cs.client_stream as stream:
             await stream.send_request()
-
-            cs.client_conn.client_proto.connection.write_ready.clear()
             task = loop.create_task(
                 stream.send_message(DummyRequest(value='ping'), end=True)
             )
-            cs.client_conn.server_h2c.close_connection()
-            cs.client_conn.server_flush()
-
+            cs.client_conn.client_proto.connection_lost(None)
             try:
                 await asyncio.wait_for(task, timeout=1, loop=loop)
             except StreamTerminatedError:

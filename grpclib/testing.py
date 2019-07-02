@@ -78,13 +78,13 @@ class ChannelFor:
         self._server_protocol = self._server._protocol_factory()
 
         self._channel = Channel(loop=loop)
-        self._channel._protocol = self._channel._protocol_factory()
+        self._channel._current_protocol = self._channel._protocol_factory()
 
-        self._channel._protocol.connection_made(
+        self._channel._current_protocol.connection_made(
             _InMemoryTransport(self._server_protocol, loop=loop)
         )
         self._server_protocol.connection_made(
-            _InMemoryTransport(self._channel._protocol, loop=loop)
+            _InMemoryTransport(self._channel._current_protocol, loop=loop)
         )
         return self._channel
 
@@ -94,8 +94,8 @@ class ChannelFor:
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
-        assert self._channel._protocol is not None
-        self._channel._protocol.connection_lost(None)
+        assert self._channel._current_protocol is not None
+        self._channel._current_protocol.connection_lost(None)
         self._channel.close()
 
         self._server_protocol.connection_lost(None)

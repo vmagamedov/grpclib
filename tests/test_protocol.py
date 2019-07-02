@@ -69,7 +69,7 @@ async def test_send_data_larger_than_frame_size(loop):
     conn = Connection(client_h2c, transport, loop=loop)
     stream = conn.create_stream()
 
-    processor = EventsProcessor(DummyHandler(), conn)
+    processor = EventsProcessor(DummyHandler(), conn, loop)
 
     await stream.send_request(create_headers(), _processor=processor)
     await stream.send_data(b'0' * (client_h2c.max_outbound_frame_size + 1))
@@ -85,7 +85,7 @@ async def test_recv_data_larger_than_window_size(loop):
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
 
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
     await client_stream.send_request(create_headers(), _processor=client_proc)
@@ -102,7 +102,7 @@ async def test_recv_data_larger_than_window_size(loop):
     await client_stream.send_data(data[:initial_window - 1])
 
     # let server process it's events
-    server_processor = EventsProcessor(DummyHandler(), server_conn)
+    server_processor = EventsProcessor(DummyHandler(), server_conn, loop)
     to_server_transport.process(server_processor)
 
     # checking window size was decreased
@@ -135,10 +135,10 @@ async def test_stream_release(loop):
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
 
-    client_processor = EventsProcessor(DummyHandler(), client_conn)
+    client_processor = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
-    server_processor = EventsProcessor(DummyHandler(), server_conn)
+    server_processor = EventsProcessor(DummyHandler(), server_conn, loop)
 
     assert not client_processor.streams
     client_release_stream = await client_stream.send_request(
@@ -186,7 +186,7 @@ async def test_initial_window_size_update(loop):
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
 
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
     await client_stream.send_request(create_headers(), _processor=client_proc)
@@ -228,10 +228,10 @@ async def test_send_headers_into_closed_stream(loop):
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
 
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
-    server_processor = EventsProcessor(DummyHandler(), server_conn)
+    server_processor = EventsProcessor(DummyHandler(), server_conn, loop)
 
     await client_stream.send_request(create_headers(), _processor=client_proc)
 
@@ -253,8 +253,8 @@ async def test_ping(loop):
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
 
-    client_processor = EventsProcessor(DummyHandler(), client_conn)
-    server_processor = EventsProcessor(DummyHandler(), server_conn)
+    client_processor = EventsProcessor(DummyHandler(), client_conn, loop)
+    server_processor = EventsProcessor(DummyHandler(), server_conn, loop)
 
     client_h2c.ping(b'12345678')
     client_conn.flush()
@@ -277,11 +277,11 @@ async def test_unread_data_ack(loop):
     to_client_transport = TransportStub(client_h2c)
     server_handler = DummyHandler()
     server_conn = Connection(server_h2c, to_client_transport, loop=loop)
-    server_proc = EventsProcessor(server_handler, server_conn)
+    server_proc = EventsProcessor(server_handler, server_conn, loop)
 
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
     await client_stream.send_request(create_headers(), _processor=client_proc)
@@ -312,11 +312,11 @@ async def test_released_stream_data_ack(loop):
     to_client_transport = TransportStub(client_h2c)
     server_handler = DummyHandler()
     server_conn = Connection(server_h2c, to_client_transport, loop=loop)
-    server_proc = EventsProcessor(server_handler, server_conn)
+    server_proc = EventsProcessor(server_handler, server_conn, loop)
 
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
     await client_stream.send_request(create_headers(), _processor=client_proc)
@@ -349,7 +349,7 @@ async def test_negative_window_size(loop):
     to_server_transport = TransportStub(server_h2c)
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
 
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
     client_stream = client_conn.create_stream()
 
     await client_stream.send_request(create_headers(), _processor=client_proc)

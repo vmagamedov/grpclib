@@ -20,7 +20,7 @@ from .const import Status, Cardinality
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
 from .events import _DispatchChannelEvents
-from .protocol import H2Protocol, AbstractHandler, Stream as _Stream
+from .protocol import H2Protocol, AbstractHandler, Stream as _Stream, _State
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata, _MetadataLike, _Metadata
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
@@ -520,7 +520,7 @@ class Channel:
 
         channel.close()
     """
-    _protocol = None
+    _max_draining = 10
 
     def __init__(
         self,
@@ -576,6 +576,8 @@ class Channel:
         self._ssl = ssl or None
         self._scheme = 'https' if self._ssl else 'http'
         self._connect_lock = asyncio.Lock(loop=self._loop)
+        self._current_protocol = None
+        self._draining_protocols = []
 
         self.__dispatch__ = _DispatchChannelEvents()
 
@@ -599,21 +601,32 @@ class Channel:
             )
         return cast(H2Protocol, protocol)
 
-    @property
-    def _connected(self) -> bool:
-        return (self._protocol is not None
-                and not self._protocol.handler.connection_lost)
-
     async def __connect__(self) -> H2Protocol:
-        if self._loop is None:
-            self._loop = asyncio.get_running_loop()
-            self._connect_lock = asyncio.Lock(loop=self._loop)
-
-        if not self._connected:
-            async with self._connect_lock:
-                if not self._connected:
-                    self._protocol = await self._create_connection()
-        return cast(H2Protocol, self._protocol)
+        while True:
+            if self._current_protocol is None:
+                async with self._connect_lock:
+                    if self._current_protocol is None:
+                        self._current_protocol = await self._create_connection()
+                break
+            else:
+                state = self._current_protocol.processor.state
+                if state is _State.DRAINING:
+                    self._draining_protocols = [
+                        p for p in self._draining_protocols
+                        if p.processor.state is _State.DRAINING
+                    ]
+                    self._draining_protocols.append(self._current_protocol)
+                    self._current_protocol = None
+                    for proto in self._draining_protocols[:-self._max_draining]:
+                        proto.processor.close('Fast drain')
+                    del self._draining_protocols[:-self._max_draining]
+                    continue
+                elif state is _State.CLOSED:
+                    self._current_protocol = None
+                    continue
+                else:
+                    break
+        return cast(H2Protocol, self._current_protocol)
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
     def _get_default_ssl_context(self) -> '_ssl.SSLContext':
@@ -656,12 +669,15 @@ class Channel:
     def close(self) -> None:
         """Closes connection to the server.
         """
-        if self._protocol is not None:
-            self._protocol.processor.close()
-            del self._protocol
+        for protocol in self._draining_protocols:
+            protocol.processor.close()
+        del self._draining_protocols[:]
+        if self._current_protocol is not None:
+            self._current_protocol.processor.close()
+            self._current_protocol = None
 
     def __del__(self) -> None:
-        if self._loop is not None and self._protocol is not None:
+        if self._current_protocol is not None or self._draining_protocols:
             message = 'Unclosed connection: {!r}'.format(self)
             warnings.warn(message, ResourceWarning)
             if self._loop.is_closed():

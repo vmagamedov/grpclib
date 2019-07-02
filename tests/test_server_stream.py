@@ -391,8 +391,8 @@ async def test_exit_and_stream_was_closed(loop):
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
     server_conn = Connection(server_h2c, to_client_transport, loop=loop)
 
-    server_proc = EventsProcessor(DummyHandler(), server_conn)
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    server_proc = EventsProcessor(DummyHandler(), server_conn, loop)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
 
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(create_headers(),
@@ -427,8 +427,8 @@ async def test_exit_and_connection_was_closed(loop):
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
     server_conn = Connection(server_h2c, to_client_transport, loop=loop)
 
-    server_proc = EventsProcessor(DummyHandler(), server_conn)
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    server_proc = EventsProcessor(DummyHandler(), server_conn, loop)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
 
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(create_headers(),
@@ -460,8 +460,8 @@ async def test_exit_and_connection_was_broken(loop):
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
     server_conn = Connection(server_h2c, to_client_transport, loop=loop)
 
-    server_proc = EventsProcessor(DummyHandler(), server_conn)
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    server_proc = EventsProcessor(DummyHandler(), server_conn, loop)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
 
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(create_headers(),
@@ -494,8 +494,8 @@ async def test_send_trailing_metadata_on_closed_stream(loop):
     client_conn = Connection(client_h2c, to_server_transport, loop=loop)
     server_conn = Connection(server_h2c, to_client_transport, loop=loop)
 
-    server_proc = EventsProcessor(DummyHandler(), server_conn)
-    client_proc = EventsProcessor(DummyHandler(), client_conn)
+    server_proc = EventsProcessor(DummyHandler(), server_conn, loop)
+    client_proc = EventsProcessor(DummyHandler(), client_conn, loop)
 
     client_h2_stream = client_conn.create_stream()
     await client_h2_stream.send_request(create_headers(),

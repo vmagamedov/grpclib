@@ -3,6 +3,7 @@ import logging
 
 from io import BytesIO
 from abc import ABC, abstractmethod
+from enum import IntEnum
 from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
 from typing import cast, TYPE_CHECKING
 from asyncio import Transport, Protocol, Event, AbstractEventLoop, BaseTransport
@@ -217,6 +218,10 @@ class Connection:
         data = self._connection.data_to_send()
         if data:
             self._transport.write(data)
+
+    def goaway(self):
+        self._connection.close_connection()
+        self.flush()
 
     def close(self) -> None:
         if hasattr(self, '_transport'):
@@ -434,6 +439,12 @@ class AbstractHandler(ABC):
         pass
 
 
+class _State(IntEnum):
+    NEW = 1
+    DRAINING = 2
+    CLOSED = 3
+
+
 _Streams = Dict[int, Stream]
 
 
@@ -441,10 +452,13 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
+    _drain_timeout = 30
+
     def __init__(
         self,
         handler: AbstractHandler,
         connection: Connection,
+        loop,
     ) -> None:
         self.handler = handler
         self.connection = connection
@@ -467,6 +481,8 @@ class EventsProcessor:
         }
 
         self.streams: _Streams = {}
+        self.loop = loop
+        self.state = _State.NEW
 
     def create_stream(self) -> Stream:
         stream = self.connection.create_stream()
@@ -486,14 +502,25 @@ class EventsProcessor:
 
         return release_stream
 
-    def close(self, reason: str = 'Connection closed') -> None:
+    def drain(self):
+        if self.state in (_State.DRAINING, _State.CLOSED):
+            return
+        self.connection.goaway()
+        self.loop.call_later(
+            self._drain_timeout, self.close, 'Connection drain',
+        )
+        self.state = _State.DRAINING
+
+    def close(self, reason: str = 'Connection close') -> None:
+        if self.state is _State.CLOSED:
+            return
         self.connection.close()
         self.handler.close()
         for stream in self.streams.values():
             stream.__terminated__(reason)
         # remove cyclic references to improve memory usage
-        if hasattr(self, 'processors'):
-            del self.processors
+        del self.processors
+        self.state = _State.CLOSED
 
     def process(self, event: H2Event) -> None:
         try:
@@ -580,7 +607,7 @@ class EventsProcessor:
         self,
         event: ConnectionTerminated,
     ) -> None:
-        self.close()
+        self.drain()
 
     def process_ping_received(self, event: PingReceived) -> None:
         pass
@@ -611,7 +638,8 @@ class H2Protocol(Protocol):
                                      loop=self.loop)
         self.connection.flush()
 
-        self.processor = EventsProcessor(self.handler, self.connection)
+        self.processor = EventsProcessor(self.handler, self.connection,
+                                         loop=self.loop)
 
     def data_received(self, data: bytes) -> None:
         try:
@@ -632,4 +660,4 @@ class H2Protocol(Protocol):
         self.connection.resume_writing()
 
     def connection_lost(self, exc: Optional[BaseException]) -> None:
-        self.processor.close()
+        self.processor.close('Connection lost')

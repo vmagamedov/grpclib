@@ -31,7 +31,7 @@ async def test_concurrent_connect(loop):
     stub = DummyServiceStub(channel)
     async with ChannelFor([DummyService()]) as _channel:
         with patch.object(loop, 'create_connection') as po:
-            po.side_effect = _create_connection_gen(_channel._protocol)
+            po.side_effect = _create_connection_gen(_channel._current_protocol)
             tasks = [loop.create_task(stub.UnaryUnary(req)) for req in reqs]
             replies = await asyncio.gather(*tasks)
     assert replies == reps
