@@ -25,7 +25,7 @@ setup(
     url='https://github.com/vmagamedov/grpclib',
     packages=find_packages(),
     package_data={'grpclib': ['py.typed']},
-    license='BSD',
+    license='BSD-3-Clause',
     python_requires='>=3.6',
     install_requires=['h2', 'multidict'],
     entry_points={
