@@ -101,7 +101,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
         .. code-block:: python3
 
-            async for massage in stream:
+            async for message in stream:
                 do_smth_with(message)
 
         or even like this:
