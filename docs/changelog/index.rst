@@ -1,9 +1,12 @@
 Changelog
 =========
 
-0.3.0rc4
+0.3.0rcX
 ~~~~~~~~
 
+  - Raising proper ``GRPCError`` in ``client.Stream.__aexit__`` after receiving
+    ``RST_STREAM`` frame
+  - Logging protocol errors, caused by the other side
   - Removed ``v1alpha`` reflection protocol, ``v1`` remains
   - Added example of using ``ProcessPoolExecutor`` for CPU-intensive tasks
   - Covered library and examples with type annotations, many
