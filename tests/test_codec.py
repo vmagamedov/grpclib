@@ -9,9 +9,11 @@ from grpclib.client import UnaryUnaryMethod
 from grpclib.events import _DispatchServerEvents
 from grpclib.exceptions import GRPCError
 from grpclib.encoding.base import CodecBase
+from grpclib.encoding.proto import ProtoCodec
 
 from conn import ClientStream, ClientServer, ServerStream
 from conn import grpc_encode, grpc_decode
+from dummy_pb2 import DummyRequest
 
 
 class JSONCodec(CodecBase):
@@ -219,3 +221,11 @@ async def test_server_return_json(loop):
 
     reply = grpc_decode(data_received.data, None, JSONCodec())
     assert reply == {'value': 'pong'}
+
+
+def test_proto_invalid_type():
+    codec = ProtoCodec()
+    assert codec.encode(DummyRequest(value='42'), DummyRequest) == \
+        DummyRequest(value='42').SerializeToString()
+    with pytest.raises(TypeError, match='Message must be of type'):
+        codec.encode(1, DummyRequest)

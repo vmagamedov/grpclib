@@ -15,7 +15,9 @@ class ProtoCodec(CodecBase):
         message: 'IProtoMessage',
         message_type: Type['IProtoMessage'],
     ) -> bytes:
-        assert isinstance(message, message_type), type(message)
+        if not isinstance(message, message_type):
+            raise TypeError('Message must be of type {!r}, not {!r}'
+                            .format(message_type, type(message)))
         return message.SerializeToString()
 
     def decode(
