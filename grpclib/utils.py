@@ -40,6 +40,7 @@ class Wrapper(ContextManager[None]):
     _error: Optional[Exception] = None
 
     cancelled: Optional[bool] = None
+    cancel_failed: Optional[bool] = None
 
     def __init__(self) -> None:
         self._tasks: Set['asyncio.Task[Any]'] = set()
@@ -64,6 +65,7 @@ class Wrapper(ContextManager[None]):
         assert task
         self._tasks.discard(task)
         if self._error is not None:
+            self.cancel_failed = exc_type is not asyncio.CancelledError
             raise self._error
 
     def cancel(self, error: Exception) -> None:

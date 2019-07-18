@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pytest
 
@@ -8,6 +9,7 @@ from grpclib.const import Handler, Cardinality
 from grpclib.events import _DispatchServerEvents
 from grpclib.server import request_handler
 from grpclib.protocol import Connection, EventsProcessor
+from grpclib.exceptions import StreamTerminatedError
 from grpclib.encoding.proto import ProtoCodec
 
 from stubs import TransportStub, DummyHandler
@@ -133,8 +135,33 @@ async def test_invalid_grpc_timeout(loop):
     ]
 
 
+async def _slow_handler(_):
+    await asyncio.sleep(1)
+
+
+async def _broken_handler(_):
+    """Unable to properly handle cancel"""
+    try:
+        await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        raise Exception('This was unexpected')
+
+
 @pytest.mark.asyncio
-async def test_deadline(loop):
+@pytest.mark.parametrize('handler, level, msg, exc_type, exc_text', [
+    (
+        _slow_handler, 'INFO', 'Deadline exceeded',
+        None, None,
+    ),
+    (
+        _broken_handler, 'ERROR', 'Failed to handle cancellation',
+        asyncio.TimeoutError, 'This was unexpected',
+    ),
+])
+async def test_deadline(
+    loop, caplog, handler, level, msg, exc_type, exc_text
+):
+    caplog.set_level(logging.INFO)
     stream = H2StreamStub(loop=loop)
     headers = [
         (':method', 'POST'),
@@ -143,12 +170,8 @@ async def test_deadline(loop):
         ('content-type', 'application/grpc'),
         ('grpc-timeout', '10m'),
     ]
-
-    async def _method(stream_):
-        await asyncio.sleep(1)
-
     methods = {'/package.Service/Method': Handler(
-        _method,
+        handler,
         Cardinality.UNARY_UNARY,
         DummyRequest,
         DummyReply,
@@ -166,9 +189,33 @@ async def test_deadline(loop):
         Reset(ErrorCodes.NO_ERROR),
     ]
 
+    record, = caplog.records
+    assert record.name == 'grpclib.server'
+    assert record.levelname == level
+    assert msg in record.getMessage()
+    if exc_type is not None:
+        assert record.exc_info[0] is exc_type
+    if exc_text is not None:
+        assert exc_text in record.exc_text
+
 
 @pytest.mark.asyncio
-async def test_client_reset(loop, caplog):
+@pytest.mark.parametrize('handler, level, msg, exc_type, exc_text', [
+    (
+        _slow_handler, 'INFO',
+        'Request was cancelled: Stream reset by remote party',
+        None, None,
+    ),
+    (
+        _broken_handler, 'ERROR',
+        'Failed to handle cancellation',
+        StreamTerminatedError, 'This was unexpected',
+    ),
+])
+async def test_client_reset(
+    loop, caplog, handler, level, msg, exc_type, exc_text
+):
+    caplog.set_level(logging.INFO)
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
@@ -189,17 +236,8 @@ async def test_client_reset(loop, caplog):
 
     server_h2_stream = server_proc.handler.stream
 
-    success = []
-
-    async def _method(_):
-        try:
-            await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            success.append(True)
-            raise
-
     methods = {'/package.Service/Method': Handler(
-        _method,
+        handler,
         Cardinality.UNARY_UNARY,
         DummyRequest,
         DummyReply,
@@ -211,5 +249,12 @@ async def test_client_reset(loop, caplog):
     await client_h2_stream.reset()
     to_server_transport.process(server_proc)
     await asyncio.wait_for(task, 0.1, loop=loop)
-    assert success == [True]
-    assert 'Request was cancelled' in caplog.text
+
+    record, = caplog.records
+    assert record.name == 'grpclib.server'
+    assert record.levelname == level
+    assert msg in record.getMessage()
+    if exc_type is not None:
+        assert record.exc_info[0] is exc_type
+    if exc_text is not None:
+        assert exc_text in record.exc_text

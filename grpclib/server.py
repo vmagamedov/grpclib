@@ -395,15 +395,23 @@ async def request_handler(
                     )
                     await method_func(stream)
             except asyncio.TimeoutError:
-                if wrapper.cancelled:
-                    log.exception('Deadline exceeded')
+                if wrapper.cancel_failed:
+                    log.exception('Failed to handle cancellation')
+                    raise GRPCError(Status.DEADLINE_EXCEEDED)
+                elif wrapper.cancelled:
+                    log.info('Deadline exceeded')
                     raise GRPCError(Status.DEADLINE_EXCEEDED)
                 else:
                     log.exception('Timeout occurred')
                     raise
-            except StreamTerminatedError:
-                log.exception('Request was cancelled')
-                raise
+            except StreamTerminatedError as err:
+                if wrapper.cancel_failed:
+                    log.exception('Failed to handle cancellation')
+                    raise
+                else:
+                    assert wrapper.cancelled
+                    log.info('Request was cancelled: %s', err)
+                    raise
             except Exception:
                 log.exception('Application error')
                 raise
