@@ -27,7 +27,7 @@
 
 - !Image
   name: docs
-  from: env36
+  from: env37
   repository: localhost/grpclib/docs
   tasks:
   - run: pip3 install --no-cache-dir h2==3.1.0
