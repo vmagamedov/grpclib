@@ -175,6 +175,8 @@ class Connection:
     Holds connection state (write_ready), and manages
     H2Connection <-> Transport communication
     """
+    closed = False
+
     def __init__(
         self,
         connection: H2Connection,
@@ -224,12 +226,13 @@ class Connection:
         self.flush()
 
     def close(self) -> None:
-        if hasattr(self, '_transport'):
+        if not self.closed:
             self._transport.close()
             # remove cyclic references to improve memory usage
             del self._transport
             if hasattr(self._connection, '_frame_dispatch_table'):
                 del self._connection._frame_dispatch_table
+            self.closed = True
 
 
 _Headers = List[Tuple[str, str]]
@@ -440,19 +443,17 @@ class AbstractHandler(ABC):
 
 
 class _State(IntEnum):
-    NEW = 1
-    DRAINING = 2
-    CLOSED = 3
+    IDLE = 1
+    GOAWAY_SENT = 2
+    GOAWAY_RCVD = 3
+    CLOSED = 4
 
 
 _Streams = Dict[int, Stream]
 
 
 class EventsProcessor:
-    """
-    H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
-    """
-    _drain_timeout = 30
+    _drain_timeout = 10
 
     def __init__(
         self,
@@ -482,7 +483,7 @@ class EventsProcessor:
 
         self.streams: _Streams = {}
         self.loop = loop
-        self.state = _State.NEW
+        self.state = _State.IDLE
 
     def create_stream(self) -> Stream:
         stream = self.connection.create_stream()
@@ -499,17 +500,29 @@ class EventsProcessor:
             _stream = _streams.pop(stream.id)
             self.connection.stream_close_waiter.set()
             self.connection.ack(stream.id, _stream.buffer.unacked_size())
+            if self.state is _State.GOAWAY_RCVD and not _streams:
+                self.close()
 
         return release_stream
 
     def drain(self):
-        if self.state in (_State.DRAINING, _State.CLOSED):
+        if self.state in (_State.GOAWAY_SENT, _State.CLOSED):
             return
+        assert self.state is _State.IDLE, self.state
         self.connection.goaway()
         self.loop.call_later(
             self._drain_timeout, self.close, 'Connection drain',
         )
-        self.state = _State.DRAINING
+        self.state = _State.GOAWAY_SENT
+
+    def draining(self):
+        if self.state in (_State.GOAWAY_RCVD, _State.CLOSED):
+            return
+        assert self.state is _State.IDLE, self.state
+        if self.streams:
+            self.state = _State.GOAWAY_RCVD
+        else:
+            self.close('Received GOAWAY frame')
 
     def close(self, reason: str = 'Connection close') -> None:
         if self.state is _State.CLOSED:
@@ -607,7 +620,10 @@ class EventsProcessor:
         self,
         event: ConnectionTerminated,
     ) -> None:
-        self.drain()
+        if self.streams:
+            self.draining()
+        else:
+            self.close()
 
     def process_ping_received(self, event: PingReceived) -> None:
         pass

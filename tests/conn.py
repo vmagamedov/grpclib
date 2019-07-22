@@ -37,7 +37,7 @@ class ClientConn:
 
         client_config = H2Configuration(client_side=True,
                                         header_encoding='ascii')
-        self.client_proto = H2Protocol(client.Handler(), client_config,
+        self.client_proto = H2Protocol(client.DummyHandler(), client_config,
                                        loop=loop)
         self.client_proto.connection_made(self.to_server_transport)
 

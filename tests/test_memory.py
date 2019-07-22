@@ -86,14 +86,14 @@ async def test_stream(loop):
     cs = ClientServer(DummyService, DummyServiceStub, loop=loop)
     async with cs as (_, stub):
         await stub.UnaryUnary(DummyRequest(value='ping'))
-        handler = next(iter(cs.server._handlers))
-        handler.__gc_collect__()
+        conn = next(iter(cs.server._connections))
+        conn.handler.__gc_collect__()
         gc.collect()
         gc.disable()
         try:
             pre = set(collect())
             await stub.UnaryUnary(DummyRequest(value='ping'))
-            handler.__gc_collect__()
+            conn.handler.__gc_collect__()
             post = collect()
 
             diff = set(post).difference(pre)

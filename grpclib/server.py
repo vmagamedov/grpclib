@@ -6,6 +6,7 @@ import asyncio
 from types import TracebackType
 from typing import TYPE_CHECKING, Optional, Collection, Generic, Type, cast
 from typing import List, Tuple, Dict, Any, Callable, ContextManager, Set
+from typing import NamedTuple
 
 import h2.config
 import h2.exceptions
@@ -29,7 +30,7 @@ from .encoding.proto import ProtoCodec
 if TYPE_CHECKING:
     import ssl as _ssl  # noqa
     from . import const  # noqa
-    from . import protocol  # noqa
+    from .protocol import Stream as _Stream  # noqa
     from ._protocols import IServable  # noqa
 
 
@@ -63,7 +64,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
     def __init__(
         self,
-        stream: 'protocol.Stream',
+        stream: '_Stream',
         method_name: str,
         cardinality: Cardinality,
         recv_type: Type[_RecvType],
@@ -305,7 +306,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
 
 async def _abort(
-    h2_stream: 'protocol.Stream',
+    h2_stream: '_Stream',
     h2_status: int,
     grpc_status: Optional[Status] = None,
     grpc_message: Optional[str] = None,
@@ -322,7 +323,7 @@ async def _abort(
 
 async def request_handler(
     mapping: Dict[str, 'const.Handler'],
-    _stream: 'protocol.Stream',
+    _stream: '_Stream',
     headers: _Headers,
     codec: CodecBase,
     dispatch: _DispatchServerEvents,
@@ -458,7 +459,7 @@ class Handler(_GC, AbstractHandler):
         self.codec = codec
         self.dispatch = dispatch
         self.loop = loop
-        self._tasks: Dict['protocol.Stream', 'asyncio.Task[None]'] = {}
+        self._tasks: Dict['_Stream', 'asyncio.Task[None]'] = {}
         self._cancelled: Set['asyncio.Task[None]'] = set()
 
     def __gc_collect__(self) -> None:
@@ -469,7 +470,7 @@ class Handler(_GC, AbstractHandler):
 
     def accept(
         self,
-        stream: 'protocol.Stream',
+        stream: '_Stream',
         headers: _Headers,
         release_stream: Callable[[], Any],
     ) -> None:
@@ -479,7 +480,7 @@ class Handler(_GC, AbstractHandler):
                             self.dispatch, release_stream)
         )
 
-    def cancel(self, stream: 'protocol.Stream') -> None:
+    def cancel(self, stream: '_Stream') -> None:
         task = self._tasks.pop(stream)
         task.cancel()
         self._cancelled.add(task)
@@ -497,6 +498,11 @@ class Handler(_GC, AbstractHandler):
     def check_closed(self) -> bool:
         self.__gc_collect__()
         return not self._tasks and not self._cancelled
+
+
+class _Connection(NamedTuple):
+    handler: Handler
+    protocol: H2Protocol
 
 
 class Server(_GC, asyncio.AbstractServer):
@@ -543,20 +549,23 @@ class Server(_GC, asyncio.AbstractServer):
         )
 
         self._server: Optional[asyncio.AbstractServer] = None
-        self._handlers: Set[Handler] = set()
+        self._connections: Set[_Connection] = set()
 
         self.__dispatch__ = _DispatchServerEvents()
 
     def __gc_collect__(self) -> None:
-        self._handlers = {h for h in self._handlers
-                          if not (h.closing and h.check_closed())}
+        self._connections = {
+            conn for conn in self._connections
+            if not conn.handler.closing or not conn.handler.check_closed()
+        }
 
     def _protocol_factory(self) -> H2Protocol:
         self.__gc_step__()
         handler = Handler(self._mapping, self._codec, self.__dispatch__,
                           loop=self._loop)
-        self._handlers.add(handler)
-        return H2Protocol(handler, self._config, loop=self._loop)
+        protocol = H2Protocol(handler, self._config, loop=self._loop)
+        self._connections.add(_Connection(handler, protocol))
+        return protocol
 
     async def start(
         self,
@@ -628,15 +637,19 @@ class Server(_GC, asyncio.AbstractServer):
             )
 
     def close(self) -> None:
-        """Stops accepting new connections, cancels all currently running
-        requests. Request handlers are able to handle `CancelledError` and
-        exit properly.
+        """Stops accepting new connections, starts draining existing
+        connections. GOAWAY frame is sent to the clients. After drain timeout
+        remaining connections are forcefully closed, request handlers are
+        cancelled.
         """
         if self._server is None:
             raise RuntimeError('Server is not started')
         self._server.close()
-        for handler in self._handlers:
-            handler.close()
+        for conn in self._connections:
+            if conn.protocol.processor.connection.closed:
+                conn.protocol.processor.close()
+            else:
+                conn.protocol.processor.drain()
 
     async def wait_closed(self) -> None:  # type: ignore
         """Coroutine to wait until all existing request handlers will exit
@@ -645,6 +658,7 @@ class Server(_GC, asyncio.AbstractServer):
         if self._server is None:
             raise RuntimeError('Server is not started')
         await self._server.wait_closed()
-        if self._handlers:
-            await asyncio.wait({h.wait_closed() for h in self._handlers},
+        if self._connections:
+            await asyncio.wait({conn.handler.wait_closed()
+                                for conn in self._connections},
                                loop=self._loop)

@@ -55,8 +55,7 @@ _H2_TO_GRPC_STATUS_MAP = {
 }
 
 
-class Handler(AbstractHandler):
-    connection_lost = False
+class DummyHandler(AbstractHandler):
 
     def accept(self, stream: Any, headers: Any, release_stream: Any) -> None:
         raise NotImplementedError('Client connection can not accept requests')
@@ -65,7 +64,7 @@ class Handler(AbstractHandler):
         pass
 
     def close(self) -> None:
-        self.connection_lost = True
+        pass
 
 
 class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
@@ -586,7 +585,7 @@ class Channel:
                 .format(self._host, self._port, self._path))
 
     def _protocol_factory(self) -> H2Protocol:
-        return H2Protocol(Handler(), self._config, loop=self._loop)
+        return H2Protocol(DummyHandler(), self._config, loop=self._loop)
 
     async def _create_connection(self) -> H2Protocol:
         if self._path is not None:
@@ -610,15 +609,17 @@ class Channel:
                 break
             else:
                 state = self._current_protocol.processor.state
-                if state is _State.DRAINING:
+                if state is _State.GOAWAY_RCVD:
                     self._draining_protocols = [
                         p for p in self._draining_protocols
-                        if p.processor.state is _State.DRAINING
+                        if p.processor.state is _State.GOAWAY_RCVD
                     ]
                     self._draining_protocols.append(self._current_protocol)
                     self._current_protocol = None
                     for proto in self._draining_protocols[:-self._max_draining]:
-                        proto.processor.close('Fast drain')
+                        proto.processor.close(
+                            'Max draining connections exceeded',
+                        )
                     del self._draining_protocols[:-self._max_draining]
                     continue
                 elif state is _State.CLOSED:
