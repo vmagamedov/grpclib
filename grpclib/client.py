@@ -741,8 +741,8 @@ class UnaryUnaryMethod(ServiceMethod[_SendType, _RecvType]):
         async with self.open(timeout=timeout, metadata=metadata) as stream:
             await stream.send_message(message, end=True)
             reply = await stream.recv_message()
-            assert reply is not None
-            return reply
+        assert reply is not None
+        return reply
 
 
 class UnaryStreamMethod(ServiceMethod[_SendType, _RecvType]):
@@ -804,10 +804,10 @@ class StreamUnaryMethod(ServiceMethod[_SendType, _RecvType]):
             if messages:
                 await stream.send_message(messages[-1], end=True)
             else:
-                await stream.end()
+                await stream.send_request(end=True)
             reply = await stream.recv_message()
-            assert reply is not None
-            return reply
+        assert reply is not None
+        return reply
 
 
 class StreamStreamMethod(ServiceMethod[_SendType, _RecvType]):
@@ -840,5 +840,5 @@ class StreamStreamMethod(ServiceMethod[_SendType, _RecvType]):
             if messages:
                 await stream.send_message(messages[-1], end=True)
             else:
-                await stream.end()
+                await stream.send_request(end=True)
             return [message async for message in stream]
