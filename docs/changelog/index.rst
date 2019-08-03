@@ -1,9 +1,12 @@
 Changelog
 =========
 
-0.3.0rcX
-~~~~~~~~
+0.3.0
+~~~~~
 
+  - Lowered log level for successfully handled errors on the server-side
+  - Turned assert statement into ``TypeError`` in the ``ProtoCodec.encode``
+    method
   - Raising proper ``GRPCError`` in ``client.Stream.__aexit__`` after receiving
     ``RST_STREAM`` frame
   - Logging protocol errors, caused by the other side
