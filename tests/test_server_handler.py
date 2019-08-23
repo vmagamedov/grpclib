@@ -23,7 +23,7 @@ def release_stream():
 
 
 async def call_handler(mapping, stream, headers):
-    await request_handler(mapping, stream, headers, ProtoCodec(),
+    await request_handler(mapping, stream, headers, ProtoCodec(), None,
                           _DispatchServerEvents(), release_stream)
 
 

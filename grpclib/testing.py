@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Collection, Optional, Type
 
 from .client import Channel
 from .server import Server
+from .encoding.base import CodecBase, StatusDetailsCodecBase
 
 if TYPE_CHECKING:
-    from .protocol import H2Protocol  # noqa
     from ._protocols import IServable  # noqa
 
 
@@ -61,11 +61,25 @@ class ChannelFor:
             response = await stub.SayHello(HelloRequest(name='Dr. Strange'))
             assert response.message == 'Hello, Dr. Strange!'
     """
-    def __init__(self, services: Collection['IServable']) -> None:
+    def __init__(
+        self,
+        services: Collection['IServable'],
+        codec: Optional[CodecBase] = None,
+        status_details_codec: Optional[StatusDetailsCodecBase] = None,
+    ) -> None:
         """
         :param services: list of services you want to test
+
+        :param codec: instance of a codec to encode and decode messages,
+            if omitted ``ProtoCodec`` is used by default
+
+        :param status_details_codec: instance of a status details codec to
+            encode and decode error details in a trailing metadata, if omitted
+            ``ProtoStatusDetailsCodec`` is used by default
         """
         self._services = services
+        self._codec = codec
+        self._status_details_codec = status_details_codec
 
     async def __aenter__(self) -> Channel:
         """
@@ -73,11 +87,20 @@ class ChannelFor:
         """
         loop = asyncio.get_event_loop()
 
-        self._server = Server(self._services, loop=loop)
+        self._server = Server(
+            self._services,
+            codec=self._codec,
+            status_details_codec=self._status_details_codec,
+            loop=loop,
+        )
         self._server._server = _Server()
         self._server_protocol = self._server._protocol_factory()
 
-        self._channel = Channel(loop=loop)
+        self._channel = Channel(
+            codec=self._codec,
+            status_details_codec=self._status_details_codec,
+            loop=loop,
+        )
         self._channel._protocol = self._channel._protocol_factory()
 
         self._channel._protocol.connection_made(

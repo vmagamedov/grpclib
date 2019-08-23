@@ -23,10 +23,11 @@ from .events import _DispatchChannelEvents
 from .protocol import H2Protocol, AbstractHandler, Stream as _Stream
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata, _MetadataLike, _Metadata
+from .metadata import _STATUS_DETAILS_KEY, decode_bin_value
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
-from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
-from .encoding.proto import ProtoCodec
-
+from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
+from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
+from .encoding.proto import _googleapis_available
 
 if TYPE_CHECKING:
     from ._protocols import IReleaseStream  # noqa
@@ -122,6 +123,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         recv_type: Type[_RecvType],
         *,
         codec: CodecBase,
+        status_details_codec: Optional[StatusDetailsCodecBase],
         dispatch: _DispatchChannelEvents,
         deadline: Optional[Deadline] = None,
     ) -> None:
@@ -132,6 +134,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         self._send_type = send_type
         self._recv_type = recv_type
         self._codec = codec
+        self._status_details_codec = status_details_codec
         self._dispatch = dispatch
         self._deadline = deadline
 
@@ -293,17 +296,24 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if grpc_status is None:
             raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
         try:
-            grpc_status_enum = Status(int(grpc_status))
+            status = Status(int(grpc_status))
         except ValueError:
-            raise GRPCError(Status.UNKNOWN,
-                            'Invalid grpc-status: {!r}'
-                            .format(grpc_status))
+            raise GRPCError(Status.UNKNOWN, ('Invalid grpc-status: {!r}'
+                                             .format(grpc_status)))
         else:
-            if grpc_status_enum is not Status.OK:
-                status_message = headers_map.get('grpc-message')
-                if status_message is not None:
-                    status_message = decode_grpc_message(status_message)
-                raise GRPCError(grpc_status_enum, status_message)
+            if status is not Status.OK:
+                message = headers_map.get('grpc-message')
+                if message is not None:
+                    message = decode_grpc_message(message)
+                details = None
+                if self._status_details_codec is not None:
+                    details_bin = headers_map.get(_STATUS_DETAILS_KEY)
+                    if details_bin is not None:
+                        details = self._status_details_codec.decode(
+                            status, message,
+                            decode_bin_value(details_bin.encode('ascii'))
+                        )
+                raise GRPCError(status, message, details)
 
     async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
@@ -530,6 +540,7 @@ class Channel:
         loop: Optional[asyncio.AbstractEventLoop] = None,
         path: Optional[str] = None,
         codec: Optional[CodecBase] = None,
+        status_details_codec: Optional[StatusDetailsCodecBase] = None,
         ssl: Union[None, bool, '_ssl.SSLContext'] = None,
     ):
         """Initialize connection to the server
@@ -545,6 +556,10 @@ class Channel:
 
         :param codec: instance of a codec to encode and decode messages,
             if omitted ``ProtoCodec`` is used by default
+
+        :param status_details_codec: instance of a status details codec to
+            decode error details in a trailing metadata, if omitted
+            ``ProtoStatusDetailsCodec`` is used by default
 
         :param ssl: ``True`` or :py:class:`~python:ssl.SSLContext` object; if
             ``True``, default SSL context is used.
@@ -564,7 +579,13 @@ class Channel:
         self._loop = loop or asyncio.get_event_loop()
         self._path = path
 
-        self._codec = codec or ProtoCodec()
+        if codec is None:
+            codec = ProtoCodec()
+            if status_details_codec is None and _googleapis_available():
+                status_details_codec = ProtoStatusDetailsCodec()
+
+        self._codec = codec
+        self._status_details_codec = status_details_codec
 
         self._config = H2Configuration(client_side=True,
                                        header_encoding='ascii')
@@ -651,6 +672,7 @@ class Channel:
 
         return Stream(self, name, metadata, cardinality,
                       request_type, reply_type, codec=self._codec,
+                      status_details_codec=self._status_details_codec,
                       dispatch=self.__dispatch__, deadline=deadline)
 
     def close(self) -> None:

@@ -153,6 +153,7 @@ async def test_server_receive_json(loop):
         ss.server_h2s,
         ss.server_conn.server_proto.processor.handler.headers,
         JSONCodec(),
+        None,
         _DispatchServerEvents(),
         lambda: None,
     )
@@ -187,6 +188,7 @@ async def test_server_receive_invalid(loop):
         ss.server_h2s,
         ss.server_conn.server_proto.processor.handler.headers,
         JSONCodec(),
+        None,
         _DispatchServerEvents(),
         lambda: None,
     )

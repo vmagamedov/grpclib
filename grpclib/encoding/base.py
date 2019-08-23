@@ -1,6 +1,8 @@
 import abc
 
-from typing import Any
+from typing import Any, Optional
+
+from ..const import Status
 
 
 GRPC_CONTENT_TYPE = 'application/grpc'
@@ -19,4 +21,19 @@ class CodecBase(abc.ABC):
 
     @abc.abstractmethod
     def decode(self, data: bytes, message_type: Any) -> Any:
+        pass
+
+
+class StatusDetailsCodecBase(abc.ABC):
+
+    @abc.abstractmethod
+    def encode(
+        self, status: Status, message: Optional[str], details: Any,
+    ) -> bytes:
+        pass
+
+    @abc.abstractmethod
+    def decode(
+        self, status: Status, message: Optional[str], data: bytes,
+    ) -> Any:
         pass

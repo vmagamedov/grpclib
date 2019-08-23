@@ -4,7 +4,8 @@ import asyncio
 
 from types import TracebackType
 from typing import TYPE_CHECKING, Optional, Set, Type, ContextManager, List
-from typing import Iterator, Collection
+from typing import Iterator, Collection, Callable, Any
+from functools import wraps
 from contextlib import contextmanager
 
 
@@ -15,7 +16,6 @@ else:
 
 
 if TYPE_CHECKING:
-    from typing import Any  # noqa
     from .metadata import Deadline  # noqa
     from ._protocols import IServable, IClosable  # noqa
 
@@ -218,3 +218,14 @@ def graceful_exit(
     finally:
         for sig_num in signals:
             loop.remove_signal_handler(sig_num)
+
+
+def _cached(func: Callable[[], Any]) -> Callable[[], Any]:
+    @wraps(func)
+    def wrapper() -> Any:
+        try:
+            return func.__result__  # type: ignore
+        except AttributeError:
+            func.__result__ = func()  # type: ignore
+            return func.__result__  # type: ignore
+    return wrapper

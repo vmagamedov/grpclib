@@ -1,6 +1,7 @@
 # h2 - see tox.ini
 multidict
 protobuf
+googleapis-common-protos
 pytest
 pytest-cov
 pytest-asyncio

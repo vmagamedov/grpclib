@@ -110,7 +110,8 @@ async def test_connection_error():
 
     stream = Stream(BrokenChannel(), '/foo/bar', MultiDict(),
                     Cardinality.UNARY_UNARY, DummyRequest, DummyReply,
-                    codec=ProtoCodec(), dispatch=_DispatchChannelEvents())
+                    codec=ProtoCodec(), status_details_codec=None,
+                    dispatch=_DispatchChannelEvents())
 
     with pytest.raises(IOError) as err:
         async with stream:

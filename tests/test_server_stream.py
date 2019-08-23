@@ -86,7 +86,8 @@ def _stub(loop):
 def _stream(stub):
     stream = Stream(stub, '/svc/Method', Cardinality.UNARY_UNARY,
                     DummyRequest, DummyReply,
-                    codec=ProtoCodec(), dispatch=_DispatchServerEvents())
+                    codec=ProtoCodec(), status_details_codec=None,
+                    dispatch=_DispatchServerEvents())
     stream.metadata = MultiDict()
     return stream
 
@@ -95,7 +96,8 @@ def _stream(stub):
 def _stream_streaming(stub):
     stream = Stream(stub, '/svc/Method', Cardinality.UNARY_STREAM,
                     DummyRequest, DummyReply,
-                    codec=ProtoCodec(), dispatch=_DispatchServerEvents())
+                    codec=ProtoCodec(), status_details_codec=None,
+                    dispatch=_DispatchServerEvents())
     stream.metadata = MultiDict()
     return stream
 
@@ -376,6 +378,7 @@ async def test_grpc_error(stream, stub):
 def mk_stream(h2_stream, metadata):
     stream = Stream(h2_stream, '/svc/Method', Cardinality.UNARY_UNARY,
                     DummyRequest, DummyReply, codec=ProtoCodec(),
+                    status_details_codec=None,
                     dispatch=_DispatchServerEvents())
     stream.metadata = metadata
     return stream

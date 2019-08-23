@@ -118,6 +118,7 @@ class ServerStream:
             recv_type,
             send_type,
             codec=codec,
+            status_details_codec=None,
             dispatch=_DispatchServerEvents(),
             deadline=deadline,
         )

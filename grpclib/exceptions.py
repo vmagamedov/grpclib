@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 
 from .const import Status
 
@@ -26,12 +26,19 @@ class GRPCError(Exception):
         `(e.g. server returned unsupported` ``:content-type`` `header)`
 
     """
-    def __init__(self, status: Status, message: Optional[str] = None) -> None:
-        super().__init__(status, message)
+    def __init__(
+        self,
+        status: Status,
+        message: Optional[str] = None,
+        details: Any = None,
+    ) -> None:
+        super().__init__(status, message, details)
         #: :py:class:`~grpclib.const.Status` of the error
         self.status = status
-        #: Error details
+        #: Error message
         self.message = message
+        #: Error details
+        self.details = details
 
 
 class ProtocolError(Exception):

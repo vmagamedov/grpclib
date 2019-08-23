@@ -20,11 +20,12 @@ from .stream import _RecvType, _SendType
 from .events import _DispatchServerEvents
 from .metadata import Deadline, encode_grpc_message, _Metadata
 from .metadata import encode_metadata, decode_metadata, _MetadataLike
+from .metadata import _STATUS_DETAILS_KEY, encode_bin_value
 from .protocol import H2Protocol, AbstractHandler
 from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
-from .encoding.base import GRPC_CONTENT_TYPE, CodecBase
-from .encoding.proto import ProtoCodec
-
+from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
+from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
+from .encoding.proto import _googleapis_available
 
 if TYPE_CHECKING:
     import ssl as _ssl  # noqa
@@ -70,6 +71,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         send_type: Type[_SendType],
         *,
         codec: CodecBase,
+        status_details_codec: Optional[StatusDetailsCodecBase],
         dispatch: _DispatchServerEvents,
         deadline: Optional[Deadline] = None,
     ):
@@ -79,6 +81,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         self._recv_type = recv_type
         self._send_type = send_type
         self._codec = codec
+        self._status_details_codec = status_details_codec
         self._dispatch = dispatch
         #: :py:class:`~grpclib.metadata.Deadline` of the current request
         self.deadline = deadline
@@ -180,6 +183,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         *,
         status: Status = Status.OK,
         status_message: Optional[str] = None,
+        status_details: Any = None,
         metadata: Optional[_MetadataLike] = None,
     ) -> None:
         """Coroutine to send trailers with trailing metadata to the client.
@@ -220,6 +224,16 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         if status_message is not None:
             headers.append(('grpc-message',
                             encode_grpc_message(status_message)))
+        if (
+            status_details is not None
+            and self._status_details_codec is not None
+        ):
+            status_details_bin = (
+                encode_bin_value(self._status_details_codec.encode(
+                    status, status_message, status_details,
+                )).decode('ascii')
+            )
+            headers.append((_STATUS_DETAILS_KEY, status_details_bin))
 
         metadata = MultiDict(metadata or ())
         metadata, = await self._dispatch.send_trailing_metadata(metadata)
@@ -269,9 +283,11 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
             if isinstance(exc_val, GRPCError):
                 status = exc_val.status
                 status_message = exc_val.message
+                status_details = exc_val.details
             elif isinstance(exc_val, Exception):
                 status = Status.UNKNOWN
                 status_message = 'Internal Server Error'
+                status_details = None
             else:
                 # propagate exception
                 return None
@@ -284,16 +300,19 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         ):
             status = Status.UNKNOWN
             status_message = 'Internal Server Error'
+            status_details = None
             protocol_error = ('Unary response with OK status requires '
                               'a single message to be sent: {!r}'
                               .format(self._method_name))
         else:
             status = Status.OK
             status_message = None
+            status_details = None
 
         try:
             await self.send_trailing_metadata(status=status,
-                                              status_message=status_message)
+                                              status_message=status_message,
+                                              status_details=status_details)
         except h2.exceptions.StreamClosedError:
             pass
 
@@ -325,6 +344,7 @@ async def request_handler(
     _stream: 'protocol.Stream',
     headers: _Headers,
     codec: CodecBase,
+    status_details_codec: Optional[StatusDetailsCodecBase],
     dispatch: _DispatchServerEvents,
     release_stream: Callable[[], Any],
 ) -> None:
@@ -375,7 +395,8 @@ async def request_handler(
         async with Stream(
             _stream, method_name, method.cardinality,
             method.request_type, method.reply_type,
-            codec=codec, dispatch=dispatch, deadline=deadline
+            codec=codec, status_details_codec=status_details_codec,
+            dispatch=dispatch, deadline=deadline,
         ) as stream:
             deadline_wrapper: 'ContextManager[Any]'
             if deadline is None:
@@ -450,12 +471,14 @@ class Handler(_GC, AbstractHandler):
         self,
         mapping: Dict[str, 'const.Handler'],
         codec: CodecBase,
+        status_details_codec: Optional[StatusDetailsCodecBase],
         dispatch: _DispatchServerEvents,
         *,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         self.mapping = mapping
         self.codec = codec
+        self.status_details_codec = status_details_codec
         self.dispatch = dispatch
         self.loop = loop
         self._tasks: Dict['protocol.Stream', 'asyncio.Task[None]'] = {}
@@ -474,10 +497,10 @@ class Handler(_GC, AbstractHandler):
         release_stream: Callable[[], Any],
     ) -> None:
         self.__gc_step__()
-        self._tasks[stream] = self.loop.create_task(
-            request_handler(self.mapping, stream, headers, self.codec,
-                            self.dispatch, release_stream)
-        )
+        self._tasks[stream] = self.loop.create_task(request_handler(
+            self.mapping, stream, headers, self.codec,
+            self.status_details_codec, self.dispatch, release_stream,
+        ))
 
     def cancel(self, stream: 'protocol.Stream') -> None:
         task = self._tasks.pop(stream)
@@ -525,10 +548,19 @@ class Server(_GC, asyncio.AbstractServer):
         *,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         codec: Optional[CodecBase] = None,
+        status_details_codec: Optional[StatusDetailsCodecBase] = None,
     ) -> None:
         """
         :param handlers: list of handlers
+
         :param loop: asyncio-compatible event loop
+
+        :param codec: instance of a codec to encode and decode messages,
+            if omitted ``ProtoCodec`` is used by default
+
+        :param status_details_codec: instance of a status details codec to
+            encode error details in a trailing metadata, if omitted
+            ``ProtoStatusDetailsCodec`` is used by default
         """
         mapping: Dict[str, 'const.Handler'] = {}
         for handler in handlers:
@@ -536,7 +568,15 @@ class Server(_GC, asyncio.AbstractServer):
 
         self._mapping = mapping
         self._loop = loop or asyncio.get_event_loop()
-        self._codec = codec or ProtoCodec()
+
+        if codec is None:
+            codec = ProtoCodec()
+            if status_details_codec is None and _googleapis_available():
+                status_details_codec = ProtoStatusDetailsCodec()
+
+        self._codec = codec
+        self._status_details_codec = status_details_codec
+
         self._config = h2.config.H2Configuration(
             client_side=False,
             header_encoding='ascii',
@@ -553,8 +593,10 @@ class Server(_GC, asyncio.AbstractServer):
 
     def _protocol_factory(self) -> H2Protocol:
         self.__gc_step__()
-        handler = Handler(self._mapping, self._codec, self.__dispatch__,
-                          loop=self._loop)
+        handler = Handler(
+            self._mapping, self._codec, self._status_details_codec,
+            self.__dispatch__, loop=self._loop,
+        )
         self._handlers.add(handler)
         return H2Protocol(handler, self._config, loop=self._loop)
 

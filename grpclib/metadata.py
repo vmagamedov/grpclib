@@ -33,6 +33,8 @@ _UNITS = {
 
 _TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
 
+_STATUS_DETAILS_KEY = 'grpc-status-details-bin'
+
 _Headers = Collection[Tuple[str, str]]
 
 
@@ -122,17 +124,24 @@ _Metadata = NewType('_Metadata', 'MultiDict[_Value]')
 _MetadataLike = Union[Mapping[str, _Value], Collection[Tuple[str, _Value]]]
 
 
+def decode_bin_value(value: bytes) -> bytes:
+    return b64decode(value + (b'=' * (len(value) % 4)))
+
+
 def decode_metadata(headers: _Headers) -> _Metadata:
     metadata = cast(_Metadata, MultiDict())
     for key, value in headers:
         if key.startswith((':', 'grpc-')) or key in _SPECIAL:
             continue
         elif key.endswith('-bin'):
-            metadata.add(key, b64decode(value.encode('ascii')
-                                        + (b'=' * (len(value) % 4))))
+            metadata.add(key, decode_bin_value(value.encode('ascii')))
         else:
             metadata.add(key, value)
     return metadata
+
+
+def encode_bin_value(value: bytes) -> bytes:
+    return b64encode(value).rstrip(b'=')
 
 
 def encode_metadata(metadata: _MetadataLike) -> _Headers:
@@ -146,7 +155,7 @@ def encode_metadata(metadata: _MetadataLike) -> _Headers:
             if not isinstance(value, bytes):
                 raise TypeError('Invalid metadata value type, bytes expected: '
                                 '{!r}'.format(value))
-            result.append((key, b64encode(value).rstrip(b'=').decode('ascii')))
+            result.append((key, encode_bin_value(value).decode('ascii')))
         else:
             if not isinstance(value, str):
                 raise TypeError('Invalid metadata value type, str expected: '

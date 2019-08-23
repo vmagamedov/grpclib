@@ -3,11 +3,12 @@ import time
 import signal
 import asyncio
 import subprocess
+from unittest.mock import Mock
 
 import pytest
 
+from grpclib.utils import Wrapper, DeadlineWrapper, _cached
 from grpclib.metadata import Deadline
-from grpclib.utils import Wrapper, DeadlineWrapper
 
 
 class CustomError(Exception):
@@ -148,3 +149,16 @@ def test_graceful_exit_sluggish_server(sig1, sig2):
         finally:
             if proc.returncode is None:
                 proc.kill()
+
+
+def test_cached():
+    def func():
+        return 42
+
+    func_mock = Mock(side_effect=func)
+    func_decorated = _cached(func_mock)
+    assert func_mock.call_count == 0
+    assert func_decorated() == 42
+    assert func_decorated() == 42
+    assert func_decorated() == 42
+    assert func_mock.call_count == 1
