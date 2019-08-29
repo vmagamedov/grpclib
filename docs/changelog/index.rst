@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.3.1rcX
+~~~~~~~~
+
+  - Implemented "grpc-status-details-bin" metadata support
+
 0.3.0
 ~~~~~
 
