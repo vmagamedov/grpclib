@@ -414,60 +414,60 @@ DESCRIPTOR.message_types_by_name['ServiceResponse'] = _SERVICERESPONSE
 DESCRIPTOR.message_types_by_name['ErrorResponse'] = _ERRORRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-ServerReflectionRequest = _reflection.GeneratedProtocolMessageType('ServerReflectionRequest', (_message.Message,), dict(
-  DESCRIPTOR = _SERVERREFLECTIONREQUEST,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ServerReflectionRequest = _reflection.GeneratedProtocolMessageType('ServerReflectionRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERREFLECTIONREQUEST,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ServerReflectionRequest)
-  ))
+  })
 _sym_db.RegisterMessage(ServerReflectionRequest)
 
-ExtensionRequest = _reflection.GeneratedProtocolMessageType('ExtensionRequest', (_message.Message,), dict(
-  DESCRIPTOR = _EXTENSIONREQUEST,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ExtensionRequest = _reflection.GeneratedProtocolMessageType('ExtensionRequest', (_message.Message,), {
+  'DESCRIPTOR' : _EXTENSIONREQUEST,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ExtensionRequest)
-  ))
+  })
 _sym_db.RegisterMessage(ExtensionRequest)
 
-ServerReflectionResponse = _reflection.GeneratedProtocolMessageType('ServerReflectionResponse', (_message.Message,), dict(
-  DESCRIPTOR = _SERVERREFLECTIONRESPONSE,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ServerReflectionResponse = _reflection.GeneratedProtocolMessageType('ServerReflectionResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERREFLECTIONRESPONSE,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ServerReflectionResponse)
-  ))
+  })
 _sym_db.RegisterMessage(ServerReflectionResponse)
 
-FileDescriptorResponse = _reflection.GeneratedProtocolMessageType('FileDescriptorResponse', (_message.Message,), dict(
-  DESCRIPTOR = _FILEDESCRIPTORRESPONSE,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+FileDescriptorResponse = _reflection.GeneratedProtocolMessageType('FileDescriptorResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FILEDESCRIPTORRESPONSE,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.FileDescriptorResponse)
-  ))
+  })
 _sym_db.RegisterMessage(FileDescriptorResponse)
 
-ExtensionNumberResponse = _reflection.GeneratedProtocolMessageType('ExtensionNumberResponse', (_message.Message,), dict(
-  DESCRIPTOR = _EXTENSIONNUMBERRESPONSE,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ExtensionNumberResponse = _reflection.GeneratedProtocolMessageType('ExtensionNumberResponse', (_message.Message,), {
+  'DESCRIPTOR' : _EXTENSIONNUMBERRESPONSE,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ExtensionNumberResponse)
-  ))
+  })
 _sym_db.RegisterMessage(ExtensionNumberResponse)
 
-ListServiceResponse = _reflection.GeneratedProtocolMessageType('ListServiceResponse', (_message.Message,), dict(
-  DESCRIPTOR = _LISTSERVICERESPONSE,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ListServiceResponse = _reflection.GeneratedProtocolMessageType('ListServiceResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTSERVICERESPONSE,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ListServiceResponse)
-  ))
+  })
 _sym_db.RegisterMessage(ListServiceResponse)
 
-ServiceResponse = _reflection.GeneratedProtocolMessageType('ServiceResponse', (_message.Message,), dict(
-  DESCRIPTOR = _SERVICERESPONSE,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ServiceResponse = _reflection.GeneratedProtocolMessageType('ServiceResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SERVICERESPONSE,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ServiceResponse)
-  ))
+  })
 _sym_db.RegisterMessage(ServiceResponse)
 
-ErrorResponse = _reflection.GeneratedProtocolMessageType('ErrorResponse', (_message.Message,), dict(
-  DESCRIPTOR = _ERRORRESPONSE,
-  __module__ = 'grpclib.reflection.v1.reflection_pb2'
+ErrorResponse = _reflection.GeneratedProtocolMessageType('ErrorResponse', (_message.Message,), {
+  'DESCRIPTOR' : _ERRORRESPONSE,
+  '__module__' : 'grpclib.reflection.v1.reflection_pb2'
   # @@protoc_insertion_point(class_scope:grpc.reflection.v1.ErrorResponse)
-  ))
+  })
 _sym_db.RegisterMessage(ErrorResponse)
 
 

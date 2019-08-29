@@ -91,18 +91,18 @@ DESCRIPTOR.message_types_by_name['DummyRequest'] = _DUMMYREQUEST
 DESCRIPTOR.message_types_by_name['DummyReply'] = _DUMMYREPLY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-DummyRequest = _reflection.GeneratedProtocolMessageType('DummyRequest', (_message.Message,), dict(
-  DESCRIPTOR = _DUMMYREQUEST,
-  __module__ = 'dummy_pb2'
+DummyRequest = _reflection.GeneratedProtocolMessageType('DummyRequest', (_message.Message,), {
+  'DESCRIPTOR' : _DUMMYREQUEST,
+  '__module__' : 'dummy_pb2'
   # @@protoc_insertion_point(class_scope:dummy.DummyRequest)
-  ))
+  })
 _sym_db.RegisterMessage(DummyRequest)
 
-DummyReply = _reflection.GeneratedProtocolMessageType('DummyReply', (_message.Message,), dict(
-  DESCRIPTOR = _DUMMYREPLY,
-  __module__ = 'dummy_pb2'
+DummyReply = _reflection.GeneratedProtocolMessageType('DummyReply', (_message.Message,), {
+  'DESCRIPTOR' : _DUMMYREPLY,
+  '__module__' : 'dummy_pb2'
   # @@protoc_insertion_point(class_scope:dummy.DummyReply)
-  ))
+  })
 _sym_db.RegisterMessage(DummyReply)
 
 

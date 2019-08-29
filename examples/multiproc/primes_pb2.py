@@ -94,18 +94,18 @@ DESCRIPTOR.message_types_by_name['Request'] = _REQUEST
 DESCRIPTOR.message_types_by_name['Reply'] = _REPLY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-Request = _reflection.GeneratedProtocolMessageType('Request', (_message.Message,), dict(
-  DESCRIPTOR = _REQUEST,
-  __module__ = 'multiproc.primes_pb2'
+Request = _reflection.GeneratedProtocolMessageType('Request', (_message.Message,), {
+  'DESCRIPTOR' : _REQUEST,
+  '__module__' : 'multiproc.primes_pb2'
   # @@protoc_insertion_point(class_scope:primes.Request)
-  ))
+  })
 _sym_db.RegisterMessage(Request)
 
-Reply = _reflection.GeneratedProtocolMessageType('Reply', (_message.Message,), dict(
-  DESCRIPTOR = _REPLY,
-  __module__ = 'multiproc.primes_pb2'
+Reply = _reflection.GeneratedProtocolMessageType('Reply', (_message.Message,), {
+  'DESCRIPTOR' : _REPLY,
+  '__module__' : 'multiproc.primes_pb2'
   # @@protoc_insertion_point(class_scope:primes.Reply)
-  ))
+  })
 _sym_db.RegisterMessage(Reply)
 
 

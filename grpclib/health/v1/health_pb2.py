@@ -124,18 +124,18 @@ DESCRIPTOR.message_types_by_name['HealthCheckRequest'] = _HEALTHCHECKREQUEST
 DESCRIPTOR.message_types_by_name['HealthCheckResponse'] = _HEALTHCHECKRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-HealthCheckRequest = _reflection.GeneratedProtocolMessageType('HealthCheckRequest', (_message.Message,), dict(
-  DESCRIPTOR = _HEALTHCHECKREQUEST,
-  __module__ = 'grpclib.health.v1.health_pb2'
+HealthCheckRequest = _reflection.GeneratedProtocolMessageType('HealthCheckRequest', (_message.Message,), {
+  'DESCRIPTOR' : _HEALTHCHECKREQUEST,
+  '__module__' : 'grpclib.health.v1.health_pb2'
   # @@protoc_insertion_point(class_scope:grpc.health.v1.HealthCheckRequest)
-  ))
+  })
 _sym_db.RegisterMessage(HealthCheckRequest)
 
-HealthCheckResponse = _reflection.GeneratedProtocolMessageType('HealthCheckResponse', (_message.Message,), dict(
-  DESCRIPTOR = _HEALTHCHECKRESPONSE,
-  __module__ = 'grpclib.health.v1.health_pb2'
+HealthCheckResponse = _reflection.GeneratedProtocolMessageType('HealthCheckResponse', (_message.Message,), {
+  'DESCRIPTOR' : _HEALTHCHECKRESPONSE,
+  '__module__' : 'grpclib.health.v1.health_pb2'
   # @@protoc_insertion_point(class_scope:grpc.health.v1.HealthCheckResponse)
-  ))
+  })
 _sym_db.RegisterMessage(HealthCheckResponse)
 
 

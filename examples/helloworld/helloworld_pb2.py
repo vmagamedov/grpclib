@@ -91,18 +91,18 @@ DESCRIPTOR.message_types_by_name['HelloRequest'] = _HELLOREQUEST
 DESCRIPTOR.message_types_by_name['HelloReply'] = _HELLOREPLY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-HelloRequest = _reflection.GeneratedProtocolMessageType('HelloRequest', (_message.Message,), dict(
-  DESCRIPTOR = _HELLOREQUEST,
-  __module__ = 'helloworld.helloworld_pb2'
+HelloRequest = _reflection.GeneratedProtocolMessageType('HelloRequest', (_message.Message,), {
+  'DESCRIPTOR' : _HELLOREQUEST,
+  '__module__' : 'helloworld.helloworld_pb2'
   # @@protoc_insertion_point(class_scope:helloworld.HelloRequest)
-  ))
+  })
 _sym_db.RegisterMessage(HelloRequest)
 
-HelloReply = _reflection.GeneratedProtocolMessageType('HelloReply', (_message.Message,), dict(
-  DESCRIPTOR = _HELLOREPLY,
-  __module__ = 'helloworld.helloworld_pb2'
+HelloReply = _reflection.GeneratedProtocolMessageType('HelloReply', (_message.Message,), {
+  'DESCRIPTOR' : _HELLOREPLY,
+  '__module__' : 'helloworld.helloworld_pb2'
   # @@protoc_insertion_point(class_scope:helloworld.HelloReply)
-  ))
+  })
 _sym_db.RegisterMessage(HelloReply)
 
 
