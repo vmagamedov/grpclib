@@ -415,6 +415,8 @@ async def request_handler(
                         content_type=content_type,
                     )
                     await method_func(stream)
+            except GRPCError:
+                raise
             except asyncio.TimeoutError:
                 if wrapper.cancel_failed:
                     log.exception('Failed to handle cancellation')
