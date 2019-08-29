@@ -4,6 +4,68 @@ Errors
 :py:class:`~grpclib.exceptions.GRPCError` is a main error you should expect
 on the client-side and raise occasionally on the server-side.
 
+Error Details
+~~~~~~~~~~~~~
+
+There is a possibility to send and receive rich error details, which may
+provide much more context than status and message alone. These details are
+encoded using ``google.rpc.Status`` message and sent with trailing metadata.
+This message becomes available after optional package install:
+
+.. code-block:: console
+
+  $ pip3 install googleapis-common-protos
+
+There are some already defined error details in the
+``google.rpc.error_details_pb2`` module, but you're not limited to them, you can
+send any message you want.
+
+Here is how to send these details from the server-side:
+
+.. code-block:: python3
+
+  from google.rpc.error_details_pb2 import BadRequest
+
+  async def Method(self, stream):
+      ...
+      raise GRPCError(
+          Status.INVALID_ARGUMENT,
+          'Request validation failed',
+          [
+              BadRequest(
+                  field_violations=[
+                      BadRequest.FieldViolation(
+                          field='title',
+                          description='This field is required',
+                      ),
+                  ],
+              ),
+          ],
+      )
+
+Here is how to dig into every detail on the client-side:
+
+.. code-block:: python3
+
+  from google.rpc.error_details_pb2 import BadRequest
+
+  try:
+      reply = await stub.Method(Request(...))
+  except GRPCError as err:
+      if err.details:
+          for detail in err.details:
+              if isinstance(detail, BadRequest):
+                  for violation in detail.field_violations:
+                      print(f'{violation.field}: {violation.description}')
+
+.. note:: In order to automatically decode these messages (details), you have
+  to import them, otherwise you will see such stubs in the list of error
+  details:
+
+  .. code-block:: text
+
+    Unknown('google.rpc.QuotaFailure')
+
 Client-Side
 ~~~~~~~~~~~
 
