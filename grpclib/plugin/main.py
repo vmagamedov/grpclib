@@ -2,7 +2,9 @@ import os
 import sys
 
 from typing import List, Any, Collection, Mapping, Iterator, NamedTuple, cast
+from typing import Dict, Tuple, Optional, Deque
 from contextlib import contextmanager
+from collections import deque
 
 from google.protobuf.descriptor_pb2 import FileDescriptorProto, DescriptorProto
 from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest
@@ -167,25 +169,40 @@ def _proto2py(proto_name: str) -> str:
     return proto_name.replace('/', '.')[:-len('.proto')] + '_pb2'
 
 
-def _type_name(
+def _type_names(
     proto_file: FileDescriptorProto,
     message_type: DescriptorProto,
-) -> str:
+    parents: Optional[Deque[str]] = None,
+) -> Iterator[Tuple[str, str]]:
+    if parents is None:
+        parents = deque()
+
+    proto_name_parts = ['']
     if proto_file.package:
-        return '.{}.{}'.format(proto_file.package, message_type.name)
-    else:
-        return '.{}'.format(message_type.name)
+        proto_name_parts.append(proto_file.package)
+    proto_name_parts.extend(parents)
+    proto_name_parts.append(message_type.name)
+
+    py_name_parts = [_proto2py(proto_file.name)]
+    py_name_parts.extend(parents)
+    py_name_parts.append(message_type.name)
+
+    yield '.'.join(proto_name_parts), '.'.join(py_name_parts)
+
+    parents.append(message_type.name)
+    for nested in message_type.nested_type:
+        yield from _type_names(proto_file, nested, parents=parents)
+    parents.pop()
 
 
 def main() -> None:
     with os.fdopen(sys.stdin.fileno(), 'rb') as inp:
         request = CodeGeneratorRequest.FromString(inp.read())
 
-    types_map = {
-        _type_name(pf, mt): '.'.join((_proto2py(pf.name), mt.name))
-        for pf in request.proto_file
-        for mt in pf.message_type
-    }
+    types_map: Dict[str, str] = {}
+    for pf in request.proto_file:
+        for mt in pf.message_type:
+            types_map.update(_type_names(pf, mt))
 
     response = CodeGeneratorResponse()
     for file_to_generate in request.file_to_generate:
