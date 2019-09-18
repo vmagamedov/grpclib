@@ -4,6 +4,9 @@ Changelog
 0.3.1rcX
 ~~~~~~~~
 
+  - Fixed code generation plugin to support nested message types in a service
+    definitions
+  - Restored ``v1alpha`` reflection protocol support
   - Implemented "grpc-status-details-bin" metadata support
 
 0.3.0
