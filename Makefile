@@ -3,33 +3,26 @@ include examples/mtls/keys/Makefile
 __default__:
 	@echo "Please specify a target to make"
 
+GEN=python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=.
+GENERATED=*{_pb2.py,_grpc.py,.pyi}
+
 clean:
-	rm -f ./grpclib/health/v1/*_pb2.py
-	rm -f ./grpclib/health/v1/*_grpc.py
-	rm -f ./grpclib/health/v1/*.pyi
-	rm -f ./grpclib/reflection/v1/*_pb2.py
-	rm -f ./grpclib/reflection/v1/*_grpc.py
-	rm -f ./grpclib/reflection/v1/*.pyi
-	rm -f ./examples/helloworld/*_pb2.py
-	rm -f ./examples/helloworld/*_grpc.py
-	rm -f ./examples/helloworld/*.pyi
-	rm -f ./examples/streaming/*_pb2.py
-	rm -f ./examples/streaming/*_grpc.py
-	rm -f ./examples/streaming/*.pyi
-	rm -f ./examples/multiproc/*_pb2.py
-	rm -f ./examples/multiproc/*_grpc.py
-	rm -f ./examples/multiproc/*.pyi
-	rm -f ./tests/*_pb2.py
-	rm -f ./tests/*_grpc.py
-	rm -f ./tests/*.pyi
+	rm -f grpclib/health/v1/$(GENERATED)
+	rm -f grpclib/reflection/v1/$(GENERATED)
+	rm -f grpclib/reflection/v1alpha/$(GENERATED)
+	rm -f examples/helloworld/$(GENERATED)
+	rm -f examples/streaming/$(GENERATED)
+	rm -f examples/multiproc/$(GENERATED)
+	rm -f tests/$(GENERATED)
 
 proto: clean
-	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=. grpclib/health/v1/health.proto
-	python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=. grpclib/reflection/v1/reflection.proto
-	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --grpc_python_out=examples --mypy_out=examples examples/helloworld/helloworld.proto
-	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --mypy_out=examples examples/streaming/helloworld.proto
-	python3 -m grpc_tools.protoc -Iexamples --python_out=examples --python_grpc_out=examples --mypy_out=examples examples/multiproc/primes.proto
-	cd tests; python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=. dummy.proto
+	$(GEN) grpclib/health/v1/health.proto
+	$(GEN) grpclib/reflection/v1/reflection.proto
+	$(GEN) grpclib/reflection/v1alpha/reflection.proto
+	cd examples && $(GEN) --grpc_python_out=. helloworld/helloworld.proto
+	cd examples && $(GEN) streaming/helloworld.proto
+	cd examples && $(GEN) multiproc/primes.proto
+	cd tests && $(GEN) dummy.proto
 
 release: proto
 	./scripts/release_check.sh

@@ -14,27 +14,21 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Collection, List
+from typing import Collection
 
 from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
 from google.protobuf.descriptor_pool import Default
 
 from ..const import Status
-from ..utils import _service_name
 from ..server import Stream
 
-from .v1.reflection_pb2 import ServerReflectionRequest, ServerReflectionResponse
-from .v1.reflection_pb2 import ErrorResponse, ListServiceResponse
-from .v1.reflection_pb2 import ServiceResponse, ExtensionNumberResponse
-from .v1.reflection_pb2 import FileDescriptorResponse
-from .v1.reflection_grpc import ServerReflectionBase
-
-from ._deprecated import ServerReflection as _ServerReflectionV1Alpha
-
-
-if TYPE_CHECKING:
-    from .._protocols import IServable  # noqa
+from .v1alpha.reflection_pb2 import ServerReflectionRequest
+from .v1alpha.reflection_pb2 import ServerReflectionResponse
+from .v1alpha.reflection_pb2 import ErrorResponse, ListServiceResponse
+from .v1alpha.reflection_pb2 import ServiceResponse, ExtensionNumberResponse
+from .v1alpha.reflection_pb2 import FileDescriptorResponse
+from .v1alpha.reflection_grpc import ServerReflectionBase
 
 
 class ServerReflection(ServerReflectionBase):
@@ -159,28 +153,3 @@ class ServerReflection(ServerReflectionBase):
                     )
                 )
             await stream.send_message(response)
-
-    @classmethod
-    def extend(cls, services: 'Collection[IServable]') -> 'List[IServable]':
-        """
-        Extends services list with reflection service:
-
-        .. code-block:: python3
-
-            from grpclib.reflection.service import ServerReflection
-
-            services = [Greeter()]
-            services = ServerReflection.extend(services)
-
-            server = Server(services)
-            ...
-
-        Returns new services list with reflection support added.
-        """
-        service_names = []
-        for service in services:
-            service_names.append(_service_name(service))
-        services = list(services)
-        services.append(cls(_service_names=service_names))
-        services.append(_ServerReflectionV1Alpha(_service_names=service_names))
-        return services
