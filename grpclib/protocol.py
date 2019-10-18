@@ -580,7 +580,10 @@ class EventsProcessor:
         self,
         event: ConnectionTerminated,
     ) -> None:
-        self.close()
+        self.close(reason=(
+            'Received GOAWAY frame, closing connection; error_code: {}'
+            .format(event.error_code)
+        ))
 
     def process_ping_received(self, event: PingReceived) -> None:
         pass
@@ -632,4 +635,4 @@ class H2Protocol(Protocol):
         self.connection.resume_writing()
 
     def connection_lost(self, exc: Optional[BaseException]) -> None:
-        self.processor.close()
+        self.processor.close(reason='Connection lost')
