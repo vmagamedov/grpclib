@@ -10,6 +10,7 @@ clean:
 	rm -f grpclib/health/v1/$(GENERATED)
 	rm -f grpclib/reflection/v1/$(GENERATED)
 	rm -f grpclib/reflection/v1alpha/$(GENERATED)
+	rm -f grpclib/channelz/v1/$(GENERATED)
 	rm -f examples/helloworld/$(GENERATED)
 	rm -f examples/streaming/$(GENERATED)
 	rm -f examples/multiproc/$(GENERATED)
@@ -19,6 +20,7 @@ proto: clean
 	$(GEN) grpclib/health/v1/health.proto
 	$(GEN) grpclib/reflection/v1/reflection.proto
 	$(GEN) grpclib/reflection/v1alpha/reflection.proto
+	$(GEN) grpclib/channelz/v1/channelz.proto
 	cd examples && $(GEN) --grpc_python_out=. helloworld/helloworld.proto
 	cd examples && $(GEN) streaming/helloworld.proto
 	cd examples && $(GEN) multiproc/primes.proto
