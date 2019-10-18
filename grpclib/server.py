@@ -664,10 +664,14 @@ class Server(_GC, asyncio.AbstractServer):
             )
 
         else:
-            # FIXME: false positive
+            # FIXME: Not all union combinations were tried because there are
+            #  too many unions
             self._server = await self._loop.create_server(  # type: ignore
-                self._protocol_factory, host, port,
-                family=family, flags=flags, sock=sock, backlog=backlog, ssl=ssl,
+                self._protocol_factory, host,
+                port,  # type: ignore
+                family=family, flags=flags,
+                sock=sock,  # type: ignore
+                backlog=backlog, ssl=ssl,
                 reuse_address=reuse_address, reuse_port=reuse_port
             )
 
