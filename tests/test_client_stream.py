@@ -105,6 +105,8 @@ async def test_no_end(loop):
 @pytest.mark.asyncio
 async def test_connection_error():
     class BrokenChannel:
+        _calls_started = 0
+
         def __connect__(self):
             raise IOError('Intentionally broken connection')
 

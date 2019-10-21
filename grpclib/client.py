@@ -1,5 +1,7 @@
 import sys
+import enum
 import http
+import time
 import asyncio
 import warnings
 
@@ -29,6 +31,8 @@ from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
 from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
 from .encoding.proto import _googleapis_available
+
+from ._registry import channels as _channels
 
 if TYPE_CHECKING:
     from ._protocols import IReleaseStream  # noqa
@@ -113,6 +117,10 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     #: the server. It equals to ``None`` initially, and to a multi-dict object
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata: Optional[_Metadata] = None
+
+    # stats
+    _messages_sent = 0
+    _messages_received = 0
 
     def __init__(
         self,
@@ -238,6 +246,9 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             await send_message(self._stream, self._codec, message,
                                self._send_type, end=end_stream)
             self._send_message_done = True
+            self._messages_sent += 1
+            self._stream.connection.messages_sent += 1
+            self._stream.connection.last_message_sent = time.time()
             if end:
                 self._end_done = True
 
@@ -392,6 +403,9 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                                          self._recv_type)
             if message is not None:
                 message, = await self._dispatch.recv_message(message)
+                self._messages_received += 1
+                self._stream.connection.messages_received += 1
+                self._stream.connection.last_message_received = time.time()
                 return message
             else:
                 return None
@@ -458,6 +472,9 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._wrapper = DeadlineWrapper()
             self._wrapper_ctx = self._wrapper.start(self._deadline)
             self._wrapper_ctx.__enter__()
+
+        self._channel._calls_started += 1
+        self._channel._last_call_started = time.time()
         return self
 
     async def _maybe_finish(self) -> None:
@@ -469,6 +486,16 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 await self.recv_initial_metadata()
             if not self._recv_trailing_metadata_done:
                 await self.recv_trailing_metadata()
+
+    def _maybe_raise(self) -> None:
+        if self._stream.headers is not None:
+            self._raise_for_status(dict(self._stream.headers))
+        if self._stream.trailers is not None:
+            self._raise_for_grpc_status(dict(self._stream.trailers))
+        elif self._stream.headers is not None:
+            headers_map = dict(self._stream.headers)
+            if 'grpc-status' in headers_map:
+                self._raise_for_grpc_status(headers_map)
 
     async def __aexit__(
         self,
@@ -488,14 +515,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                     reraise = True
 
             if isinstance(exc_val, StreamTerminatedError):
-                if self._stream.headers is not None:
-                    self._raise_for_status(dict(self._stream.headers))
-                if self._stream.trailers is not None:
-                    self._raise_for_grpc_status(dict(self._stream.trailers))
-                elif self._stream.headers is not None:
-                    headers_map = dict(self._stream.headers)
-                    if 'grpc-status' in headers_map:
-                        self._raise_for_grpc_status(dict(self._stream.headers))
+                self._maybe_raise()
 
             if reraise:
                 assert exc_val is not None
@@ -506,6 +526,18 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._release_stream()
             if self._wrapper_ctx is not None:
                 self._wrapper_ctx.__exit__(exc_type, exc_val, exc_tb)
+
+            if exc_val is None:
+                self._channel._calls_succeeded += 1
+            else:
+                self._channel._calls_failed += 1
+
+
+class _ChannelState(enum.IntEnum):
+    IDLE = 1
+    CONNECTING = 2
+    READY = 3
+    TRANSIENT_FAILURE = 4
 
 
 class Channel:
@@ -532,6 +564,12 @@ class Channel:
         channel.close()
     """
     _protocol = None
+
+    # stats
+    _calls_started = 0
+    _calls_succeeded = 0
+    _calls_failed = 0
+    _last_call_started: Optional[float] = None
 
     def __init__(
         self,
@@ -576,19 +614,24 @@ class Channel:
             if port is None:
                 port = 50051
 
-        self._host = host
-        self._port = port
-        self._loop = loop or asyncio.get_event_loop()
-        self._path = path
+        if ssl is True:
+            ssl = self._get_default_ssl_context()
 
         if codec is None:
             codec = ProtoCodec()
             if status_details_codec is None and _googleapis_available():
                 status_details_codec = ProtoStatusDetailsCodec()
 
+        self._host = host
+        self._port = port
+        self._loop = loop or asyncio.get_event_loop()
+        self._path = path
         self._codec = codec
         self._status_details_codec = status_details_codec
-
+        self._ssl = ssl or None
+        self._authority = '{}:{}'.format(self._host, self._port)
+        self._scheme = 'https' if self._ssl else 'http'
+        self._authority = '{}:{}'.format(self._host, self._port)
         self._h2_config = H2Configuration(
             client_side=True,
             header_encoding='ascii',
@@ -597,19 +640,14 @@ class Channel:
             normalize_inbound_headers=False,
             normalize_outbound_headers=False,
         )
-        self._authority = '{}:{}'.format(self._host, self._port)
-
-        if ssl is True:
-            ssl = self._get_default_ssl_context()
-
-        self._ssl = ssl or None
-        self._scheme = 'https' if self._ssl else 'http'
         self._connect_lock = asyncio.Lock(loop=self._loop)
+        self._state = _ChannelState.IDLE
 
         config = Configuration() if config is None else config
         self._config = config.__for_client__()
 
         self.__dispatch__ = _DispatchChannelEvents()
+        _channels.add(self)
 
     def __repr__(self) -> str:
         return ('Channel({!r}, {!r}, ..., path={!r})'
@@ -643,8 +681,15 @@ class Channel:
 
         if not self._connected:
             async with self._connect_lock:
+                self._state = _ChannelState.CONNECTING
                 if not self._connected:
-                    self._protocol = await self._create_connection()
+                    try:
+                        self._protocol = await self._create_connection()
+                    except Exception:
+                        self._state = _ChannelState.TRANSIENT_FAILURE
+                        raise
+                    else:
+                        self._state = _ChannelState.READY
         return cast(H2Protocol, self._protocol)
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
@@ -692,6 +737,7 @@ class Channel:
         if self._protocol is not None:
             self._protocol.processor.close()
             del self._protocol
+        self._state = _ChannelState.IDLE
 
     def __del__(self) -> None:
         if self._loop is not None and self._protocol is not None:

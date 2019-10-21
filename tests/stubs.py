@@ -60,6 +60,9 @@ class DummyHandler(AbstractHandler):
 
 
 class ChannelStub:
+    _calls_started = 0
+    _calls_succeeded = 0
+    _calls_failed = 0
 
     def __init__(self, protocol, *, connect_time=None):
         self._scheme = 'http'

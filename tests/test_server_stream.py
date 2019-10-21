@@ -41,7 +41,12 @@ class H2TransportStub:
         return False
 
 
+class ConnectionStub:
+    messages_sent = 0
+
+
 class H2StreamStub:
+    connection = ConnectionStub()
     _transport = H2TransportStub()
 
     def __init__(self, *, loop):

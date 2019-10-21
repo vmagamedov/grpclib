@@ -1,4 +1,5 @@
 import abc
+import time
 import socket
 import logging
 import asyncio
@@ -27,6 +28,8 @@ from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
 from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
 from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
 from .encoding.proto import _googleapis_available
+
+from ._registry import servers as _servers
 
 if TYPE_CHECKING:
     import ssl as _ssl  # noqa
@@ -57,11 +60,15 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
     This is true for every gRPC method type.
     """
-    # stream state
+    # state
     _send_initial_metadata_done = False
     _send_message_done = False
     _send_trailing_metadata_done = False
     _cancel_done = False
+
+    # stats
+    _messages_sent = 0
+    _messages_received = 0
 
     def __init__(
         self,
@@ -122,6 +129,9 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         message = await recv_message(self._stream, self._codec, self._recv_type)
         if message is not None:
             message, = await self._dispatch.recv_message(message)
+            self._messages_received += 1
+            self._stream.connection.messages_received += 1
+            self._stream.connection.last_message_received = time.time()
             return message
         else:
             return None
@@ -178,6 +188,9 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         message, = await self._dispatch.send_message(message)
         await send_message(self._stream, self._codec, message, self._send_type)
         self._send_message_done = True
+        self._messages_sent += 1
+        self._stream.connection.messages_sent += 1
+        self._stream.connection.last_message_sent = time.time()
 
     async def send_trailing_metadata(
         self,
@@ -597,6 +610,7 @@ class Server(_GC, asyncio.AbstractServer):
         self._handlers: Set[Handler] = set()
 
         self.__dispatch__ = _DispatchServerEvents()
+        _servers.add(self)
 
     def __gc_collect__(self) -> None:
         self._handlers = {h for h in self._handlers

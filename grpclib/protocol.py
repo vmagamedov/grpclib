@@ -1,3 +1,4 @@
+import time
 import socket
 import logging
 
@@ -175,6 +176,18 @@ class Connection:
     Holds connection state (write_ready), and manages
     H2Connection <-> Transport communication
     """
+    # stats
+    streams_started = 0
+    streams_succeeded = 0
+    streams_failed = 0
+    data_sent = 0
+    data_received = 0
+    messages_sent = 0
+    messages_received = 0
+    last_stream_created: Optional[float] = None
+    last_message_sent: Optional[float] = None
+    last_message_received: Optional[float] = None
+
     def __init__(
         self,
         connection: H2Connection,
@@ -239,6 +252,11 @@ class Stream:
     """
     id: Optional[int] = None
 
+    # stats
+    created: Optional[float] = None
+    data_sent = 0
+    data_received = 0
+
     def __init__(
         self,
         connection: Connection,
@@ -249,14 +267,14 @@ class Stream:
         stream_id: Optional[int] = None,
         wrapper: Optional[Wrapper] = None
     ) -> None:
-        self._connection = connection
+        self.connection = connection
         self._h2_connection = h2_connection
         self._transport = transport
         self._loop = loop
         self.wrapper = wrapper
 
         if stream_id is not None:
-            self.init_stream(stream_id, self._connection, loop=self._loop)
+            self.init_stream(stream_id, self.connection, loop=self._loop)
 
         self.window_updated = Event(loop=loop)
         self.headers: Optional['_Headers'] = None
@@ -273,6 +291,9 @@ class Stream:
     ) -> None:
         self.id = stream_id
         self.buffer = Buffer(partial(connection.ack, self.id), loop=loop)
+
+        self.connection.streams_started += 1
+        self.created = self.connection.last_stream_created = time.time()
 
     async def recv_headers(self) -> _Headers:
         if self.headers is None:
@@ -301,8 +322,8 @@ class Stream:
             # this is the first thing we should check before even trying to
             # create new stream, because this wait() can be cancelled by timeout
             # and we wouldn't need to create new stream at all
-            if not self._connection.write_ready.is_set():
-                await self._connection.write_ready.wait()
+            if not self.connection.write_ready.is_set():
+                await self.connection.write_ready.wait()
 
             # `get_next_available_stream_id()` should be as close to
             # `connection.send_headers()` as possible, without any async
@@ -319,14 +340,14 @@ class Stream:
                 #       shouldn't be reached in a normal case, so why bother
                 # TODO: maybe we should raise an exception here instead of
                 #       waiting, if timeout wasn't set for the current request
-                self._connection.stream_close_waiter.clear()
-                await self._connection.stream_close_waiter.wait()
+                self.connection.stream_close_waiter.clear()
+                await self.connection.stream_close_waiter.wait()
                 # while we were trying to create a new stream, write buffer
                 # can became full, so we need to repeat checks from checking
                 # if we can write() data
                 continue
             else:
-                self.init_stream(stream_id, self._connection, loop=self._loop)
+                self.init_stream(stream_id, self.connection, loop=self._loop)
                 release_stream = _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
                 return release_stream
@@ -337,8 +358,8 @@ class Stream:
         end_stream: bool = False,
     ) -> None:
         assert self.id is not None
-        if not self._connection.write_ready.is_set():
-            await self._connection.write_ready.wait()
+        if not self.connection.write_ready.is_set():
+            await self.connection.write_ready.wait()
 
         # Workaround for the H2Connection.send_headers method, which will try
         # to create a new stream if it was removed earlier from the
@@ -355,8 +376,8 @@ class Stream:
         f_pos, f_last = 0, len(data)
 
         while True:
-            if not self._connection.write_ready.is_set():
-                await self._connection.write_ready.wait()
+            if not self.connection.write_ready.is_set():
+                await self.connection.write_ready.wait()
 
             window = self._h2_connection.local_flow_control_window(self.id)
             # window can become negative
@@ -369,26 +390,31 @@ class Stream:
 
             max_frame_size = self._h2_connection.max_outbound_frame_size
             f_chunk = f.read(min(window, max_frame_size, f_last - f_pos))
+            f_chunk_len = len(f_chunk)
             f_pos = f.tell()
 
             if f_pos == f_last:
                 self._h2_connection.send_data(self.id, f_chunk,
                                               end_stream=end_stream)
                 self._transport.write(self._h2_connection.data_to_send())
+                self.data_sent += f_chunk_len
+                self.connection.data_sent += f_chunk_len
                 break
             else:
                 self._h2_connection.send_data(self.id, f_chunk)
                 self._transport.write(self._h2_connection.data_to_send())
+                self.data_sent += f_chunk_len
+                self.connection.data_sent += f_chunk_len
 
     async def end(self) -> None:
-        if not self._connection.write_ready.is_set():
-            await self._connection.write_ready.wait()
+        if not self.connection.write_ready.is_set():
+            await self.connection.write_ready.wait()
         self._h2_connection.end_stream(self.id)
         self._transport.write(self._h2_connection.data_to_send())
 
     async def reset(self, error_code: ErrorCodes = ErrorCodes.NO_ERROR) -> None:
-        if not self._connection.write_ready.is_set():
-            await self._connection.write_ready.wait()
+        if not self.connection.write_ready.is_set():
+            await self.connection.write_ready.wait()
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
 
@@ -397,7 +423,7 @@ class Stream:
         error_code: ErrorCodes = ErrorCodes.NO_ERROR,
     ) -> None:
         self._h2_connection.reset_stream(self.id, error_code=error_code)
-        if self._connection.write_ready.is_set():
+        if self.connection.write_ready.is_set():
             self._transport.write(self._h2_connection.data_to_send())
 
     def __ended__(self) -> None:
@@ -471,12 +497,6 @@ class EventsProcessor:
 
         self.streams: _Streams = {}
 
-    def create_stream(self) -> Stream:
-        stream = self.connection.create_stream()
-        assert stream.id is not None
-        self.streams[stream.id] = stream
-        return stream
-
     def register(self, stream: Stream) -> Callable[[], None]:
         assert stream.id is not None
         self.streams[stream.id] = stream
@@ -533,17 +553,20 @@ class EventsProcessor:
         pass
 
     def process_data_received(self, event: DataReceived) -> None:
+        size = len(event.data)
         stream = self.streams.get(event.stream_id)
         if stream is not None:
             stream.buffer.add(
                 event.data,
                 event.flow_controlled_length,
             )
+            stream.data_received += size
         else:
             self.connection.ack(
                 event.stream_id,
                 event.flow_controlled_length,
             )
+        self.connection.data_received += size
 
     def process_window_updated(self, event: WindowUpdated) -> None:
         if event.stream_id == 0:
@@ -565,6 +588,8 @@ class EventsProcessor:
         if stream is not None:
             stream.__ended__()
 
+        self.connection.streams_succeeded += 1
+
     def process_stream_reset(self, event: StreamReset) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
@@ -575,6 +600,8 @@ class EventsProcessor:
                 msg = 'Protocol error'
             stream.__terminated__(msg)
             self.handler.cancel(stream)
+
+        self.connection.streams_failed += 1
 
     def process_priority_updated(self, event: PriorityUpdated) -> None:
         pass
