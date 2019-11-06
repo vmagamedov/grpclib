@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.3.1rcX
-~~~~~~~~
+0.3.1
+~~~~~
 
   - Fixed code generation plugin to support nested message types in a service
     definitions
