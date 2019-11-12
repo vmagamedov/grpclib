@@ -38,7 +38,7 @@ class ClientConn:
         client_config = H2Configuration(client_side=True,
                                         header_encoding='ascii')
         self.client_proto = H2Protocol(client.Handler(), client_config,
-                                       loop=loop)
+                                       ping_delay=0, loop=loop)
         self.client_proto.connection_made(self.to_server_transport)
 
     def server_flush(self):

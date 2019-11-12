@@ -1,12 +1,14 @@
 import socket
 import logging
+import struct
+import time
 
 from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
 from typing import cast, TYPE_CHECKING
-from asyncio import Transport, Protocol, Event, AbstractEventLoop, BaseTransport
-from asyncio import Queue
+from asyncio import Transport, Protocol, Event, AbstractEventLoop, \
+    BaseTransport, TimerHandle, Queue
 from functools import partial
 from collections import deque
 
@@ -178,12 +180,18 @@ class Connection:
         self,
         connection: H2Connection,
         transport: Transport,
+        ping_delay: int = 1,
+        ping_timeout: int = 10,
         *,
         loop: AbstractEventLoop,
     ) -> None:
         self._connection = connection
         self._transport = transport
         self._loop = loop
+        self._ping_delay = ping_delay
+        self._ping_timeout = ping_timeout
+        self._ping_handle: Optional[TimerHandle] = None
+        self._close_by_ping_timeout_handle: Optional[TimerHandle] = None
 
         self.write_ready = Event(loop=self._loop)
         self.write_ready.set()
@@ -219,12 +227,43 @@ class Connection:
             self._transport.write(data)
 
     def close(self) -> None:
+        if self._close_by_ping_timeout_handle:
+            self._close_by_ping_timeout_handle.cancel()
+
+        if self._ping_handle:
+            self._ping_handle.cancel()
+
         if hasattr(self, '_transport'):
             self._transport.close()
             # remove cyclic references to improve memory usage
             del self._transport
             if hasattr(self._connection, '_frame_dispatch_table'):
                 del self._connection._frame_dispatch_table
+
+    def _ping(self) -> None:
+        data = struct.pack('!Q', int(time.monotonic() * 10 ** 6))
+        self._connection.ping(data)
+        self.flush()
+        self._ping_handle = self._loop.call_later(
+            self._ping_delay,
+            self._ping
+        )
+
+    def initialize(self) -> None:
+        if self._ping_timeout > 0 and self._ping_delay > 0:
+            self._ping()
+            self._close_by_ping_timeout_handle = self._loop.call_later(
+                self._ping_timeout,
+                self.close
+            )
+
+    def pong_process(self) -> None:
+        if self._close_by_ping_timeout_handle:
+            self._close_by_ping_timeout_handle.cancel()
+        self._close_by_ping_timeout_handle = self._loop.call_later(
+            self._ping_timeout,
+            self.close
+        )
 
 
 _Headers = List[Tuple[str, str]]
@@ -589,7 +628,7 @@ class EventsProcessor:
         pass
 
     def process_ping_ack_received(self, event: PingAckReceived) -> None:
-        pass
+        self.connection.pong_process()
 
 
 class H2Protocol(Protocol):
@@ -597,9 +636,12 @@ class H2Protocol(Protocol):
     processor: EventsProcessor
 
     def __init__(self, handler: AbstractHandler, config: H2Configuration,
+                 ping_delay: int = 1, ping_timeout: int = 10,
                  *, loop: AbstractEventLoop) -> None:
         self.handler = handler
         self.config = config
+        self._ping_delay = ping_delay
+        self._ping_timeout = ping_timeout
         self.loop = loop
 
     def connection_made(self, transport: BaseTransport) -> None:
@@ -611,7 +653,9 @@ class H2Protocol(Protocol):
         h2_conn.initiate_connection()
 
         self.connection = Connection(h2_conn, cast(Transport, transport),
+                                     self._ping_delay, self._ping_timeout,
                                      loop=self.loop)
+        self.connection.initialize()
         self.connection.flush()
 
         self.processor = EventsProcessor(self.handler, self.connection)
