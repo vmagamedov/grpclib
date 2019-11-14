@@ -180,8 +180,8 @@ class Connection:
         self,
         connection: H2Connection,
         transport: Transport,
-        ping_delay: int = 1,
-        ping_timeout: int = 10,
+        ping_delay: float = 1,
+        ping_timeout: float = 10,
         *,
         loop: AbstractEventLoop,
     ) -> None:
@@ -636,7 +636,7 @@ class H2Protocol(Protocol):
     processor: EventsProcessor
 
     def __init__(self, handler: AbstractHandler, config: H2Configuration,
-                 ping_delay: int = 1, ping_timeout: int = 10,
+                 ping_delay: float = 1, ping_timeout: float = 10,
                  *, loop: AbstractEventLoop) -> None:
         self.handler = handler
         self.config = config

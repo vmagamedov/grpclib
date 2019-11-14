@@ -542,6 +542,8 @@ class Channel:
         codec: Optional[CodecBase] = None,
         status_details_codec: Optional[StatusDetailsCodecBase] = None,
         ssl: Union[None, bool, '_ssl.SSLContext'] = None,
+        ping_delay: float = 1,
+        ping_timeout: float = 10,
     ):
         """Initialize connection to the server
 
@@ -600,12 +602,17 @@ class Channel:
 
         self.__dispatch__ = _DispatchChannelEvents()
 
+        self._ping_delay = ping_delay
+        self._ping_timeout = ping_timeout
+
     def __repr__(self) -> str:
         return ('Channel({!r}, {!r}, ..., path={!r})'
                 .format(self._host, self._port, self._path))
 
     def _protocol_factory(self) -> H2Protocol:
-        return H2Protocol(Handler(), self._config, loop=self._loop)
+        return H2Protocol(Handler(), self._config, loop=self._loop,
+                          ping_delay=self._ping_delay,
+                          ping_timeout=self._ping_timeout)
 
     async def _create_connection(self) -> H2Protocol:
         if self._path is not None:

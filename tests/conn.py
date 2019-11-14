@@ -38,7 +38,8 @@ class ClientConn:
         client_config = H2Configuration(client_side=True,
                                         header_encoding='ascii')
         self.client_proto = H2Protocol(client.Handler(), client_config,
-                                       ping_delay=0, loop=loop)
+                                       loop=loop,
+                                       ping_delay=0)
         self.client_proto.connection_made(self.to_server_transport)
 
     def server_flush(self):
@@ -129,11 +130,14 @@ class ClientServer:
     server = None
     channel = None
 
-    def __init__(self, handler_cls, stub_cls, *, loop, codec=None):
+    def __init__(self, handler_cls, stub_cls, *, loop, codec=None,
+                 ping_delay=0, ping_timeout=0):
         self.handler_cls = handler_cls
         self.stub_cls = stub_cls
         self.loop = loop
         self.codec = codec
+        self.ping_delay = ping_delay
+        self.ping_timeout = ping_timeout
 
     async def __aenter__(self):
         host = '127.0.0.1'
@@ -146,7 +150,9 @@ class ClientServer:
         await self.server.start(host, port)
 
         self.channel = client.Channel(host, port, loop=self.loop,
-                                      codec=self.codec)
+                                      codec=self.codec,
+                                      ping_delay=self.ping_delay,
+                                      ping_timeout=self.ping_timeout)
         stub = self.stub_cls(self.channel)
         return handler, stub
 
