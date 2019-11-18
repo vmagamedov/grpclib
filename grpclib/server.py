@@ -582,6 +582,10 @@ class Server(_GC, asyncio.AbstractServer):
         self._config = h2.config.H2Configuration(
             client_side=False,
             header_encoding='ascii',
+            validate_inbound_headers=False,
+            validate_outbound_headers=False,
+            normalize_inbound_headers=False,
+            normalize_outbound_headers=False,
         )
 
         self._server: Optional[asyncio.AbstractServer] = None

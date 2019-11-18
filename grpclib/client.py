@@ -587,8 +587,14 @@ class Channel:
         self._codec = codec
         self._status_details_codec = status_details_codec
 
-        self._config = H2Configuration(client_side=True,
-                                       header_encoding='ascii')
+        self._config = H2Configuration(
+            client_side=True,
+            header_encoding='ascii',
+            validate_inbound_headers=False,
+            validate_outbound_headers=False,
+            normalize_inbound_headers=False,
+            normalize_outbound_headers=False,
+        )
         self._authority = '{}:{}'.format(self._host, self._port)
 
         if ssl is True:
