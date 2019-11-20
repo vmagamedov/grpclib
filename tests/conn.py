@@ -6,6 +6,7 @@ from h2.connection import H2Connection
 
 from grpclib import client, server
 from grpclib.const import Cardinality
+from grpclib.config import Configuration
 from grpclib.events import _DispatchServerEvents
 from grpclib.protocol import H2Protocol
 from grpclib.encoding.proto import ProtoCodec
@@ -29,16 +30,24 @@ def grpc_decode(message_bin, message_type=None, codec=ProtoCodec()):
 class ClientConn:
 
     def __init__(self, *, loop):
-        server_config = H2Configuration(client_side=False,
-                                        header_encoding='ascii')
-        self.server_h2c = H2Connection(server_config)
+        server_h2_config = H2Configuration(
+            client_side=False,
+            header_encoding='ascii',
+        )
+        self.server_h2c = H2Connection(server_h2_config)
 
         self.to_server_transport = TransportStub(self.server_h2c)
 
-        client_config = H2Configuration(client_side=True,
-                                        header_encoding='ascii')
-        self.client_proto = H2Protocol(client.Handler(), client_config,
-                                       loop=loop)
+        client_h2_config = H2Configuration(
+            client_side=True,
+            header_encoding='ascii',
+        )
+        self.client_proto = H2Protocol(
+            client.Handler(),
+            Configuration().__for_test__(),
+            client_h2_config,
+            loop=loop,
+        )
         self.client_proto.connection_made(self.to_server_transport)
 
     def server_flush(self):
@@ -67,17 +76,25 @@ class ClientStream:
 class ServerConn:
 
     def __init__(self, *, loop):
-        client_config = H2Configuration(client_side=True,
-                                        header_encoding='ascii')
-        self.client_h2c = H2Connection(client_config)
+        client_h2_config = H2Configuration(
+            client_side=True,
+            header_encoding='ascii',
+        )
+        self.client_h2c = H2Connection(client_h2_config)
 
         self.to_client_transport = TransportStub(self.client_h2c)
         self.client_h2c.initiate_connection()
 
-        server_config = H2Configuration(client_side=False,
-                                        header_encoding='ascii')
-        self.server_proto = H2Protocol(DummyHandler(), server_config,
-                                       loop=loop)
+        server_config = H2Configuration(
+            client_side=False,
+            header_encoding='ascii',
+        )
+        self.server_proto = H2Protocol(
+            DummyHandler(),
+            Configuration().__for_test__(),
+            server_config,
+            loop=loop,
+        )
         self.server_proto.connection_made(self.to_client_transport)
 
         # complete settings exchange and clear events buffer
@@ -129,11 +146,13 @@ class ClientServer:
     server = None
     channel = None
 
-    def __init__(self, handler_cls, stub_cls, *, loop, codec=None):
+    def __init__(self, handler_cls, stub_cls, *, loop, codec=None,
+                 config=None):
         self.handler_cls = handler_cls
         self.stub_cls = stub_cls
         self.loop = loop
         self.codec = codec
+        self.config = config
 
     async def __aenter__(self):
         host = '127.0.0.1'
@@ -146,7 +165,7 @@ class ClientServer:
         await self.server.start(host, port)
 
         self.channel = client.Channel(host, port, loop=self.loop,
-                                      codec=self.codec)
+                                      codec=self.codec, config=self.config)
         stub = self.stub_cls(self.channel)
         return handler, stub
 

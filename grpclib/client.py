@@ -17,6 +17,7 @@ from multidict import MultiDict
 
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status, Cardinality
+from .config import Configuration
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
 from .events import _DispatchChannelEvents
@@ -542,6 +543,7 @@ class Channel:
         codec: Optional[CodecBase] = None,
         status_details_codec: Optional[StatusDetailsCodecBase] = None,
         ssl: Union[None, bool, '_ssl.SSLContext'] = None,
+        config: Optional[Configuration] = None,
     ):
         """Initialize connection to the server
 
@@ -587,7 +589,7 @@ class Channel:
         self._codec = codec
         self._status_details_codec = status_details_codec
 
-        self._config = H2Configuration(
+        self._h2_config = H2Configuration(
             client_side=True,
             header_encoding='ascii',
             validate_inbound_headers=False,
@@ -604,6 +606,9 @@ class Channel:
         self._scheme = 'https' if self._ssl else 'http'
         self._connect_lock = asyncio.Lock(loop=self._loop)
 
+        config = Configuration() if config is None else config
+        self._config = config.__for_client__()
+
         self.__dispatch__ = _DispatchChannelEvents()
 
     def __repr__(self) -> str:
@@ -611,7 +616,8 @@ class Channel:
                 .format(self._host, self._port, self._path))
 
     def _protocol_factory(self) -> H2Protocol:
-        return H2Protocol(Handler(), self._config, loop=self._loop)
+        return H2Protocol(Handler(), self._config, self._h2_config,
+                          loop=self._loop)
 
     async def _create_connection(self) -> H2Protocol:
         if self._path is not None:

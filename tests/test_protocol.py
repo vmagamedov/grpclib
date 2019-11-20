@@ -64,11 +64,11 @@ def create_headers(*, path='/any/path'):
 
 
 @pytest.mark.asyncio
-async def test_send_data_larger_than_frame_size(loop):
+async def test_send_data_larger_than_frame_size(loop, config):
     client_h2c, server_h2c = create_connections()
 
     transport = TransportStub(server_h2c)
-    conn = Connection(client_h2c, transport, loop=loop)
+    conn = Connection(client_h2c, transport, loop=loop, config=config)
     stream = conn.create_stream()
 
     processor = EventsProcessor(DummyHandler(), conn)
@@ -78,14 +78,16 @@ async def test_send_data_larger_than_frame_size(loop):
 
 
 @pytest.mark.asyncio
-async def test_recv_data_larger_than_window_size(loop):
+async def test_recv_data_larger_than_window_size(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
 
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
@@ -128,14 +130,16 @@ async def test_recv_data_larger_than_window_size(loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_release(loop):
+async def test_stream_release(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
 
     client_processor = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
@@ -179,14 +183,16 @@ async def test_stream_release(loop):
 
 
 @pytest.mark.asyncio
-async def test_initial_window_size_update(loop):
+async def test_initial_window_size_update(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
 
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
@@ -221,14 +227,16 @@ async def test_initial_window_size_update(loop):
 
 
 @pytest.mark.asyncio
-async def test_send_headers_into_closed_stream(loop):
+async def test_send_headers_into_closed_stream(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
 
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
@@ -246,14 +254,16 @@ async def test_send_headers_into_closed_stream(loop):
 
 
 @pytest.mark.asyncio
-async def test_ping(loop):
+async def test_ping(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
 
     client_processor = EventsProcessor(DummyHandler(), client_conn)
     server_processor = EventsProcessor(DummyHandler(), server_conn)
@@ -270,7 +280,7 @@ async def test_ping(loop):
 
 
 @pytest.mark.asyncio
-async def test_unread_data_ack(loop):
+async def test_unread_data_ack(loop, config):
     client_h2c, server_h2c = create_connections()
     initial_window = client_h2c.outbound_flow_control_window
     # should be large enough to trigger WINDOW_UPDATE frame
@@ -278,11 +288,13 @@ async def test_unread_data_ack(loop):
 
     to_client_transport = TransportStub(client_h2c)
     server_handler = DummyHandler()
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
     server_proc = EventsProcessor(server_handler, server_conn)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
 
@@ -305,7 +317,7 @@ async def test_unread_data_ack(loop):
 
 
 @pytest.mark.asyncio
-async def test_released_stream_data_ack(loop):
+async def test_released_stream_data_ack(loop, config):
     client_h2c, server_h2c = create_connections()
     initial_window = client_h2c.outbound_flow_control_window
     # should be large enough to trigger WINDOW_UPDATE frame
@@ -313,11 +325,13 @@ async def test_released_stream_data_ack(loop):
 
     to_client_transport = TransportStub(client_h2c)
     server_handler = DummyHandler()
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
     server_proc = EventsProcessor(server_handler, server_conn)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
 
@@ -342,14 +356,16 @@ async def test_released_stream_data_ack(loop):
 
 
 @pytest.mark.asyncio
-async def test_negative_window_size(loop):
+async def test_negative_window_size(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
 
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream()
@@ -394,15 +410,17 @@ async def test_negative_window_size(loop):
 
 
 @pytest.mark.asyncio
-async def test_receive_goaway(loop):
+async def test_receive_goaway(loop, config):
     wrapper = Wrapper()
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     to_server_transport = TransportStub(server_h2c)
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
     client_stream = client_conn.create_stream(wrapper=wrapper)
 

@@ -22,6 +22,7 @@ from h2.connection import H2Connection, ConnectionState
 from h2.exceptions import ProtocolError, TooManyStreamsError, StreamClosedError
 
 from .utils import Wrapper
+from .config import Configuration
 from .exceptions import StreamTerminatedError
 
 
@@ -180,10 +181,12 @@ class Connection:
         transport: Transport,
         *,
         loop: AbstractEventLoop,
+        config: Configuration,
     ) -> None:
         self._connection = connection
         self._transport = transport
         self._loop = loop
+        self._config = config
 
         self.write_ready = Event(loop=self._loop)
         self.write_ready.set()
@@ -596,10 +599,17 @@ class H2Protocol(Protocol):
     connection: Connection
     processor: EventsProcessor
 
-    def __init__(self, handler: AbstractHandler, config: H2Configuration,
-                 *, loop: AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        handler: AbstractHandler,
+        config: Configuration,
+        h2_config: H2Configuration,
+        *,
+        loop: AbstractEventLoop,
+    ) -> None:
         self.handler = handler
         self.config = config
+        self.h2_config = h2_config
         self.loop = loop
 
     def connection_made(self, transport: BaseTransport) -> None:
@@ -607,11 +617,15 @@ class H2Protocol(Protocol):
         if sock is not None:
             _set_nodelay(sock)
 
-        h2_conn = H2Connection(config=self.config)
+        h2_conn = H2Connection(config=self.h2_config)
         h2_conn.initiate_connection()
 
-        self.connection = Connection(h2_conn, cast(Transport, transport),
-                                     loop=self.loop)
+        self.connection = Connection(
+            h2_conn,
+            cast(Transport, transport),
+            loop=self.loop,
+            config=self.config,
+        )
         self.connection.flush()
 
         self.processor = EventsProcessor(self.handler, self.connection)

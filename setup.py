@@ -27,7 +27,11 @@ setup(
     package_data={'grpclib': ['py.typed']},
     license='BSD-3-Clause',
     python_requires='>=3.6',
-    install_requires=['h2', 'multidict'],
+    install_requires=[
+        'h2',
+        'multidict',
+        'dataclasses;python_version<"3.7"',
+    ],
     entry_points={
         'console_scripts': [
             'protoc-gen-python_grpc=grpclib.plugin.main:main',

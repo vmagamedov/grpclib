@@ -15,6 +15,7 @@ from multidict import MultiDict
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status, Cardinality
 from .compat import nullcontext
+from .config import Configuration
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
 from .events import _DispatchServerEvents
@@ -551,6 +552,7 @@ class Server(_GC, asyncio.AbstractServer):
         loop: Optional[asyncio.AbstractEventLoop] = None,
         codec: Optional[CodecBase] = None,
         status_details_codec: Optional[StatusDetailsCodecBase] = None,
+        config: Optional[Configuration] = None,
     ) -> None:
         """
         :param handlers: list of handlers
@@ -579,7 +581,7 @@ class Server(_GC, asyncio.AbstractServer):
         self._codec = codec
         self._status_details_codec = status_details_codec
 
-        self._config = h2.config.H2Configuration(
+        self._h2_config = h2.config.H2Configuration(
             client_side=False,
             header_encoding='ascii',
             validate_inbound_headers=False,
@@ -587,6 +589,9 @@ class Server(_GC, asyncio.AbstractServer):
             normalize_inbound_headers=False,
             normalize_outbound_headers=False,
         )
+
+        config = Configuration() if config is None else config
+        self._config = config.__for_server__()
 
         self._server: Optional[asyncio.AbstractServer] = None
         self._handlers: Set[Handler] = set()
@@ -604,7 +609,8 @@ class Server(_GC, asyncio.AbstractServer):
             self.__dispatch__, loop=self._loop,
         )
         self._handlers.add(handler)
-        return H2Protocol(handler, self._config, loop=self._loop)
+        return H2Protocol(handler, self._config, self._h2_config,
+                          loop=self._loop)
 
     async def start(
         self,

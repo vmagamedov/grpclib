@@ -385,14 +385,16 @@ def mk_stream(h2_stream, metadata):
 
 
 @pytest.mark.asyncio
-async def test_exit_and_stream_was_closed(loop):
+async def test_exit_and_stream_was_closed(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -421,14 +423,16 @@ async def test_exit_and_stream_was_closed(loop):
 
 
 @pytest.mark.asyncio
-async def test_exit_and_connection_was_closed(loop):
+async def test_exit_and_connection_was_closed(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -454,14 +458,16 @@ async def test_exit_and_connection_was_closed(loop):
 
 
 @pytest.mark.asyncio
-async def test_exit_and_connection_was_broken(loop):
+async def test_exit_and_connection_was_broken(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -488,14 +494,16 @@ async def test_exit_and_connection_was_broken(loop):
 
 
 @pytest.mark.asyncio
-async def test_send_trailing_metadata_on_closed_stream(loop):
+async def test_send_trailing_metadata_on_closed_stream(loop, config):
     client_h2c, server_h2c = create_connections()
 
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)

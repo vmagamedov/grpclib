@@ -213,7 +213,7 @@ async def test_deadline(
     ),
 ])
 async def test_client_reset(
-    loop, caplog, handler, level, msg, exc_type, exc_text
+    loop, caplog, handler, level, msg, exc_type, exc_text, config,
 ):
     caplog.set_level(logging.INFO)
     client_h2c, server_h2c = create_connections()
@@ -221,8 +221,10 @@ async def test_client_reset(
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport, loop=loop)
-    server_conn = Connection(server_h2c, to_client_transport, loop=loop)
+    client_conn = Connection(client_h2c, to_server_transport,
+                             loop=loop, config=config)
+    server_conn = Connection(server_h2c, to_client_transport,
+                             loop=loop, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
