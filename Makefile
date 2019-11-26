@@ -31,7 +31,7 @@ release: proto
 
 reqs:
 	pip-compile -U setup.py -o setup.txt
-	pip-compile -U requirements/optional.in
+	pip-compile -U requirements/runtime.in
 	pip-compile -U requirements/docs.in
 	pip-compile -U requirements/test.in
 	pip-compile -U requirements/lint.in

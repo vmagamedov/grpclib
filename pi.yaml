@@ -1,15 +1,14 @@
 - !Image
   name: py36
-  from: !DockerImage python:3.6.0-slim
+  from: &py36 !DockerImage python:3.6.0-slim
   repository: localhost/grpclib/py36
   tasks:
-  - run: pip3 install --no-cache-dir -r {{base}} -r {{optional}}
-    base: !File "setup.txt"
-    optional: !File "requirements/optional.txt"
+  - run: pip3 install --no-cache-dir -r {{runtime}}
+    runtime: !File "requirements/runtime.txt"
 
 - !Image
   name: test36
-  from: py36
+  from: *py36
   repository: localhost/grpclib/test36
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
@@ -18,16 +17,15 @@
 
 - !Image
   name: py37
-  from: !DockerImage python:3.7.0-slim
+  from: &py37 !DockerImage python:3.7.0-slim
   repository: localhost/grpclib/py37
   tasks:
-  - run: pip3 install --no-cache-dir -r {{base}} -r {{optional}}
-    base: !File "setup.txt"
-    optional: !File "requirements/optional.txt"
+  - run: pip3 install --no-cache-dir -r {{runtime}}
+    runtime: !File "requirements/runtime.txt"
 
 - !Image
   name: test37
-  from: py37
+  from: *py37
   repository: localhost/grpclib/test37
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
@@ -35,7 +33,7 @@
 
 - !Image
   name: lint37
-  from: !DockerImage python:3.7.0-slim
+  from: *py37
   repository: localhost/grpclib/lint37
   tasks:
   - run: pip3 install --no-cache-dir -r {{lint}}
@@ -43,7 +41,7 @@
 
 - !Image
   name: check37
-  from: py37
+  from: *py37
   repository: localhost/grpclib/check37
   tasks:
   - run: pip3 install --no-cache-dir -r {{check}}
@@ -51,7 +49,7 @@
 
 - !Image
   name: docs37
-  from: py37
+  from: *py37
   repository: localhost/grpclib/docs37
   tasks:
   - run: pip3 install --no-cache-dir -r {{docs}}
@@ -60,16 +58,15 @@
 
 - !Image
   name: py38
-  from: !DockerImage python:3.8.0-slim
+  from: &py38 !DockerImage python:3.8.0-slim
   repository: localhost/grpclib/py38
   tasks:
-  - run: pip3 install --no-cache-dir -r {{base}} -r {{optional}}
-    base: !File "setup.txt"
-    optional: !File "requirements/optional.txt"
+  - run: pip3 install --no-cache-dir -r {{runtime}}
+    runtime: !File "requirements/runtime.txt"
 
 - !Image
   name: test38
-  from: py38
+  from: *py38
   repository: localhost/grpclib/test36
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
