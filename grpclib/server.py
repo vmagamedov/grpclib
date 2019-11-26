@@ -131,7 +131,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
             message, = await self._dispatch.recv_message(message)
             self._messages_received += 1
             self._stream.connection.messages_received += 1
-            self._stream.connection.last_message_received = time.time()
+            self._stream.connection.last_message_received = time.monotonic()
             return message
         else:
             return None
@@ -190,7 +190,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         self._send_message_done = True
         self._messages_sent += 1
         self._stream.connection.messages_sent += 1
-        self._stream.connection.last_message_sent = time.time()
+        self._stream.connection.last_message_sent = time.monotonic()
 
     async def send_trailing_metadata(
         self,

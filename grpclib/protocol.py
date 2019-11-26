@@ -185,6 +185,8 @@ class Connection:
     messages_sent = 0
     messages_received = 0
     last_stream_created: Optional[float] = None
+    last_data_sent: Optional[float] = None
+    last_data_received: Optional[float] = None
     last_message_sent: Optional[float] = None
     last_message_received: Optional[float] = None
 
@@ -293,7 +295,7 @@ class Stream:
         self.buffer = Buffer(partial(connection.ack, self.id), loop=loop)
 
         self.connection.streams_started += 1
-        self.created = self.connection.last_stream_created = time.time()
+        self.created = self.connection.last_stream_created = time.monotonic()
 
     async def recv_headers(self) -> _Headers:
         if self.headers is None:
@@ -399,12 +401,14 @@ class Stream:
                 self._transport.write(self._h2_connection.data_to_send())
                 self.data_sent += f_chunk_len
                 self.connection.data_sent += f_chunk_len
+                self.connection.last_data_sent = time.monotonic()
                 break
             else:
                 self._h2_connection.send_data(self.id, f_chunk)
                 self._transport.write(self._h2_connection.data_to_send())
                 self.data_sent += f_chunk_len
                 self.connection.data_sent += f_chunk_len
+                self.connection.last_data_sent = time.monotonic()
 
     async def end(self) -> None:
         if not self.connection.write_ready.is_set():
@@ -567,6 +571,7 @@ class EventsProcessor:
                 event.flow_controlled_length,
             )
         self.connection.data_received += size
+        self.connection.last_data_received = time.monotonic()
 
     def process_window_updated(self, event: WindowUpdated) -> None:
         if event.stream_id == 0:

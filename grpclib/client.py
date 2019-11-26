@@ -248,7 +248,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._send_message_done = True
             self._messages_sent += 1
             self._stream.connection.messages_sent += 1
-            self._stream.connection.last_message_sent = time.time()
+            self._stream.connection.last_message_sent = time.monotonic()
             if end:
                 self._end_done = True
 
@@ -405,7 +405,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 message, = await self._dispatch.recv_message(message)
                 self._messages_received += 1
                 self._stream.connection.messages_received += 1
-                self._stream.connection.last_message_received = time.time()
+                self._stream.connection.last_message_received = time.monotonic()
                 return message
             else:
                 return None
@@ -474,7 +474,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             self._wrapper_ctx.__enter__()
 
         self._channel._calls_started += 1
-        self._channel._last_call_started = time.time()
+        self._channel._last_call_started = time.monotonic()
         return self
 
     async def _maybe_finish(self) -> None:

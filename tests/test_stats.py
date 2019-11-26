@@ -14,7 +14,7 @@ from dummy_grpc import DummyServiceBase, DummyServiceStub
 
 
 def _is_recent(value):
-    assert time.time() - value < 1
+    assert time.monotonic() - value < 1
 
 
 class DummyService(DummyServiceBase):
@@ -154,6 +154,7 @@ async def test_client_stream():
             assert proto.connection.messages_sent == 1
             assert proto.connection.data_sent > 0
             _is_recent(proto.connection.last_message_sent)
+            _is_recent(proto.connection.last_data_sent)
 
             assert stream._messages_received == 0
             assert stream._stream.data_received == 0
@@ -166,6 +167,7 @@ async def test_client_stream():
             assert proto.connection.messages_received == 1
             assert proto.connection.data_received > 0
             _is_recent(proto.connection.last_message_received)
+            _is_recent(proto.connection.last_data_received)
 
         assert proto.connection.streams_started == 1
         assert proto.connection.streams_succeeded == 1
@@ -199,6 +201,8 @@ async def test_server_stream():
             assert server_stream.data_received > 0
             assert server_stream.connection.messages_sent == 1
             assert server_stream.connection.messages_received == 1
+            _is_recent(server_stream.connection.last_data_sent)
+            _is_recent(server_stream.connection.last_data_received)
             _is_recent(server_stream.connection.last_message_sent)
             _is_recent(server_stream.connection.last_message_received)
 
