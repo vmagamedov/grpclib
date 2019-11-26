@@ -15,7 +15,6 @@ from multidict import MultiDict
 
 from .utils import DeadlineWrapper, Wrapper
 from .const import Status, Cardinality
-from .compat import nullcontext
 from .config import Configuration
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
@@ -29,6 +28,7 @@ from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
 from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
 from .encoding.proto import _googleapis_available
 
+from ._compat import nullcontext
 from ._registry import servers as _servers
 
 if TYPE_CHECKING:
