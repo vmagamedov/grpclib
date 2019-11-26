@@ -17,7 +17,7 @@ else:
 
 if TYPE_CHECKING:
     from .metadata import Deadline  # noqa
-    from ._protocols import IServable, IClosable  # noqa
+    from ._typing import IServable, IClosable  # noqa
 
 
 class Wrapper(ContextManager[None]):

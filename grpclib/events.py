@@ -8,7 +8,7 @@ from .metadata import Deadline, _Metadata
 
 if TYPE_CHECKING:
     from .stream import _SendType, _RecvType
-    from ._protocols import IEventsTarget, IServerMethodFunc  # noqa
+    from ._typing import IEventsTarget, IServerMethodFunc  # noqa
 
 
 class _Event:

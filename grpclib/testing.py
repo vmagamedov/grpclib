@@ -8,7 +8,7 @@ from .server import Server
 from .encoding.base import CodecBase, StatusDetailsCodecBase
 
 if TYPE_CHECKING:
-    from ._protocols import IServable  # noqa
+    from ._typing import IServable  # noqa
 
 
 class _Server(asyncio.AbstractServer):

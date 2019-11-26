@@ -13,7 +13,7 @@ from .v1.health_grpc import HealthBase
 
 if TYPE_CHECKING:
     from .check import CheckBase  # noqa
-    from .._protocols import ICheckable  # noqa
+    from .._typing import ICheckable  # noqa
 
 
 def _status(checks: Set['CheckBase']) -> 'HealthCheckResponse.ServingStatus':

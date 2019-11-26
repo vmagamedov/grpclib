@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     import ssl as _ssl  # noqa
     from . import const  # noqa
     from . import protocol  # noqa
-    from ._protocols import IServable  # noqa
+    from ._typing import IServable  # noqa
 
 
 log = logging.getLogger(__name__)

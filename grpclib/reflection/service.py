@@ -34,7 +34,7 @@ from ._deprecated import ServerReflection as _ServerReflectionV1Alpha
 
 
 if TYPE_CHECKING:
-    from .._protocols import IServable  # noqa
+    from .._typing import IServable  # noqa
 
 
 class ServerReflection(ServerReflectionBase):

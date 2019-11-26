@@ -35,7 +35,7 @@ from .encoding.proto import _googleapis_available
 from ._registry import channels as _channels
 
 if TYPE_CHECKING:
-    from ._protocols import IReleaseStream  # noqa
+    from ._typing import IReleaseStream  # noqa
 
 
 _H2_OK = '200'

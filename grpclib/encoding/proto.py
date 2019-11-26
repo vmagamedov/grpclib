@@ -8,7 +8,7 @@ from .base import CodecBase, StatusDetailsCodecBase
 
 if TYPE_CHECKING:
     from google.protobuf.message import Message  # noqa
-    from .._protocols import IProtoMessage  # noqa
+    from .._typing import IProtoMessage  # noqa
 
 
 @_cached
