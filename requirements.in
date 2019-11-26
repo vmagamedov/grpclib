@@ -1,9 +1,0 @@
-# h2 - see tox.ini
-multidict
-protobuf
-googleapis-common-protos
-pytest
-pytest-cov
-pytest-asyncio
-async_timeout<3.0.0
-faker

@@ -1,92 +1,132 @@
 - !Image
-  name: env36
+  name: py36
   from: !DockerImage python:3.6.0-slim
-  repository: localhost/grpclib/env36
+  repository: localhost/grpclib/py36
   tasks:
-  - run: pip3 install --no-cache-dir h2==3.1.0
-  - run: pip3 install --no-cache-dir -r {{reqs}}
-    reqs: !File "requirements.txt"
+  - run: pip3 install --no-cache-dir -r {{base}} -r {{optional}}
+    base: !File "setup.txt"
+    optional: !File "requirements/optional.txt"
 
 - !Image
-  name: env37
+  name: test36
+  from: py36
+  repository: localhost/grpclib/test36
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{test}}
+    test: !File "requirements/test.txt"
+
+
+- !Image
+  name: py37
   from: !DockerImage python:3.7.0-slim
-  repository: localhost/grpclib/env37
+  repository: localhost/grpclib/py37
   tasks:
-  - run: pip3 install --no-cache-dir h2==3.1.0
-  - run: pip3 install --no-cache-dir -r {{reqs}}
-    reqs: !File "requirements.txt"
+  - run: pip3 install --no-cache-dir -r {{base}} -r {{optional}}
+    base: !File "setup.txt"
+    optional: !File "requirements/optional.txt"
 
 - !Image
-  name: env38
-  from: !DockerImage python:3.8.0a4-slim
-  repository: localhost/grpclib/env38
+  name: test37
+  from: py37
+  repository: localhost/grpclib/test37
   tasks:
-  - run: pip3 install --no-cache-dir h2==3.1.0
-  - run: pip3 install --no-cache-dir -r {{reqs}}
-    reqs: !File "requirements.txt"
+  - run: pip3 install --no-cache-dir -r {{test}}
+    test: !File "requirements/test.txt"
 
 - !Image
-  name: docs
-  from: env37
-  repository: localhost/grpclib/docs
+  name: lint37
+  from: !DockerImage python:3.7.0-slim
+  repository: localhost/grpclib/lint37
   tasks:
-  - run: pip3 install --no-cache-dir h2==3.1.0
-  - run: pip3 install --no-cache-dir -r {{reqs}}
-    reqs: !File "docs/requirements.txt"
+  - run: pip3 install --no-cache-dir -r {{lint}}
+    lint: !File "requirements/lint.txt"
 
 - !Image
-  name: flake8
-  from: !DockerImage python:3.6.0-slim
-  repository: localhost/grpclib/flake8
+  name: check37
+  from: py37
+  repository: localhost/grpclib/check37
   tasks:
-  - run: pip3 install --no-cache-dir flake8==3.7.7
+  - run: pip3 install --no-cache-dir -r {{check}}
+    check: !File "requirements/check.txt"
+
+- !Image
+  name: docs37
+  from: py37
+  repository: localhost/grpclib/docs37
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{docs}}
+    docs: !File "requirements/docs.txt"
+
+
+- !Image
+  name: py38
+  from: !DockerImage python:3.8.0-slim
+  repository: localhost/grpclib/py38
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{base}} -r {{optional}}
+    base: !File "setup.txt"
+    optional: !File "requirements/optional.txt"
+
+- !Image
+  name: test38
+  from: py38
+  repository: localhost/grpclib/test36
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{test}}
+    test: !File "requirements/test.txt"
+
 
 - !Command
   name: server
-  image: env36
+  image: py38
   run: python3 -m helloworld.server
   network-name: server
   environ:
     PYTHONPATH: examples
   ports:
-    - !Expose { port: 50051, as: 50051 }
+  - !Expose { port: 50051, as: 50051 }
 
 - !Command
   name: client
-  image: env36
+  image: py38
   run: python3 -m helloworld.client
   environ:
     PYTHONPATH: examples
 
 - !Command
-  name: build docs
-  image: docs
+  name: docs
+  image: docs37
   run: sphinx-build -b html docs build
   environ:
     PYTHONPATH: .
 
 - !Command
   name: test36
-  image: env36
-  run: py.test
+  image: test36
+  run: [py.test]
   environ:
     PYTHONPATH: .
 
 - !Command
   name: test37
-  image: env37
-  run: py.test
+  image: test37
+  run: [py.test]
   environ:
     PYTHONPATH: .
 
 - !Command
   name: test38
-  image: env38
-  run: py.test
+  image: test38
+  run: [py.test]
   environ:
     PYTHONPATH: .
 
 - !Command
-  name: lint
-  image: flake8
-  run: flake8
+  name: flake8
+  image: lint37
+  run: [flake8]
+
+- !Command
+  name: mypy
+  image: check37
+  run: [mypy]
