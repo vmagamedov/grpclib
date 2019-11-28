@@ -25,8 +25,8 @@ fake = Faker()
 
 
 @pytest.fixture(name='cs')
-def client_stream_fixture(loop):
-    return ClientStream(loop=loop, send_type=DummyRequest, recv_type=DummyReply)
+def client_stream_fixture():
+    return ClientStream(send_type=DummyRequest, recv_type=DummyReply)
 
 
 class ClientError(Exception):
@@ -73,8 +73,8 @@ async def test_no_request(cs: ClientStream):
 
 
 @pytest.mark.asyncio
-async def test_no_end(loop):
-    cs = ClientStream(loop=loop, send_type=DummyRequest, recv_type=DummyReply,
+async def test_no_end():
+    cs = ClientStream(send_type=DummyRequest, recv_type=DummyReply,
                       cardinality=Cardinality.STREAM_UNARY)
     with pytest.raises(ProtocolError) as exc:
         async with cs.client_stream as stream:
@@ -144,21 +144,21 @@ async def test_ctx_exit_with_error_and_closed_connection(cs):
 
 @pytest.mark.asyncio
 async def test_outbound_streams_limit(loop):
-    client_conn = ClientConn(loop=loop)
+    client_conn = ClientConn()
     client_conn.server_h2c.update_settings({
         SettingCodes.MAX_CONCURRENT_STREAMS: 1,
     })
     client_conn.server_flush()
 
     async def worker1():
-        cs = ClientStream(loop=loop, client_conn=client_conn,
+        cs = ClientStream(client_conn=client_conn,
                           send_type=DummyRequest, recv_type=DummyReply)
         async with cs.client_stream as stream:
             await stream.send_message(DummyRequest(value='ping'), end=True)
             assert await stream.recv_message() == DummyReply(value='pong')
 
     async def worker2():
-        cs = ClientStream(loop=loop, client_conn=client_conn,
+        cs = ClientStream(client_conn=client_conn,
                           send_type=DummyRequest, recv_type=DummyReply)
         async with cs.client_stream as stream:
             await stream.send_message(DummyRequest(value='ping'), end=True)
@@ -188,19 +188,19 @@ async def test_outbound_streams_limit(loop):
     w1 = loop.create_task(worker1())
     w2 = loop.create_task(worker2())
 
-    done, pending = await asyncio.wait([w1, w2], loop=loop, timeout=0.001)
+    done, pending = await asyncio.wait([w1, w2], timeout=0.001)
     assert not done and pending == {w1, w2}
 
     send_response(1)
-    await asyncio.wait_for(w1, 0.1, loop=loop)
+    await asyncio.wait_for(w1, 0.1)
 
     send_response(3)
-    await asyncio.wait_for(w2, 0.1, loop=loop)
+    await asyncio.wait_for(w2, 0.1)
 
 
 @pytest.mark.asyncio
-async def test_deadline_during_send_request(loop):
-    cs = ClientStream(loop=loop, timeout=0.01, connect_time=1,
+async def test_deadline_during_send_request():
+    cs = ClientStream(timeout=0.01, connect_time=1,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -215,8 +215,8 @@ async def test_deadline_during_send_request(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_during_send_message(loop):
-    cs = ClientStream(loop=loop, timeout=0.01,
+async def test_deadline_during_send_message():
+    cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -235,8 +235,8 @@ async def test_deadline_during_send_message(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_during_recv_initial_metadata(loop):
-    cs = ClientStream(loop=loop, timeout=0.01,
+async def test_deadline_during_recv_initial_metadata():
+    cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -254,8 +254,8 @@ async def test_deadline_during_recv_initial_metadata(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_during_recv_message(loop):
-    cs = ClientStream(loop=loop, timeout=0.01,
+async def test_deadline_during_recv_message():
+    cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -282,8 +282,8 @@ async def test_deadline_during_recv_message(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_during_recv_trailing_metadata(loop):
-    cs = ClientStream(loop=loop, timeout=0.01,
+async def test_deadline_during_recv_trailing_metadata():
+    cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -318,8 +318,8 @@ async def test_deadline_during_recv_trailing_metadata(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_during_cancel(loop):
-    cs = ClientStream(loop=loop, timeout=0.01,
+async def test_deadline_during_cancel():
+    cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
         with async_timeout.timeout(5) as safety_timeout:
@@ -352,7 +352,7 @@ async def test_stream_reset_during_send_message(loop, cs: ClientStream):
             cs.client_conn.server_flush()
 
             try:
-                await asyncio.wait_for(task, timeout=1, loop=loop)
+                await asyncio.wait_for(task, timeout=1)
             except StreamTerminatedError:
                 raise ErrorDetected()
 
@@ -371,7 +371,7 @@ async def test_connection_close_during_send_message(loop, cs: ClientStream):
             cs.client_conn.server_flush()
 
             try:
-                await asyncio.wait_for(task, timeout=1, loop=loop)
+                await asyncio.wait_for(task, timeout=1)
             except StreamTerminatedError:
                 raise ErrorDetected()
 
@@ -698,10 +698,10 @@ async def test_request_headers(cs: ClientStream):
 
 
 @pytest.mark.asyncio
-async def test_request_headers_with_deadline(loop):
+async def test_request_headers_with_deadline():
     deadline = Mock()
     deadline.time_remaining.return_value = 0.1
-    cs = ClientStream(loop=loop, deadline=deadline)
+    cs = ClientStream(deadline=deadline)
     async with cs.client_stream as stream:
         await stream.send_request()
         events = cs.client_conn.to_server_transport.events()
@@ -731,8 +731,8 @@ async def test_no_messages_for_unary(loop, cs: ClientStream):
 
 
 @pytest.mark.asyncio
-async def test_empty_request(loop):
-    cs = ClientStream(loop=loop, cardinality=Cardinality.STREAM_UNARY,
+async def test_empty_request():
+    cs = ClientStream(cardinality=Cardinality.STREAM_UNARY,
                       send_type=DummyRequest, recv_type=DummyReply)
     async with cs.client_stream as stream:
         await stream.send_request(end=True)
@@ -758,8 +758,8 @@ async def test_empty_request(loop):
 
 
 @pytest.mark.asyncio
-async def test_empty_response(loop):
-    cs = ClientStream(loop=loop, cardinality=Cardinality.UNARY_STREAM,
+async def test_empty_response():
+    cs = ClientStream(cardinality=Cardinality.UNARY_STREAM,
                       send_type=DummyRequest, recv_type=DummyReply)
     async with cs.client_stream as stream:
         await stream.send_message(DummyRequest(value='ping'), end=True)
@@ -778,8 +778,8 @@ async def test_empty_response(loop):
 
 
 @pytest.mark.asyncio
-async def test_empty_trailers_only_response(loop):
-    cs = ClientStream(loop=loop, cardinality=Cardinality.UNARY_STREAM,
+async def test_empty_trailers_only_response():
+    cs = ClientStream(cardinality=Cardinality.UNARY_STREAM,
                       send_type=DummyRequest, recv_type=DummyReply)
     async with cs.client_stream as stream:
         await stream.send_message(DummyRequest(value='ping'), end=True)

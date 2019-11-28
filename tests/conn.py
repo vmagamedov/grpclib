@@ -29,7 +29,7 @@ def grpc_decode(message_bin, message_type=None, codec=ProtoCodec()):
 
 class ClientConn:
 
-    def __init__(self, *, loop):
+    def __init__(self):
         server_h2_config = H2Configuration(
             client_side=False,
             header_encoding='ascii',
@@ -46,7 +46,6 @@ class ClientConn:
             client.Handler(),
             Configuration().__for_test__(),
             client_h2_config,
-            loop=loop,
         )
         self.client_proto.connection_made(self.to_server_transport)
 
@@ -56,15 +55,15 @@ class ClientConn:
 
 class ClientStream:
 
-    def __init__(self, *, loop, client_conn=None,
+    def __init__(self, *, client_conn=None,
                  send_type=None, recv_type=None,
                  path='/foo/bar', codec=ProtoCodec(),
                  cardinality=Cardinality.UNARY_UNARY,
                  connect_time=None,
                  timeout=None, deadline=None, metadata=None):
-        self.client_conn = client_conn or ClientConn(loop=loop)
+        self.client_conn = client_conn or ClientConn()
 
-        channel = client.Channel(port=-1, loop=loop, codec=codec)
+        channel = client.Channel(port=-1, codec=codec)
         self.client_stream = channel.request(
             path, cardinality, send_type, recv_type,
             timeout=timeout, deadline=deadline, metadata=metadata,
@@ -75,7 +74,7 @@ class ClientStream:
 
 class ServerConn:
 
-    def __init__(self, *, loop):
+    def __init__(self):
         client_h2_config = H2Configuration(
             client_side=True,
             header_encoding='ascii',
@@ -93,7 +92,6 @@ class ServerConn:
             DummyHandler(),
             Configuration().__for_test__(),
             server_config,
-            loop=loop,
         )
         self.server_proto.connection_made(self.to_client_transport)
 
@@ -107,11 +105,11 @@ class ServerConn:
 
 class ServerStream:
 
-    def __init__(self, *, loop, server_conn=None,
+    def __init__(self, *, server_conn=None,
                  recv_type=None, send_type=None, path='/foo/bar',
                  content_type='application/grpc+proto',
                  codec=ProtoCodec(), deadline=None, metadata=None):
-        self.server_conn = server_conn or ServerConn(loop=loop)
+        self.server_conn = server_conn or ServerConn()
 
         self.stream_id = (self.server_conn.client_h2c
                           .get_next_available_stream_id())
@@ -146,11 +144,10 @@ class ClientServer:
     server = None
     channel = None
 
-    def __init__(self, handler_cls, stub_cls, *, loop, codec=None,
+    def __init__(self, handler_cls, stub_cls, *, codec=None,
                  config=None):
         self.handler_cls = handler_cls
         self.stub_cls = stub_cls
-        self.loop = loop
         self.codec = codec
         self.config = config
 
@@ -161,11 +158,11 @@ class ClientServer:
             _, port = s.getsockname()
 
         handler = self.handler_cls()
-        self.server = server.Server([handler], loop=self.loop, codec=self.codec)
+        self.server = server.Server([handler], codec=self.codec)
         await self.server.start(host, port)
 
-        self.channel = client.Channel(host, port, loop=self.loop,
-                                      codec=self.codec, config=self.config)
+        self.channel = client.Channel(host, port, codec=self.codec,
+                                      config=self.config)
         stub = self.stub_cls(self.channel)
         return handler, stub
 

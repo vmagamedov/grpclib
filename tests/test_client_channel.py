@@ -27,7 +27,7 @@ async def test_concurrent_connect(loop):
     reqs = [DummyRequest(value='ping') for _ in range(count)]
     reps = [DummyReply(value='pong') for _ in range(count)]
 
-    channel = Channel(loop=loop)
+    channel = Channel()
     stub = DummyServiceStub(channel)
     async with ChannelFor([DummyService()]) as _channel:
         with patch.object(loop, 'create_connection') as po:

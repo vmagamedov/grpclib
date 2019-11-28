@@ -2,6 +2,7 @@ import abc
 import time
 import asyncio
 import logging
+import warnings
 
 from typing import Optional, Set, Callable, Awaitable
 
@@ -67,7 +68,7 @@ class ServiceCheck(CheckBase):
         :param func: callable object which returns awaitable object, where
             result is one of: ``True`` (healthy), ``False`` (unhealthy), or
             ``None`` (unknown)
-        :param loop: asyncio-compatible event loop
+        :param loop: (deprecated) asyncio-compatible event loop
         :param check_ttl: how long we can cache result of the previous check
         :param check_timeout: timeout for this check
         """
@@ -77,8 +78,12 @@ class ServiceCheck(CheckBase):
 
         self._events: Set[asyncio.Event] = set()
 
-        loop = loop or asyncio.get_event_loop()
-        self._check_lock = asyncio.Event(loop=loop)
+        if loop:
+            warnings.warn("The loop argument is deprecated and scheduled "
+                          "for removal in grpclib 0.4",
+                          DeprecationWarning, stacklevel=2)
+
+        self._check_lock = asyncio.Event()
         self._check_lock.set()
 
         self._check_wrapper = DeadlineWrapper()
@@ -174,9 +179,13 @@ class ServiceStatus(CheckBase):
         loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> None:
         """
-        :param loop: asyncio-compatible event loop
+        :param loop: (deprecated) asyncio-compatible event loop
         """
-        self._loop = loop or asyncio.get_event_loop()
+        if loop:
+            warnings.warn("The loop argument is deprecated and scheduled "
+                          "for removal in grpclib 0.4",
+                          DeprecationWarning, stacklevel=2)
+
         self._value: _Status = None
         self._events: Set[asyncio.Event] = set()
 
@@ -200,7 +209,7 @@ class ServiceStatus(CheckBase):
         return self._value
 
     async def __subscribe__(self) -> asyncio.Event:
-        event = asyncio.Event(loop=self._loop)
+        event = asyncio.Event()
         self._events.add(event)
         return event
 

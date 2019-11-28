@@ -82,8 +82,8 @@ def test_connection():
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(sys.version_info < (3, 7), reason='Python < 3.7')
-async def test_stream(loop):
-    cs = ClientServer(DummyService, DummyServiceStub, loop=loop)
+async def test_stream():
+    cs = ClientServer(DummyService, DummyServiceStub)
     async with cs as (_, stub):
         await stub.UnaryUnary(DummyRequest(value='ping'))
         handler = next(iter(cs.server._handlers))

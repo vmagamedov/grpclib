@@ -29,10 +29,10 @@ def channel_fixture(loop, port):
     services = [DummyService()]
     services = ServerReflection.extend(services)
 
-    server = Server(services, loop=loop)
+    server = Server(services)
     loop.run_until_complete(server.start(port=port))
 
-    channel = Channel(port=port, loop=loop)
+    channel = Channel(port=port)
     try:
         yield channel
     finally:

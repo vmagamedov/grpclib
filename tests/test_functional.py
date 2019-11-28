@@ -44,9 +44,6 @@ class ClientServer:
     server = None
     channel = None
 
-    def __init__(self, *, loop):
-        self.loop = loop
-
     async def __aenter__(self):
         host = '127.0.0.1'
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -55,10 +52,10 @@ class ClientServer:
 
         dummy_service = DummyService()
 
-        self.server = Server([dummy_service], loop=self.loop)
+        self.server = Server([dummy_service])
         await self.server.start(host, port)
 
-        self.channel = Channel(host=host, port=port, loop=self.loop)
+        self.channel = Channel(host=host, port=port)
         dummy_stub = DummyServiceStub(self.channel)
         return dummy_service, dummy_stub
 
@@ -99,19 +96,16 @@ class UnixClientServer:
     server = None
     channel = None
 
-    def __init__(self, *, loop):
-        self.loop = loop
-
     async def __aenter__(self):
         self.temp = tempfile.mkdtemp()
         self.sock = os.path.join(self.temp, 'grpclib.sock')
 
         dummy_service = DummyService()
 
-        self.server = Server([dummy_service], loop=self.loop)
+        self.server = Server([dummy_service])
         await self.server.start(path=self.sock)
 
-        self.channel = Channel(path=self.sock, loop=self.loop)
+        self.channel = Channel(path=self.sock)
         dummy_stub = DummyServiceStub(self.channel)
         return dummy_service, dummy_stub
 
@@ -126,30 +120,30 @@ class UnixClientServer:
 
 
 @pytest.mark.asyncio
-async def test_close_empty_channel(loop):
-    async with ClientServer(loop=loop):
+async def test_close_empty_channel():
+    async with ClientServer():
         """it should not raise exceptions"""
 
 
 @pytest.mark.asyncio
-async def test_unary_unary_simple(loop):
-    async with ClientServer(loop=loop) as (handler, stub):
+async def test_unary_unary_simple():
+    async with ClientServer() as (handler, stub):
         reply = await stub.UnaryUnary(DummyRequest(value='ping'))
         assert reply == DummyReply(value='pong')
         assert handler.log == [DummyRequest(value='ping')]
 
 
 @pytest.mark.asyncio
-async def test_unary_unary_simple_unix(loop):
-    async with UnixClientServer(loop=loop) as (handler, stub):
+async def test_unary_unary_simple_unix():
+    async with UnixClientServer() as (handler, stub):
         reply = await stub.UnaryUnary(DummyRequest(value='ping'))
         assert reply == DummyReply(value='pong')
         assert handler.log == [DummyRequest(value='ping')]
 
 
 @pytest.mark.asyncio
-async def test_unary_unary_advanced(loop):
-    async with ClientServer(loop=loop) as (handler, stub):
+async def test_unary_unary_advanced():
+    async with ClientServer() as (handler, stub):
         async with stub.UnaryUnary.open() as stream:
             await stream.send_message(DummyRequest(value='ping'), end=True)
             reply = await stream.recv_message()
@@ -158,8 +152,8 @@ async def test_unary_unary_advanced(loop):
 
 
 @pytest.mark.asyncio
-async def test_unary_stream_simple(loop):
-    async with ClientServer(loop=loop) as (handler, stub):
+async def test_unary_stream_simple():
+    async with ClientServer() as (handler, stub):
         replies = await stub.UnaryStream(DummyRequest(value='ping'))
         assert handler.log == [DummyRequest(value='ping')]
         assert replies == [DummyReply(value='pong1'),
@@ -168,8 +162,8 @@ async def test_unary_stream_simple(loop):
 
 
 @pytest.mark.asyncio
-async def test_unary_stream_advanced(loop):
-    async with ClientServer(loop=loop) as (handler, stub):
+async def test_unary_stream_advanced():
+    async with ClientServer() as (handler, stub):
         async with stub.UnaryStream.open() as stream:
             await stream.send_message(DummyRequest(value='ping'), end=True)
             replies = [message async for message in stream]
@@ -180,8 +174,8 @@ async def test_unary_stream_advanced(loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_unary_simple(loop):
-    async with ClientServer(loop=loop) as (handler, stub):
+async def test_stream_unary_simple():
+    async with ClientServer() as (handler, stub):
         reply = await stub.StreamUnary([
             DummyRequest(value='ping1'),
             DummyRequest(value='ping2'),
@@ -194,8 +188,8 @@ async def test_stream_unary_simple(loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_unary_advanced(loop):
-    async with ClientServer(loop=loop) as (handler, stub):
+async def test_stream_unary_advanced():
+    async with ClientServer() as (handler, stub):
         async with stub.StreamUnary.open() as stream:
             await stream.send_message(DummyRequest(value='ping1'))
             await stream.send_message(DummyRequest(value='ping2'))
@@ -208,8 +202,8 @@ async def test_stream_unary_advanced(loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_stream_simple(loop):
-    async with ClientServer(loop=loop) as (_, stub):
+async def test_stream_stream_simple():
+    async with ClientServer() as (_, stub):
         replies = await stub.StreamStream([
             DummyRequest(value='foo'),
             DummyRequest(value='bar'),
@@ -223,8 +217,8 @@ async def test_stream_stream_simple(loop):
 
 
 @pytest.mark.asyncio
-async def test_stream_stream_advanced(loop):
-    async with ClientServer(loop=loop) as (_, stub):
+async def test_stream_stream_advanced():
+    async with ClientServer() as (_, stub):
         async with stub.StreamStream.open() as stream:
             await stream.send_message(DummyRequest(value='foo'))
             assert await stream.recv_message() == DummyReply(value='foo')
