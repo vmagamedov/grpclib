@@ -490,8 +490,8 @@ class Stream:
         self._transport.write(self._h2_connection.data_to_send())
 
     def reset_nowait(
-            self,
-            error_code: ErrorCodes = ErrorCodes.NO_ERROR,
+        self,
+        error_code: ErrorCodes = ErrorCodes.NO_ERROR,
     ) -> None:
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         if self.connection.write_ready.is_set():
