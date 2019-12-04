@@ -29,8 +29,10 @@ from .utils import Wrapper
 from .config import Configuration
 from .exceptions import StreamTerminatedError
 
+
 if TYPE_CHECKING:
     from typing import Deque
+
 
 try:
     from h2.events import PingReceived, PingAckReceived
@@ -38,16 +40,18 @@ except ImportError:
     PingReceived = object()
     PingAckReceived = object()
 
+
 log = logging.getLogger(__name__)
+
 
 if hasattr(socket, 'TCP_NODELAY'):
     _sock_type_mask = 0xf if hasattr(socket, 'SOCK_NONBLOCK') else 0xffffffff
 
     def _set_nodelay(sock: socket.socket) -> None:
         if (
-                sock.family in {socket.AF_INET, socket.AF_INET6}
-                and sock.type & _sock_type_mask == socket.SOCK_STREAM
-                and sock.proto == socket.IPPROTO_TCP
+            sock.family in {socket.AF_INET, socket.AF_INET6}
+            and sock.type & _sock_type_mask == socket.SOCK_STREAM
+            and sock.proto == socket.IPPROTO_TCP
         ):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 else:
@@ -225,10 +229,10 @@ class Connection:
         self.write_ready.set()
 
     def create_stream(
-            self,
-            *,
-            stream_id: Optional[int] = None,
-            wrapper: Optional[Wrapper] = None,
+        self,
+        *,
+        stream_id: Optional[int] = None,
+        wrapper: Optional[Wrapper] = None,
     ) -> 'Stream':
         if self._ping_handle is None:
             self.data_process()
@@ -349,11 +353,11 @@ class Stream:
         self.trailers_received = Event(loop=loop)
 
     def init_stream(
-            self,
-            stream_id: int,
-            connection: Connection,
-            *,
-            loop: AbstractEventLoop,
+        self,
+        stream_id: int,
+        connection: Connection,
+        *,
+        loop: AbstractEventLoop,
     ) -> None:
         self.id = stream_id
         self.buffer = Buffer(partial(connection.ack, self.id), loop=loop)
@@ -377,11 +381,11 @@ class Stream:
         return self.trailers
 
     async def send_request(
-            self,
-            headers: _Headers,
-            end_stream: bool = False,
-            *,
-            _processor: 'EventsProcessor',
+        self,
+        headers: _Headers,
+        end_stream: bool = False,
+        *,
+        _processor: 'EventsProcessor',
     ) -> Callable[[], None]:
         assert self.id is None, self.id
         while True:
@@ -419,9 +423,9 @@ class Stream:
                 return release_stream
 
     async def send_headers(
-            self,
-            headers: _Headers,
-            end_stream: bool = False,
+        self,
+        headers: _Headers,
+        end_stream: bool = False,
     ) -> None:
         assert self.id is not None
         if not self.connection.write_ready.is_set():
@@ -515,10 +519,10 @@ class AbstractHandler(ABC):
 
     @abstractmethod
     def accept(
-            self,
-            stream: Stream,
-            headers: _Headers,
-            release_stream: Callable[[], None],
+        self,
+        stream: Stream,
+        headers: _Headers,
+        release_stream: Callable[[], None],
     ) -> None:
         pass
 
@@ -538,7 +542,6 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
-
     def __init__(
         self,
         handler: AbstractHandler,
@@ -610,16 +613,16 @@ class EventsProcessor:
             stream.headers_received.set()
 
     def process_remote_settings_changed(
-            self,
-            event: RemoteSettingsChanged,
+        self,
+        event: RemoteSettingsChanged,
     ) -> None:
         if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
             for stream in self.streams.values():
                 stream.window_updated.set()
 
     def process_settings_acknowledged(
-            self,
-            event: SettingsAcknowledged,
+        self,
+        event: SettingsAcknowledged,
     ) -> None:
         pass
 
@@ -680,8 +683,8 @@ class EventsProcessor:
         pass
 
     def process_connection_terminated(
-            self,
-            event: ConnectionTerminated,
+        self,
+        event: ConnectionTerminated,
     ) -> None:
         self.close(reason=(
             'Received GOAWAY frame, closing connection; error_code: {}'
