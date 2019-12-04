@@ -255,7 +255,6 @@ class Connection:
             self._ping_handle.cancel()
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
-        logging.error("close")
 
     async def _ping(self) -> None:
         if self._config._keepalive_time is None or self._last_received() == 0:
