@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 from dataclasses import dataclass, field
 
 import pytest
@@ -84,3 +84,21 @@ def test_configuration():
     config = Configuration()
     _with_defaults(config, 'client-default')
     _with_defaults(config, 'server-default')
+
+
+def test_change_default():
+    # all params should be optional
+    @dataclass
+    class Config:
+        foo: Optional[float] = field(
+            default=cast(None, _DEFAULT),
+            metadata={
+                'validate': _optional(_chain(_of_type(int, float), _positive)),
+                'test-default': 1234,
+            },
+        )
+
+        def __post_init__(self):
+            _validate(self)
+
+    assert _with_defaults(Config(foo=1), 'test-default').foo == 1

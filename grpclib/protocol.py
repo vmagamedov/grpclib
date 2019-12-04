@@ -1,3 +1,5 @@
+import asyncio
+import struct
 import time
 import socket
 import logging
@@ -6,7 +8,8 @@ from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
 from typing import cast, TYPE_CHECKING
-from asyncio import Transport, Protocol, Event, AbstractEventLoop, BaseTransport
+from asyncio import Transport, Protocol, Event, AbstractEventLoop, \
+    BaseTransport, TimerHandle
 from asyncio import Queue
 from functools import partial
 from collections import deque
@@ -26,10 +29,8 @@ from .utils import Wrapper
 from .config import Configuration
 from .exceptions import StreamTerminatedError
 
-
 if TYPE_CHECKING:
     from typing import Deque
-
 
 try:
     from h2.events import PingReceived, PingAckReceived
@@ -37,18 +38,16 @@ except ImportError:
     PingReceived = object()
     PingAckReceived = object()
 
-
 log = logging.getLogger(__name__)
-
 
 if hasattr(socket, 'TCP_NODELAY'):
     _sock_type_mask = 0xf if hasattr(socket, 'SOCK_NONBLOCK') else 0xffffffff
 
     def _set_nodelay(sock: socket.socket) -> None:
         if (
-            sock.family in {socket.AF_INET, socket.AF_INET6}
-            and sock.type & _sock_type_mask == socket.SOCK_STREAM
-            and sock.proto == socket.IPPROTO_TCP
+                sock.family in {socket.AF_INET, socket.AF_INET6}
+                and sock.type & _sock_type_mask == socket.SOCK_STREAM
+                and sock.proto == socket.IPPROTO_TCP
         ):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 else:
@@ -189,6 +188,9 @@ class Connection:
     last_data_received: Optional[float] = None
     last_message_sent: Optional[float] = None
     last_message_received: Optional[float] = None
+    last_headers_received: Optional[float] = None
+    _ping_handle: Optional['asyncio.Task[None]'] = None
+    _close_by_ping_handler: Optional[TimerHandle] = None
 
     def __init__(
         self,
@@ -223,11 +225,13 @@ class Connection:
         self.write_ready.set()
 
     def create_stream(
-        self,
-        *,
-        stream_id: Optional[int] = None,
-        wrapper: Optional[Wrapper] = None,
+            self,
+            *,
+            stream_id: Optional[int] = None,
+            wrapper: Optional[Wrapper] = None,
     ) -> 'Stream':
+        if self._ping_handle is None:
+            self.data_process()
         return Stream(self, self._connection, self._transport, loop=self._loop,
                       stream_id=stream_id, wrapper=wrapper)
 
@@ -243,6 +247,66 @@ class Connection:
             del self._transport
             if hasattr(self._connection, '_frame_dispatch_table'):
                 del self._connection._frame_dispatch_table
+        if self._ping_handle is not None:
+            self._ping_handle.cancel()
+        if self._close_by_ping_handler is not None:
+            self._close_by_ping_handler.cancel()
+        logging.error("close")
+
+    async def _ping(self) -> None:
+        if self._config._keepalive_time is None or self._last_received() == 0:
+            self._ping_handle = None
+            return
+
+        if not self._config._keepalive_permit_without_calls:
+            count_of_connection = self.streams_started - self.streams_failed - \
+                                  self.streams_succeeded
+            if count_of_connection == 0:
+                self._ping_handle = None
+                return
+        current_time = time.monotonic()
+        time_to_next_ping = self._config._keepalive_time - (
+                    current_time - self._last_received())
+        while time_to_next_ping > 0:
+            await asyncio.sleep(time_to_next_ping)
+            current_time = time.monotonic()
+            time_to_next_ping = self._config._keepalive_time - (
+                        current_time - self._last_received())
+
+        max_ping_count = self._config._http2_max_pings_without_data
+        while (max_ping_count > 0 or
+               self._config._http2_max_pings_without_data == 0):
+            if self._config._http2_max_pings_without_data != 0:
+                max_ping_count -= 1
+            data = struct.pack('!Q', int(time.monotonic() * 10 ** 6))
+            self._connection.ping(data)
+            self.flush()
+            if self._close_by_ping_handler is None:
+                self._close_by_ping_handler = self._loop.call_later(
+                    self._config._keepalive_timeout, self.close)
+            await asyncio.sleep(
+                self._config._http2_min_sent_ping_interval_without_data)
+
+    def data_process(self) -> None:
+        if self._ping_handle is not None:
+            self._ping_handle.cancel()
+        if self._close_by_ping_handler is not None:
+            self._close_by_ping_handler.cancel()
+            self._close_by_ping_handler = None
+        self._ping_handle = self._loop.create_task(self._ping())
+
+    def ping_process(self) -> None:
+        if self._close_by_ping_handler is not None:
+            self._close_by_ping_handler.cancel()
+        self._close_by_ping_handler = self._loop.call_later(
+            self._config._keepalive_timeout, self.close)
+
+    def _last_received(self) -> float:
+        times = [self.last_data_received, self.last_headers_received]
+        times = [t for t in times if t is not None]
+        if len(times) == 0:
+            return 0.
+        return cast(float, max(times))
 
 
 _Headers = List[Tuple[str, str]]
@@ -285,11 +349,11 @@ class Stream:
         self.trailers_received = Event(loop=loop)
 
     def init_stream(
-        self,
-        stream_id: int,
-        connection: Connection,
-        *,
-        loop: AbstractEventLoop,
+            self,
+            stream_id: int,
+            connection: Connection,
+            *,
+            loop: AbstractEventLoop,
     ) -> None:
         self.id = stream_id
         self.buffer = Buffer(partial(connection.ack, self.id), loop=loop)
@@ -313,11 +377,11 @@ class Stream:
         return self.trailers
 
     async def send_request(
-        self,
-        headers: _Headers,
-        end_stream: bool = False,
-        *,
-        _processor: 'EventsProcessor',
+            self,
+            headers: _Headers,
+            end_stream: bool = False,
+            *,
+            _processor: 'EventsProcessor',
     ) -> Callable[[], None]:
         assert self.id is None, self.id
         while True:
@@ -355,9 +419,9 @@ class Stream:
                 return release_stream
 
     async def send_headers(
-        self,
-        headers: _Headers,
-        end_stream: bool = False,
+            self,
+            headers: _Headers,
+            end_stream: bool = False,
     ) -> None:
         assert self.id is not None
         if not self.connection.write_ready.is_set():
@@ -423,8 +487,8 @@ class Stream:
         self._transport.write(self._h2_connection.data_to_send())
 
     def reset_nowait(
-        self,
-        error_code: ErrorCodes = ErrorCodes.NO_ERROR,
+            self,
+            error_code: ErrorCodes = ErrorCodes.NO_ERROR,
     ) -> None:
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         if self.connection.write_ready.is_set():
@@ -451,10 +515,10 @@ class AbstractHandler(ABC):
 
     @abstractmethod
     def accept(
-        self,
-        stream: Stream,
-        headers: _Headers,
-        release_stream: Callable[[], None],
+            self,
+            stream: Stream,
+            headers: _Headers,
+            release_stream: Callable[[], None],
     ) -> None:
         pass
 
@@ -474,6 +538,7 @@ class EventsProcessor:
     """
     H2 events processor, synchronous, not doing any IO, as hyper-h2 itself
     """
+
     def __init__(
         self,
         handler: AbstractHandler,
@@ -535,6 +600,8 @@ class EventsProcessor:
         release_stream = self.register(stream)
         self.handler.accept(stream, event.headers, release_stream)
         # TODO: check EOF
+        self.connection.last_headers_received = time.monotonic()
+        self.connection.data_process()
 
     def process_response_received(self, event: ResponseReceived) -> None:
         stream = self.streams.get(event.stream_id)
@@ -543,16 +610,16 @@ class EventsProcessor:
             stream.headers_received.set()
 
     def process_remote_settings_changed(
-        self,
-        event: RemoteSettingsChanged,
+            self,
+            event: RemoteSettingsChanged,
     ) -> None:
         if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
             for stream in self.streams.values():
                 stream.window_updated.set()
 
     def process_settings_acknowledged(
-        self,
-        event: SettingsAcknowledged,
+            self,
+            event: SettingsAcknowledged,
     ) -> None:
         pass
 
@@ -572,6 +639,7 @@ class EventsProcessor:
             )
         self.connection.data_received += size
         self.connection.last_data_received = time.monotonic()
+        self.connection.data_process()
 
     def process_window_updated(self, event: WindowUpdated) -> None:
         if event.stream_id == 0:
@@ -612,8 +680,8 @@ class EventsProcessor:
         pass
 
     def process_connection_terminated(
-        self,
-        event: ConnectionTerminated,
+            self,
+            event: ConnectionTerminated,
     ) -> None:
         self.close(reason=(
             'Received GOAWAY frame, closing connection; error_code: {}'
@@ -621,7 +689,7 @@ class EventsProcessor:
         ))
 
     def process_ping_received(self, event: PingReceived) -> None:
-        pass
+        self.connection.ping_process()
 
     def process_ping_ack_received(self, event: PingAckReceived) -> None:
         pass

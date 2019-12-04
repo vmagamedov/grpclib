@@ -46,7 +46,7 @@ def _check(type_name):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason='Python < 3.7')
-def test_connection():
+def _test_connection():
     loop = asyncio.new_event_loop()
 
     async def example():
