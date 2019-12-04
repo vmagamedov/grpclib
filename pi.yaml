@@ -67,7 +67,7 @@
 - !Image
   name: test38
   from: *py38
-  repository: localhost/grpclib/test36
+  repository: localhost/grpclib/test38
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
     test: !File "requirements/test.txt"

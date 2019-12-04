@@ -8,8 +8,7 @@ from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
 from typing import cast, TYPE_CHECKING
-from asyncio import Transport, Protocol, Event, AbstractEventLoop, \
-    BaseTransport, TimerHandle
+from asyncio import Transport, Protocol, Event, BaseTransport, TimerHandle
 from asyncio import Queue
 from functools import partial
 from collections import deque
@@ -72,15 +71,10 @@ class AckedData(NamedTuple):
 
 class Buffer:
 
-    def __init__(
-        self,
-        ack_callback: Callable[[int], None],
-        *,
-        loop: AbstractEventLoop,
-    ) -> None:
+    def __init__(self, ack_callback: Callable[[int], None]) -> None:
         self._ack_callback = ack_callback
         self._eof = False
-        self._unacked: 'Queue[UnackedData]' = Queue(loop=loop)
+        self._unacked: 'Queue[UnackedData]' = Queue()
         self._acked: 'Deque[AckedData]' = deque()
         self._acked_size = 0
 
@@ -138,16 +132,10 @@ class Buffer:
 
 class StreamsLimit:
 
-    def __init__(
-        self,
-        limit: Optional[int] = None,
-        *,
-        loop: AbstractEventLoop,
-    ) -> None:
+    def __init__(self, limit: Optional[int] = None) -> None:
         self._limit = limit
         self._current = 0
-        self._loop = loop
-        self._release = Event(loop=loop)
+        self._release = Event()
 
     def reached(self) -> bool:
         if self._limit is not None:
@@ -201,18 +189,16 @@ class Connection:
         connection: H2Connection,
         transport: Transport,
         *,
-        loop: AbstractEventLoop,
         config: Configuration,
     ) -> None:
         self._connection = connection
         self._transport = transport
-        self._loop = loop
         self._config = config
 
-        self.write_ready = Event(loop=self._loop)
+        self.write_ready = Event()
         self.write_ready.set()
 
-        self.stream_close_waiter = Event(loop=self._loop)
+        self.stream_close_waiter = Event()
 
     def feed(self, data: bytes) -> List[H2Event]:
         return self._connection.receive_data(data)  # type: ignore
@@ -236,7 +222,8 @@ class Connection:
     ) -> 'Stream':
         if self._ping_handle is None:
             self.data_process()
-        return Stream(self, self._connection, self._transport, loop=self._loop,
+
+        return Stream(self, self._connection, self._transport,
                       stream_id=stream_id, wrapper=wrapper)
 
     def flush(self) -> None:
@@ -285,8 +272,8 @@ class Connection:
             self._connection.ping(data)
             self.flush()
             if self._close_by_ping_handler is None:
-                self._close_by_ping_handler = self._loop.call_later(
-                    self._config._keepalive_timeout, self.close)
+                self._close_by_ping_handler = asyncio.get_event_loop().\
+                    call_later(self._config._keepalive_timeout, self.close)
             await asyncio.sleep(
                 self._config._http2_min_sent_ping_interval_without_data)
 
@@ -296,12 +283,12 @@ class Connection:
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
             self._close_by_ping_handler = None
-        self._ping_handle = self._loop.create_task(self._ping())
+        self._ping_handle = asyncio.get_event_loop().create_task(self._ping())
 
     def ping_process(self) -> None:
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
-        self._close_by_ping_handler = self._loop.call_later(
+        self._close_by_ping_handler = asyncio.get_event_loop().call_later(
             self._config._keepalive_timeout, self.close)
 
     def _last_received(self) -> float:
@@ -332,34 +319,26 @@ class Stream:
         h2_connection: H2Connection,
         transport: Transport,
         *,
-        loop: AbstractEventLoop,
         stream_id: Optional[int] = None,
         wrapper: Optional[Wrapper] = None
     ) -> None:
         self.connection = connection
         self._h2_connection = h2_connection
         self._transport = transport
-        self._loop = loop
         self.wrapper = wrapper
 
         if stream_id is not None:
-            self.init_stream(stream_id, self.connection, loop=self._loop)
+            self.init_stream(stream_id, self.connection)
 
-        self.window_updated = Event(loop=loop)
+        self.window_updated = Event()
         self.headers: Optional['_Headers'] = None
-        self.headers_received = Event(loop=loop)
+        self.headers_received = Event()
         self.trailers: Optional['_Headers'] = None
-        self.trailers_received = Event(loop=loop)
+        self.trailers_received = Event()
 
-    def init_stream(
-        self,
-        stream_id: int,
-        connection: Connection,
-        *,
-        loop: AbstractEventLoop,
-    ) -> None:
+    def init_stream(self, stream_id: int, connection: Connection) -> None:
         self.id = stream_id
-        self.buffer = Buffer(partial(connection.ack, self.id), loop=loop)
+        self.buffer = Buffer(partial(connection.ack, self.id))
 
         self.connection.streams_started += 1
         self.created = self.connection.last_stream_created = time.monotonic()
@@ -416,7 +395,7 @@ class Stream:
                 # if we can write() data
                 continue
             else:
-                self.init_stream(stream_id, self.connection, loop=self._loop)
+                self.init_stream(stream_id, self.connection)
                 release_stream = _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
                 return release_stream
@@ -706,13 +685,10 @@ class H2Protocol(Protocol):
         handler: AbstractHandler,
         config: Configuration,
         h2_config: H2Configuration,
-        *,
-        loop: AbstractEventLoop,
     ) -> None:
         self.handler = handler
         self.config = config
         self.h2_config = h2_config
-        self.loop = loop
 
     def connection_made(self, transport: BaseTransport) -> None:
         sock = transport.get_extra_info('socket')
@@ -725,7 +701,6 @@ class H2Protocol(Protocol):
         self.connection = Connection(
             h2_conn,
             cast(Transport, transport),
-            loop=self.loop,
             config=self.config,
         )
         self.connection.flush()

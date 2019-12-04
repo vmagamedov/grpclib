@@ -56,17 +56,16 @@ class PingServiceStub:
 
 
 @pytest.mark.asyncio
-async def test_rpc_call(loop):
-    ctx = ClientServer(PingServiceHandler, PingServiceStub, loop=loop,
-                       codec=JSONCodec())
+async def test_rpc_call():
+    ctx = ClientServer(PingServiceHandler, PingServiceStub, codec=JSONCodec())
     async with ctx as (handler, stub):
         reply = await stub.UnaryUnary({'value': 'ping'})
         assert reply == {'value': 'pong'}
 
 
 @pytest.mark.asyncio
-async def test_client_receive_json(loop):
-    cs = ClientStream(loop=loop, codec=JSONCodec())
+async def test_client_receive_json():
+    cs = ClientStream(codec=JSONCodec())
 
     async with cs.client_stream as stream:
         await stream.send_request()
@@ -101,8 +100,8 @@ async def test_client_receive_json(loop):
 
 
 @pytest.mark.asyncio
-async def test_client_receive_invalid(loop):
-    cs = ClientStream(loop=loop, codec=JSONCodec())
+async def test_client_receive_invalid():
+    cs = ClientStream(codec=JSONCodec())
     with pytest.raises(GRPCError) as exc:
         async with cs.client_stream as stream:
             await stream.send_request()
@@ -136,11 +135,11 @@ async def test_client_receive_invalid(loop):
 
 
 @pytest.mark.asyncio
-async def test_server_receive_json(loop):
+async def test_server_receive_json():
     handler = PingServiceHandler()
     mapping = handler.__mapping__()
     path = next(iter(mapping.keys()))
-    ss = ServerStream(loop=loop, codec=JSONCodec(), path=path,
+    ss = ServerStream(codec=JSONCodec(), path=path,
                       content_type='application/grpc+json')
     ss.server_conn.client_h2c.send_data(
         ss.stream_id,
@@ -171,11 +170,11 @@ async def test_server_receive_json(loop):
 
 
 @pytest.mark.asyncio
-async def test_server_receive_invalid(loop):
+async def test_server_receive_invalid():
     handler = PingServiceHandler()
     mapping = handler.__mapping__()
     path = next(iter(mapping.keys()))
-    ss = ServerStream(loop=loop, codec=JSONCodec(), path=path,
+    ss = ServerStream(codec=JSONCodec(), path=path,
                       content_type='application/grpc+invalid')
     ss.server_conn.client_h2c.send_data(
         ss.stream_id,
@@ -201,8 +200,8 @@ async def test_server_receive_invalid(loop):
 
 
 @pytest.mark.asyncio
-async def test_server_return_json(loop):
-    ss = ServerStream(loop=loop, codec=JSONCodec())
+async def test_server_return_json():
+    ss = ServerStream(codec=JSONCodec())
     ss.server_conn.client_h2c.send_data(
         ss.stream_id,
         grpc_encode({'value': 'ping'}, None, JSONCodec()),

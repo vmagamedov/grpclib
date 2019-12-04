@@ -28,8 +28,8 @@ async def call_handler(mapping, stream, headers):
 
 
 @pytest.mark.asyncio
-async def test_invalid_method(loop):
-    stream = H2StreamStub(loop=loop)
+async def test_invalid_method():
+    stream = H2StreamStub()
     headers = [(':method', 'GET')]
     await call_handler({}, stream, headers)
     assert stream.__events__ == [
@@ -39,8 +39,8 @@ async def test_invalid_method(loop):
 
 
 @pytest.mark.asyncio
-async def test_missing_te_header(loop):
-    stream = H2StreamStub(loop=loop)
+async def test_missing_te_header():
+    stream = H2StreamStub()
     headers = [
         (':method', 'POST'),
         ('content-type', 'application/grpc'),
@@ -57,8 +57,8 @@ async def test_missing_te_header(loop):
 
 
 @pytest.mark.asyncio
-async def test_missing_content_type(loop):
-    stream = H2StreamStub(loop=loop)
+async def test_missing_content_type():
+    stream = H2StreamStub()
     headers = [
         (':method', 'POST'),
     ]
@@ -76,8 +76,8 @@ async def test_missing_content_type(loop):
 @pytest.mark.asyncio
 @pytest.mark.parametrize('content_type',
                          ['text/invalid', 'application/grpc+invalid'])
-async def test_invalid_content_type(content_type, loop):
-    stream = H2StreamStub(loop=loop)
+async def test_invalid_content_type(content_type):
+    stream = H2StreamStub()
     headers = [
         (':method', 'POST'),
         ('content-type', content_type),
@@ -94,8 +94,8 @@ async def test_invalid_content_type(content_type, loop):
 
 
 @pytest.mark.asyncio
-async def test_missing_method(loop):
-    stream = H2StreamStub(loop=loop)
+async def test_missing_method():
+    stream = H2StreamStub()
     headers = [
         (':method', 'POST'),
         (':path', '/missing.Service/MissingMethod'),
@@ -114,8 +114,8 @@ async def test_missing_method(loop):
 
 
 @pytest.mark.asyncio
-async def test_invalid_grpc_timeout(loop):
-    stream = H2StreamStub(loop=loop)
+async def test_invalid_grpc_timeout():
+    stream = H2StreamStub()
     headers = [
         (':method', 'POST'),
         (':path', '/package.Service/Method'),
@@ -162,7 +162,7 @@ async def test_deadline(
     loop, caplog, handler, level, msg, exc_type, exc_text
 ):
     caplog.set_level(logging.INFO)
-    stream = H2StreamStub(loop=loop)
+    stream = H2StreamStub()
     headers = [
         (':method', 'POST'),
         (':path', '/package.Service/Method'),
@@ -179,7 +179,7 @@ async def test_deadline(
     task = loop.create_task(
         call_handler(methods, stream, headers)
     )
-    await asyncio.wait_for(task, 0.1, loop=loop)
+    await asyncio.wait_for(task, 0.1)
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '200'),
@@ -221,10 +221,8 @@ async def test_client_reset(
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport,
-                             loop=loop, config=config)
-    server_conn = Connection(server_h2c, to_client_transport,
-                             loop=loop, config=config)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+    server_conn = Connection(server_h2c, to_client_transport, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -250,7 +248,7 @@ async def test_client_reset(
     await asyncio.wait([task], timeout=0.001)
     await client_h2_stream.reset()
     to_server_transport.process(server_proc)
-    await asyncio.wait_for(task, 0.1, loop=loop)
+    await asyncio.wait_for(task, 0.1)
 
     record, = caplog.records
     assert record.name == 'grpclib.server'

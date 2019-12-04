@@ -3,6 +3,7 @@ import time
 import socket
 import logging
 import asyncio
+import warnings
 
 from types import TracebackType
 from typing import TYPE_CHECKING, Optional, Collection, Generic, Type, cast
@@ -489,14 +490,12 @@ class Handler(_GC, AbstractHandler):
         codec: CodecBase,
         status_details_codec: Optional[StatusDetailsCodecBase],
         dispatch: _DispatchServerEvents,
-        *,
-        loop: asyncio.AbstractEventLoop,
     ) -> None:
         self.mapping = mapping
         self.codec = codec
         self.status_details_codec = status_details_codec
         self.dispatch = dispatch
-        self.loop = loop
+        self.loop = asyncio.get_event_loop()
         self._tasks: Dict['protocol.Stream', 'asyncio.Task[None]'] = {}
         self._cancelled: Set['asyncio.Task[None]'] = set()
 
@@ -531,7 +530,7 @@ class Handler(_GC, AbstractHandler):
 
     async def wait_closed(self) -> None:
         if self._cancelled:
-            await asyncio.wait(self._cancelled, loop=self.loop)
+            await asyncio.wait(self._cancelled)
 
     def check_closed(self) -> bool:
         self.__gc_collect__()
@@ -570,7 +569,7 @@ class Server(_GC, asyncio.AbstractServer):
         """
         :param handlers: list of handlers
 
-        :param loop: asyncio-compatible event loop
+        :param loop: (deprecated) asyncio-compatible event loop
 
         :param codec: instance of a codec to encode and decode messages,
             if omitted ``ProtoCodec`` is used by default
@@ -579,6 +578,11 @@ class Server(_GC, asyncio.AbstractServer):
             encode error details in a trailing metadata, if omitted
             ``ProtoStatusDetailsCodec`` is used by default
         """
+        if loop:
+            warnings.warn("The loop argument is deprecated and scheduled "
+                          "for removal in grpclib 0.4",
+                          DeprecationWarning, stacklevel=2)
+
         mapping: Dict[str, 'const.Handler'] = {}
         for handler in handlers:
             mapping.update(handler.__mapping__())
@@ -620,11 +624,10 @@ class Server(_GC, asyncio.AbstractServer):
         self.__gc_step__()
         handler = Handler(
             self._mapping, self._codec, self._status_details_codec,
-            self.__dispatch__, loop=self._loop,
+            self.__dispatch__,
         )
         self._handlers.add(handler)
-        return H2Protocol(handler, self._config, self._h2_config,
-                          loop=self._loop)
+        return H2Protocol(handler, self._config, self._h2_config)
 
     async def start(
         self,
@@ -718,5 +721,4 @@ class Server(_GC, asyncio.AbstractServer):
             raise RuntimeError('Server is not started')
         await self._server.wait_closed()
         if self._handlers:
-            await asyncio.wait({h.wait_closed() for h in self._handlers},
-                               loop=self._loop)
+            await asyncio.wait({h.wait_closed() for h in self._handlers})

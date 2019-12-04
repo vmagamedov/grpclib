@@ -66,8 +66,8 @@ async def test_check_service_check(loop, v1, v2, status):
     c1 = Check()
     c2 = Check()
     health = Health({svc: [
-        ServiceCheck(c1, loop=loop, check_ttl=0),
-        ServiceCheck(c2, loop=loop, check_ttl=0),
+        ServiceCheck(c1, check_ttl=0),
+        ServiceCheck(c2, check_ttl=0),
     ]})
     async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
@@ -84,10 +84,10 @@ async def test_check_service_check(loop, v1, v2, status):
     (False, True, HealthCheckResponse.NOT_SERVING),
     (True, True, HealthCheckResponse.SERVING)
 ])
-async def test_check_service_status(loop, v1, v2, status):
+async def test_check_service_status(v1, v2, status):
     svc = Service()
-    s1 = ServiceStatus(loop=loop)
-    s2 = ServiceStatus(loop=loop)
+    s1 = ServiceStatus()
+    s2 = ServiceStatus()
     health = Health({svc: [s1, s2]})
     async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
@@ -139,13 +139,13 @@ async def test_watch_zero_checks():
 
 
 @pytest.mark.asyncio
-async def test_watch_service_check(loop):
+async def test_watch_service_check():
     svc = Service()
     c1 = Check()
     c2 = Check()
     health = Health({svc: [
-        ServiceCheck(c1, loop=loop, check_ttl=0.001),
-        ServiceCheck(c2, loop=loop, check_ttl=0.001),
+        ServiceCheck(c1, check_ttl=0.001),
+        ServiceCheck(c2, check_ttl=0.001),
     ]})
     async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)
@@ -183,10 +183,10 @@ async def test_watch_service_check(loop):
 
 
 @pytest.mark.asyncio
-async def test_watch_service_status(loop):
+async def test_watch_service_status():
     svc = Service()
-    s1 = ServiceStatus(loop=loop)
-    s2 = ServiceStatus(loop=loop)
+    s1 = ServiceStatus()
+    s2 = ServiceStatus()
     health = Health({svc: [s1, s2]})
     async with ChannelFor([svc, health]) as channel:
         stub = HealthStub(channel)

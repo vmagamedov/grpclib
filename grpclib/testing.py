@@ -25,11 +25,9 @@ class _InMemoryTransport(asyncio.Transport):
     def __init__(
         self,
         protocol: asyncio.Protocol,
-        *,
-        loop: asyncio.AbstractEventLoop,
     ) -> None:
         super().__init__()
-        self._loop = loop
+        self._loop = asyncio.get_event_loop()
         self._protocol = protocol
 
     def write(self, data: bytes) -> None:
@@ -85,13 +83,10 @@ class ChannelFor:
         """
         :return: :py:class:`~grpclib.client.Channel`
         """
-        loop = asyncio.get_event_loop()
-
         self._server = Server(
             self._services,
             codec=self._codec,
             status_details_codec=self._status_details_codec,
-            loop=loop,
         )
         self._server._server = _Server()
         self._server_protocol = self._server._protocol_factory()
@@ -99,15 +94,14 @@ class ChannelFor:
         self._channel = Channel(
             codec=self._codec,
             status_details_codec=self._status_details_codec,
-            loop=loop,
         )
         self._channel._protocol = self._channel._protocol_factory()
 
         self._channel._protocol.connection_made(
-            _InMemoryTransport(self._server_protocol, loop=loop)
+            _InMemoryTransport(self._server_protocol)
         )
         self._server_protocol.connection_made(
-            _InMemoryTransport(self._channel._protocol, loop=loop)
+            _InMemoryTransport(self._channel._protocol)
         )
         return self._channel
 

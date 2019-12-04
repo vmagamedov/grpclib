@@ -61,12 +61,12 @@ async def test_wrapper_concurrent(loop):
 
 
 @pytest.mark.asyncio
-async def test_deadline_wrapper(loop):
+async def test_deadline_wrapper():
     deadline = Deadline.from_timeout(0.01)
     deadline_wrapper = DeadlineWrapper()
     api = UserAPI(deadline_wrapper)
 
-    with deadline_wrapper.start(deadline, loop=loop):
+    with deadline_wrapper.start(deadline):
         await api.foo(time=0.0001)
 
         with pytest.raises(asyncio.TimeoutError) as err:

@@ -589,7 +589,7 @@ class Channel:
 
         :param port: server port number.
 
-        :param loop: asyncio-compatible event loop
+        :param loop: (deprecated) asyncio-compatible event loop
 
         :param path: server socket path. If specified, host and port should be
             omitted (must be None).
@@ -622,6 +622,11 @@ class Channel:
             if status_details_codec is None and _googleapis_available():
                 status_details_codec = ProtoStatusDetailsCodec()
 
+        if loop:
+            warnings.warn("The loop argument is deprecated and scheduled "
+                          "for removal in grpclib 0.4",
+                          DeprecationWarning, stacklevel=2)
+
         self._host = host
         self._port = port
         self._loop = loop or asyncio.get_event_loop()
@@ -640,7 +645,7 @@ class Channel:
             normalize_inbound_headers=False,
             normalize_outbound_headers=False,
         )
-        self._connect_lock = asyncio.Lock(loop=self._loop)
+        self._connect_lock = asyncio.Lock()
         self._state = _ChannelState.IDLE
 
         config = Configuration() if config is None else config
@@ -654,8 +659,7 @@ class Channel:
                 .format(self._host, self._port, self._path))
 
     def _protocol_factory(self) -> H2Protocol:
-        return H2Protocol(Handler(), self._config, self._h2_config,
-                          loop=self._loop)
+        return H2Protocol(Handler(), self._config, self._h2_config)
 
     async def _create_connection(self) -> H2Protocol:
         if self._path is not None:
@@ -675,10 +679,6 @@ class Channel:
                 and not self._protocol.handler.connection_lost)
 
     async def __connect__(self) -> H2Protocol:
-        if self._loop is None:
-            self._loop = asyncio.get_running_loop()
-            self._connect_lock = asyncio.Lock(loop=self._loop)
-
         if not self._connected:
             async with self._connect_lock:
                 self._state = _ChannelState.CONNECTING
@@ -740,7 +740,7 @@ class Channel:
         self._state = _ChannelState.IDLE
 
     def __del__(self) -> None:
-        if self._loop is not None and self._protocol is not None:
+        if self._protocol is not None:
             message = 'Unclosed connection: {!r}'.format(self)
             warnings.warn(message, ResourceWarning)
             if self._loop.is_closed():

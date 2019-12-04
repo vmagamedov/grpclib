@@ -43,15 +43,15 @@ class PingServiceStub:
 
 
 @pytest.mark.asyncio
-async def test_stream_ping(loop):
-    ctx = ClientServer(PingServiceHandler, PingServiceStub, loop=loop)
+async def test_stream_ping():
+    ctx = ClientServer(PingServiceHandler, PingServiceStub)
     async with ctx as (handler, stub):
         await stub.UnaryStream(DummyRequest(value='ping'))
 
 
 @pytest.mark.asyncio
-async def test_stream_cancel_by_ping(loop):
-    ctx = ClientServer(PingServiceHandler, PingServiceStub, loop=loop,
+async def test_stream_cancel_by_ping():
+    ctx = ClientServer(PingServiceHandler, PingServiceStub,
                        config=Configuration(_keepalive_time=0.01,
                                             _keepalive_timeout=0.04,
                                             _http2_max_pings_without_data=1,

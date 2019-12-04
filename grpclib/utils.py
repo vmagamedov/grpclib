@@ -1,6 +1,7 @@
 import sys
 import signal
 import asyncio
+import warnings
 
 from types import TracebackType
 from typing import TYPE_CHECKING, Optional, Set, Type, ContextManager, List
@@ -96,13 +97,7 @@ class DeadlineWrapper(Wrapper):
 
     """
     @contextmanager
-    def start(
-        self,
-        deadline: 'Deadline',
-        *,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
-    ) -> Iterator[None]:
-        loop = loop or asyncio.get_event_loop()
+    def start(self, deadline: 'Deadline') -> Iterator[None]:
         timeout = deadline.time_remaining()
         if not timeout:
             raise asyncio.TimeoutError('Deadline exceeded')
@@ -110,6 +105,7 @@ class DeadlineWrapper(Wrapper):
         def callback() -> None:
             self.cancel(asyncio.TimeoutError('Deadline exceeded'))
 
+        loop = asyncio.get_event_loop()
         timer = loop.call_later(timeout, callback)
         try:
             yield
@@ -205,9 +201,14 @@ def graceful_exit(
             asyncio.run(main())
 
     :param servers: list of servers
-    :param loop: asyncio-compatible event loop
+    :param loop: (deprecated) asyncio-compatible event loop
     :param signals: set of the OS signals to handle
     """
+    if loop:
+        warnings.warn("The loop argument is deprecated and scheduled "
+                      "for removal in grpclib 0.4",
+                      DeprecationWarning, stacklevel=2)
+
     loop = loop or asyncio.get_event_loop()
     signals = set(signals)
     flag: 'List[bool]' = []

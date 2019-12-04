@@ -49,9 +49,9 @@ class H2StreamStub:
     connection = ConnectionStub()
     _transport = H2TransportStub()
 
-    def __init__(self, *, loop):
-        self.__headers__ = Queue(loop=loop)
-        self.__data__ = Queue(loop=loop)
+    def __init__(self):
+        self.__headers__ = Queue()
+        self.__data__ = Queue()
         self.__events__ = []
 
     async def recv_headers(self):
@@ -83,8 +83,8 @@ class H2StreamStub:
 
 
 @pytest.fixture(name='stub')
-def _stub(loop):
-    return H2StreamStub(loop=loop)
+def _stub():
+    return H2StreamStub()
 
 
 @pytest.fixture(name='stream')
@@ -396,10 +396,8 @@ async def test_exit_and_stream_was_closed(loop, config):
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport,
-                             loop=loop, config=config)
-    server_conn = Connection(server_h2c, to_client_transport,
-                             loop=loop, config=config)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+    server_conn = Connection(server_h2c, to_client_transport, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -434,10 +432,8 @@ async def test_exit_and_connection_was_closed(loop, config):
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport,
-                             loop=loop, config=config)
-    server_conn = Connection(server_h2c, to_client_transport,
-                             loop=loop, config=config)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+    server_conn = Connection(server_h2c, to_client_transport, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -469,10 +465,8 @@ async def test_exit_and_connection_was_broken(loop, config):
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport,
-                             loop=loop, config=config)
-    server_conn = Connection(server_h2c, to_client_transport,
-                             loop=loop, config=config)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+    server_conn = Connection(server_h2c, to_client_transport, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
@@ -505,10 +499,8 @@ async def test_send_trailing_metadata_on_closed_stream(loop, config):
     to_client_transport = TransportStub(client_h2c)
     to_server_transport = TransportStub(server_h2c)
 
-    client_conn = Connection(client_h2c, to_server_transport,
-                             loop=loop, config=config)
-    server_conn = Connection(server_h2c, to_client_transport,
-                             loop=loop, config=config)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+    server_conn = Connection(server_h2c, to_client_transport, config=config)
 
     server_proc = EventsProcessor(DummyHandler(), server_conn)
     client_proc = EventsProcessor(DummyHandler(), client_conn)
