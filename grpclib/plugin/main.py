@@ -15,8 +15,6 @@ from .. import client
 from .. import server
 
 
-SUFFIX = '_grpc.py'
-
 _CARDINALITY = {
     (False, False): const.Cardinality.UNARY_UNARY,
     (True, False): const.Cardinality.STREAM_UNARY,
@@ -165,8 +163,25 @@ def _get_proto(request: CodeGeneratorRequest, name: str) -> FileDescriptorProto:
     return next(f for f in request.proto_file if f.name == name)
 
 
-def _proto2py(proto_name: str) -> str:
-    return proto_name.replace('/', '.')[:-len('.proto')] + '_pb2'
+def _strip_proto(proto_file_path: str) -> str:
+    for suffix in [".protodevel", ".proto"]:
+        if proto_file_path.endswith(suffix):
+            return proto_file_path[: -len(suffix)]
+
+    return proto_file_path
+
+
+def _base_module_name(proto_file_path: str) -> str:
+    basename = _strip_proto(proto_file_path)
+    return basename.replace("-", "_").replace("/", ".")
+
+
+def _proto2pb2_module_name(proto_file_path: str) -> str:
+    return _base_module_name(proto_file_path) + "_pb2"
+
+
+def _proto2grpc_module_name(proto_file_path: str) -> str:
+    return _base_module_name(proto_file_path) + "_grpc"
 
 
 def _type_names(
@@ -183,7 +198,7 @@ def _type_names(
     proto_name_parts.extend(parents)
     proto_name_parts.append(message_type.name)
 
-    py_name_parts = [_proto2py(proto_file.name)]
+    py_name_parts = [_proto2pb2_module_name(proto_file.name)]
     py_name_parts.extend(parents)
     py_name_parts.append(message_type.name)
 
@@ -208,7 +223,7 @@ def main() -> None:
     for file_to_generate in request.file_to_generate:
         proto_file = _get_proto(request, file_to_generate)
 
-        imports = [_proto2py(dep)
+        imports = [_proto2pb2_module_name(dep)
                    for dep in list(proto_file.dependency) + [file_to_generate]]
 
         services = []
@@ -227,7 +242,8 @@ def main() -> None:
                                     methods=methods))
 
         file = response.file.add()
-        file.name = file_to_generate.replace('.proto', SUFFIX)
+        module_name = _proto2grpc_module_name(file_to_generate)
+        file.name = module_name.replace(".", "/") + ".py"
         file.content = render(
             proto_file=proto_file.name,
             package=proto_file.package,
