@@ -181,7 +181,9 @@ class Connection:
     last_message_sent: Optional[float] = None
     last_message_received: Optional[float] = None
     last_headers_received: Optional[float] = None
-    _ping_handle: Optional['asyncio.Task[None]'] = None
+    last_ping_sent: Optional[float] = None
+    ping_count_in_sequence: int = 0
+    _ping_handle: Optional[TimerHandle] = None
     _close_by_ping_handler: Optional[TimerHandle] = None
 
     def __init__(
@@ -220,9 +222,6 @@ class Connection:
         stream_id: Optional[int] = None,
         wrapper: Optional[Wrapper] = None,
     ) -> 'Stream':
-        if self._ping_handle is None:
-            self.data_process()
-
         return Stream(self, self._connection, self._transport,
                       stream_id=stream_id, wrapper=wrapper)
 
@@ -230,6 +229,13 @@ class Connection:
         data = self._connection.data_to_send()
         if data:
             self._transport.write(data)
+
+    def initialize(self) -> None:
+        if self._config._keepalive_time is not None:
+            self._ping_handle = asyncio.get_event_loop().call_later(
+                self._config._keepalive_time,
+                self._ping
+            )
 
     def close(self) -> None:
         if hasattr(self, '_transport'):
@@ -243,49 +249,58 @@ class Connection:
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
 
-    async def _ping(self) -> None:
-        if self._config._keepalive_time is None or self._last_received() == 0:
-            self._ping_handle = None
-            return
+    def _ping(self) -> None:
+        data = struct.pack('!Q', int(time.monotonic() * 10 ** 6))
+        is_need_send = True
 
         if not self._config._keepalive_permit_without_calls:
-            count_of_connection = self.streams_started - self.streams_failed - \
-                                  self.streams_succeeded
+            count_of_connection = any(
+                s.open for s in self._connection.streams.values()
+            )
             if count_of_connection == 0:
-                self._ping_handle = None
-                return
-        current_time = time.monotonic()
-        time_to_next_ping = self._config._keepalive_time - (
-                    current_time - self._last_received())
-        while time_to_next_ping > 0:
-            await asyncio.sleep(time_to_next_ping)
-            current_time = time.monotonic()
-            time_to_next_ping = self._config._keepalive_time - (
-                        current_time - self._last_received())
+                is_need_send = False
 
-        max_ping_count = self._config._http2_max_pings_without_data
-        while (max_ping_count > 0 or
-               self._config._http2_max_pings_without_data == 0):
-            if self._config._http2_max_pings_without_data != 0:
-                max_ping_count -= 1
-            data = struct.pack('!Q', int(time.monotonic() * 10 ** 6))
+        _keepalive_time = cast(float, self._config._keepalive_time)
+        current_time = time.monotonic()
+        if current_time - self._last_received() < _keepalive_time:
+            is_need_send = False
+
+        if self.last_ping_sent is not None and \
+                current_time - self.last_ping_sent < \
+                self._config._http2_min_sent_ping_interval_without_data:
+            is_need_send = False
+
+        if self._config._http2_max_pings_without_data != 0 and \
+                self.ping_count_in_sequence >= \
+                self._config._http2_max_pings_without_data:
+            is_need_send = False
+
+        if is_need_send:
+            logging.error(f'send ping {self._config._keepalive_timeout}')
             self._connection.ping(data)
             self.flush()
+            self.last_ping_sent = time.monotonic()
+            self.ping_count_in_sequence += 1
             if self._close_by_ping_handler is None:
                 self._close_by_ping_handler = asyncio.get_event_loop().\
-                    call_later(self._config._keepalive_timeout, self.close)
-            await asyncio.sleep(
-                self._config._http2_min_sent_ping_interval_without_data)
+                    call_later(
+                        self._config._keepalive_timeout,
+                        self.close
+                    )
+        self._ping_handle = asyncio.get_event_loop().call_later(
+            _keepalive_time,
+            self._ping
+        )
 
     def data_process(self) -> None:
-        if self._ping_handle is not None:
-            self._ping_handle.cancel()
+        self.ping_count_in_sequence = 0
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
             self._close_by_ping_handler = None
-        self._ping_handle = asyncio.get_event_loop().create_task(self._ping())
 
     def ping_process(self) -> None:
+        if self._config._keepalive_time is None:
+            return
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
         self._close_by_ping_handler = asyncio.get_event_loop().call_later(
@@ -704,6 +719,7 @@ class H2Protocol(Protocol):
             config=self.config,
         )
         self.connection.flush()
+        self.connection.initialize()
 
         self.processor = EventsProcessor(self.handler, self.connection)
 
