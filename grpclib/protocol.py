@@ -251,18 +251,19 @@ class Connection:
 
     def _ping(self) -> None:
         data = struct.pack('!Q', int(time.monotonic() * 10 ** 6))
+        assert self._config._keepalive_time is not None
         is_need_send = True
 
         if not self._config._keepalive_permit_without_calls:
-            count_of_connection = any(
+            is_at_least_one_stream_open = any(
                 s.open for s in self._connection.streams.values()
             )
-            if count_of_connection == 0:
+            if is_at_least_one_stream_open == 0:
                 is_need_send = False
 
-        _keepalive_time = cast(float, self._config._keepalive_time)
         current_time = time.monotonic()
-        if current_time - self._last_received() < _keepalive_time:
+
+        if current_time - self._last_received() < self._config._keepalive_time:
             is_need_send = False
 
         if self.last_ping_sent is not None and \
@@ -276,7 +277,7 @@ class Connection:
             is_need_send = False
 
         if is_need_send:
-            logging.error(f'send ping {self._config._keepalive_timeout}')
+            log.debug('send ping')
             self._connection.ping(data)
             self.flush()
             self.last_ping_sent = time.monotonic()
@@ -288,7 +289,7 @@ class Connection:
                         self.close
                     )
         self._ping_handle = asyncio.get_event_loop().call_later(
-            _keepalive_time,
+            self._config._keepalive_time,
             self._ping
         )
 
@@ -307,11 +308,8 @@ class Connection:
             self._config._keepalive_timeout, self.close)
 
     def _last_received(self) -> float:
-        times = [self.last_data_received, self.last_headers_received]
-        times = [t for t in times if t is not None]
-        if len(times) == 0:
-            return 0.
-        return cast(float, max(times))
+        return max(self.last_data_received or 0,
+                   self.last_headers_received or 0)
 
 
 _Headers = List[Tuple[str, str]]
