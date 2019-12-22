@@ -656,4 +656,10 @@ class H2Protocol(Protocol):
         self.connection.resume_writing()
 
     def connection_lost(self, exc: Optional[BaseException]) -> None:
-        self.processor.close(reason='Connection lost')
+        # In the case of an exception during connection setup, such as SSLError
+        # when invalid data is received, the connection_made method will never
+        # be called, but connection_lost is called with the exception.
+        # Therefore, the processor attribute may not have been setup and should
+        # be checked
+        if hasattr(self, 'processor'):
+            self.processor.close(reason='Connection lost')
