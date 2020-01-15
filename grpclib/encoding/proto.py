@@ -40,7 +40,7 @@ class ProtoCodec(CodecBase):
         """Initialize ProtoCodec instance
 
         :param send_content_subtype: whether or not to add "+proto" to the
-            "application/grpc" content-type headers sent by the Client/Server.
+            "application/grpc" content-type headers sent by the Channel/Server.
             Though header with subtype is supposed to be valid according to
             protocol, some servers (e.g. Google) expect no subtype.
         """
