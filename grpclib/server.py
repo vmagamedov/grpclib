@@ -100,7 +100,13 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
     @property
     def _content_type(self) -> str:
-        return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
+        if (
+                isinstance(self._codec, ProtoCodec)
+                and not self._codec._send_content_subtype
+        ):
+            return GRPC_CONTENT_TYPE
+        else:
+            return GRPC_CONTENT_TYPE + '+' + self._codec.__content_subtype__
 
     async def recv_message(self) -> Optional[_RecvType]:
         """Coroutine to receive incoming message from the client.

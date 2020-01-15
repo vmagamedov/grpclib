@@ -36,6 +36,16 @@ def _googleapis_available() -> bool:
 class ProtoCodec(CodecBase):
     __content_subtype__ = 'proto'
 
+    def __init__(self, send_content_subtype: Optional[bool] = True) -> None:
+        """Initialize ProtoCodec instance
+
+        :param send_content_subtype: whether or not to add "+proto" to the
+            "application/grpc" content-type headers sent by the Client/Server.
+            Though header with subtype is supposed to be valid according to
+            protocol, some servers (e.g. Google) expect no subtype.
+        """
+        self._send_content_subtype = send_content_subtype
+
     def encode(
         self,
         message: 'IProtoMessage',

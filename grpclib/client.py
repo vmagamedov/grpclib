@@ -180,8 +180,14 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             if self._deadline is not None:
                 timeout = self._deadline.time_remaining()
                 headers.append(('grpc-timeout', encode_timeout(timeout)))
-            content_type = (GRPC_CONTENT_TYPE
-                            + '+' + self._codec.__content_subtype__)
+            if (
+                    isinstance(self._codec, ProtoCodec)
+                    and not self._codec._send_content_subtype
+            ):
+                content_type = GRPC_CONTENT_TYPE
+            else:
+                content_type = (GRPC_CONTENT_TYPE
+                                + '+' + self._codec.__content_subtype__)
             headers.extend((
                 ('te', 'trailers'),
                 ('content-type', content_type),
