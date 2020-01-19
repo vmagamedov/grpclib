@@ -797,9 +797,8 @@ class UnaryUnaryMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents UNARY-UNARY gRPC method type.
 
-    .. autocomethod:: __call__
-    .. autocomethod:: open
-        :async-with:
+    .. automethod:: __call__
+    .. automethod:: open
     """
     _cardinality = Cardinality.UNARY_UNARY
 
@@ -828,9 +827,8 @@ class UnaryStreamMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents UNARY-STREAM gRPC method type.
 
-    .. autocomethod:: __call__
-    .. autocomethod:: open
-        :async-with:
+    .. automethod:: __call__
+    .. automethod:: open
     """
     _cardinality = Cardinality.UNARY_STREAM
 
@@ -857,9 +855,8 @@ class StreamUnaryMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents STREAM-UNARY gRPC method type.
 
-    .. autocomethod:: __call__
-    .. autocomethod:: open
-        :async-with:
+    .. automethod:: __call__
+    .. automethod:: open
     """
     _cardinality = Cardinality.STREAM_UNARY
 
@@ -893,9 +890,8 @@ class StreamStreamMethod(ServiceMethod[_SendType, _RecvType]):
     """
     Represents STREAM-STREAM gRPC method type.
 
-    .. autocomethod:: __call__
-    .. autocomethod:: open
-        :async-with:
+    .. automethod:: __call__
+    .. automethod:: open
     """
     _cardinality = Cardinality.STREAM_STREAM
 

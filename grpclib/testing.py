@@ -16,7 +16,7 @@ class _Server(asyncio.AbstractServer):
     def close(self) -> None:
         pass
 
-    async def wait_closed(self) -> None:  # type: ignore
+    async def wait_closed(self) -> None:
         pass
 
 

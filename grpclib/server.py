@@ -713,7 +713,7 @@ class Server(_GC, asyncio.AbstractServer):
         for handler in self._handlers:
             handler.close()
 
-    async def wait_closed(self) -> None:  # type: ignore
+    async def wait_closed(self) -> None:
         """Coroutine to wait until all existing request handlers will exit
         properly.
         """

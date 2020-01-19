@@ -1,7 +1,6 @@
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
-    'sphinxcontrib.asyncio',
 ]
 
 autoclass_content = 'both'
