@@ -1,7 +1,7 @@
 import os
 import sys
 
-from typing import List, Any, Collection, Mapping, Iterator, NamedTuple, cast
+from typing import List, Any, Collection, Iterator, NamedTuple, cast
 from typing import Dict, Tuple, Optional, Deque
 from contextlib import contextmanager
 from collections import deque
@@ -41,11 +41,7 @@ class Buffer:
         self._lines: List[str] = []
         self._indent = 0
 
-    def add(
-        self,
-        string: str,
-        *args: Collection[Any], **kwargs: Mapping[str, Any],
-    ) -> None:
+    def add(self, string: str, *args: Any, **kwargs: Any) -> None:
         line = ' ' * self._indent * 4 + string.format(*args, **kwargs)
         self._lines.append(line.rstrip(' '))
 
