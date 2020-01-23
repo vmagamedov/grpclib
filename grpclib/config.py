@@ -55,7 +55,7 @@ def _with_defaults(
 ) -> _ConfigurationType:
     defaults = {}
     for f in fields(cls):
-        if f.default is _DEFAULT:
+        if getattr(cls, f.name) is _DEFAULT:
             if metadata_key in f.metadata:
                 default = f.metadata[metadata_key]
             else:
@@ -79,6 +79,24 @@ class Configuration:
         default=20.0,
         metadata={
             'validate': _chain(_of_type(int, float), _positive),
+        },
+    )
+    _keepalive_permit_without_calls: bool = field(
+        default=False,
+        metadata={
+            'validate': _optional(_of_type(bool)),
+        },
+    )
+    _http2_max_pings_without_data: int = field(
+        default=2,
+        metadata={
+            'validate': _optional(_chain(_of_type(int), _positive)),
+        },
+    )
+    _http2_min_sent_ping_interval_without_data: float = field(
+        default=300,
+        metadata={
+            'validate': _optional(_chain(_of_type(int, float), _positive)),
         },
     )
 

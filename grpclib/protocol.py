@@ -1,3 +1,5 @@
+import asyncio
+import struct
 import time
 import socket
 import logging
@@ -6,7 +8,7 @@ from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
 from typing import cast, TYPE_CHECKING
-from asyncio import Transport, Protocol, Event, BaseTransport
+from asyncio import Transport, Protocol, Event, BaseTransport, TimerHandle
 from asyncio import Queue
 from functools import partial
 from collections import deque
@@ -178,6 +180,10 @@ class Connection:
     last_data_received: Optional[float] = None
     last_message_sent: Optional[float] = None
     last_message_received: Optional[float] = None
+    last_ping_sent: Optional[float] = None
+    ping_count_in_sequence: int = 0
+    _ping_handle: Optional[TimerHandle] = None
+    _close_by_ping_handler: Optional[TimerHandle] = None
 
     def __init__(
         self,
@@ -223,6 +229,13 @@ class Connection:
         if data:
             self._transport.write(data)
 
+    def initialize(self) -> None:
+        if self._config._keepalive_time is not None:
+            self._ping_handle = asyncio.get_event_loop().call_later(
+                self._config._keepalive_time,
+                self._ping
+            )
+
     def close(self) -> None:
         if hasattr(self, '_transport'):
             self._transport.close()
@@ -230,6 +243,61 @@ class Connection:
             del self._transport
             if hasattr(self._connection, '_frame_dispatch_table'):
                 del self._connection._frame_dispatch_table
+        if self._ping_handle is not None:
+            self._ping_handle.cancel()
+        if self._close_by_ping_handler is not None:
+            self._close_by_ping_handler.cancel()
+
+    def _is_need_send_ping(self) -> bool:
+        assert self._config._keepalive_time is not None
+
+        if not self._config._keepalive_permit_without_calls:
+            if not any(s.open for s in self._connection.streams.values()):
+                return False
+
+        if self._config._http2_max_pings_without_data != 0 and \
+                self.ping_count_in_sequence >= \
+                self._config._http2_max_pings_without_data:
+            return False
+
+        if self.last_ping_sent is not None and \
+                time.monotonic() - self.last_ping_sent < \
+                self._config._http2_min_sent_ping_interval_without_data:
+            return False
+
+        return True
+
+    def _ping(self) -> None:
+        assert self._config._keepalive_time is not None
+        if self._is_need_send_ping():
+            log.debug('send ping')
+            data = struct.pack('!Q', int(time.monotonic() * 10 ** 6))
+            self._connection.ping(data)
+            self.flush()
+            self.last_ping_sent = time.monotonic()
+            self.ping_count_in_sequence += 1
+            if self._close_by_ping_handler is None:
+                self._close_by_ping_handler = asyncio.get_event_loop().\
+                    call_later(
+                        self._config._keepalive_timeout,
+                        self.close
+                    )
+        self._ping_handle = asyncio.get_event_loop().call_later(
+            self._config._keepalive_time,
+            self._ping
+        )
+
+    def headers_send_process(self) -> None:
+        self.ping_count_in_sequence = 0
+
+    def data_send_process(self) -> None:
+        self.ping_count_in_sequence = 0
+        self.last_data_sent = time.monotonic()
+
+    def ping_ack_process(self) -> None:
+        if self._close_by_ping_handler is not None:
+            self._close_by_ping_handler.cancel()
+            self._close_by_ping_handler = None
 
 
 _Headers = List[Tuple[str, str]]
@@ -331,6 +399,7 @@ class Stream:
                 self.init_stream(stream_id, self.connection)
                 release_stream = _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
+                self.connection.headers_send_process()
                 return release_stream
 
     async def send_headers(
@@ -351,6 +420,7 @@ class Stream:
         self._h2_connection.send_headers(self.id, headers,
                                          end_stream=end_stream)
         self._transport.write(self._h2_connection.data_to_send())
+        self.connection.headers_send_process()
 
     async def send_data(self, data: bytes, end_stream: bool = False) -> None:
         f = BytesIO(data)
@@ -380,14 +450,14 @@ class Stream:
                 self._transport.write(self._h2_connection.data_to_send())
                 self.data_sent += f_chunk_len
                 self.connection.data_sent += f_chunk_len
-                self.connection.last_data_sent = time.monotonic()
+                self.connection.data_send_process()
                 break
             else:
                 self._h2_connection.send_data(self.id, f_chunk)
                 self._transport.write(self._h2_connection.data_to_send())
                 self.data_sent += f_chunk_len
                 self.connection.data_sent += f_chunk_len
-                self.connection.last_data_sent = time.monotonic()
+                self.connection.data_send_process()
 
     async def end(self) -> None:
         if not self.connection.write_ready.is_set():
@@ -603,7 +673,7 @@ class EventsProcessor:
         pass
 
     def process_ping_ack_received(self, event: PingAckReceived) -> None:
-        pass
+        self.connection.ping_ack_process()
 
 
 class H2Protocol(Protocol):
@@ -634,6 +704,7 @@ class H2Protocol(Protocol):
             config=self.config,
         )
         self.connection.flush()
+        self.connection.initialize()
 
         self.processor = EventsProcessor(self.handler, self.connection)
 
