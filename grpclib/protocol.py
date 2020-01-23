@@ -180,8 +180,6 @@ class Connection:
     last_data_received: Optional[float] = None
     last_message_sent: Optional[float] = None
     last_message_received: Optional[float] = None
-    last_headers_received: Optional[float] = None
-    last_headers_sent: Optional[float] = None
     last_ping_sent: Optional[float] = None
     ping_count_in_sequence: int = 0
     _ping_handle: Optional[TimerHandle] = None
@@ -252,27 +250,21 @@ class Connection:
 
     def _is_need_send_ping(self) -> bool:
         assert self._config._keepalive_time is not None
+
         if not self._config._keepalive_permit_without_calls:
-            is_at_least_one_stream_open = any(
-                s.open for s in self._connection.streams.values()
-            )
-            if not is_at_least_one_stream_open:
+            if not any(s.open for s in self._connection.streams.values()):
                 return False
-
-        current_time = time.monotonic()
-
-        if current_time - self._last_received() < self._config._keepalive_time:
-            return False
-
-        if self.last_ping_sent is not None and \
-                current_time - self.last_ping_sent < \
-                self._config._http2_min_sent_ping_interval_without_data:
-            return False
 
         if self._config._http2_max_pings_without_data != 0 and \
                 self.ping_count_in_sequence >= \
                 self._config._http2_max_pings_without_data:
             return False
+
+        if self.last_ping_sent is not None and \
+                time.monotonic() - self.last_ping_sent < \
+                self._config._http2_min_sent_ping_interval_without_data:
+            return False
+
         return True
 
     def _ping(self) -> None:
@@ -295,29 +287,17 @@ class Connection:
             self._ping
         )
 
-    def data_process(self) -> None:
-        if self._close_by_ping_handler is not None:
-            self._close_by_ping_handler.cancel()
-            self._close_by_ping_handler = None
+    def headers_send_process(self) -> None:
+        self.ping_count_in_sequence = 0
 
     def data_send_process(self) -> None:
         self.ping_count_in_sequence = 0
         self.last_data_sent = time.monotonic()
 
-    def ping_process(self) -> None:
-        if self._config._keepalive_time is None:
-            return
+    def ping_ack_process(self) -> None:
         if self._close_by_ping_handler is not None:
             self._close_by_ping_handler.cancel()
             self._close_by_ping_handler = None
-
-    def _last_received(self) -> float:
-        return max(self.last_data_received or 0,
-                   self.last_headers_received or 0)
-
-    def headers_send_process(self) -> None:
-        self.ping_count_in_sequence = 0
-        self.last_headers_sent = time.monotonic()
 
 
 _Headers = List[Tuple[str, str]]
@@ -419,6 +399,7 @@ class Stream:
                 self.init_stream(stream_id, self.connection)
                 release_stream = _processor.register(self)
                 self._transport.write(self._h2_connection.data_to_send())
+                self.connection.headers_send_process()
                 return release_stream
 
     async def send_headers(
@@ -603,8 +584,6 @@ class EventsProcessor:
         release_stream = self.register(stream)
         self.handler.accept(stream, event.headers, release_stream)
         # TODO: check EOF
-        self.connection.last_headers_received = time.monotonic()
-        self.connection.data_process()
 
     def process_response_received(self, event: ResponseReceived) -> None:
         stream = self.streams.get(event.stream_id)
@@ -642,7 +621,6 @@ class EventsProcessor:
             )
         self.connection.data_received += size
         self.connection.last_data_received = time.monotonic()
-        self.connection.data_process()
 
     def process_window_updated(self, event: WindowUpdated) -> None:
         if event.stream_id == 0:
@@ -692,10 +670,10 @@ class EventsProcessor:
         ))
 
     def process_ping_received(self, event: PingReceived) -> None:
-        self.connection.ping_process()
+        pass
 
     def process_ping_ack_received(self, event: PingAckReceived) -> None:
-        pass
+        self.connection.ping_ack_process()
 
 
 class H2Protocol(Protocol):

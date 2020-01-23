@@ -1,12 +1,14 @@
-import pytest
 import asyncio
-import async_timeout
+from unittest.mock import patch
+
+import pytest
 
 import grpclib.const
 import grpclib.server
 from grpclib.client import UnaryStreamMethod
-from grpclib.exceptions import StreamTerminatedError
 from grpclib.config import Configuration
+from grpclib.protocol import Connection
+from grpclib.exceptions import StreamTerminatedError
 
 from dummy_pb2 import DummyRequest, DummyReply
 
@@ -43,20 +45,21 @@ class PingServiceStub:
 
 
 @pytest.mark.asyncio
-async def test_stream_ping():
-    ctx = ClientServer(PingServiceHandler, PingServiceStub)
-    async with ctx as (handler, stub):
-        await stub.UnaryStream(DummyRequest(value='ping'))
-
-
-@pytest.mark.asyncio
 async def test_stream_cancel_by_ping():
     ctx = ClientServer(PingServiceHandler, PingServiceStub,
                        config=Configuration(_keepalive_time=0.01,
                                             _keepalive_timeout=0.04,
                                             _http2_max_pings_without_data=1,
                                             ))
-    with pytest.raises(StreamTerminatedError):
-        with async_timeout.timeout(5):
+
+    # should be successful
+    async with ctx as (handler, stub):
+        await stub.UnaryStream(DummyRequest(value='ping'))
+        assert ctx.channel._protocol.connection.last_ping_sent is not None
+
+    # disable ping ack logic to cause a timeout and disconnect
+    with patch.object(Connection, 'ping_ack_process') as p:
+        p.return_value = None
+        with pytest.raises(StreamTerminatedError, match='Connection lost'):
             async with ctx as (handler, stub):
                 await stub.UnaryStream(DummyRequest(value='ping'))
