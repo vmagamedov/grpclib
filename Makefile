@@ -38,6 +38,7 @@ reqs:
 	pip-compile -U requirements/test.in
 	pip-compile -U requirements/lint.in
 	pip-compile -U requirements/check.in
+	pip-compile -U requirements/release.in
 
 server:
 	@PYTHONPATH=examples python3 -m reflection.server

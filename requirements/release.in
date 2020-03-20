@@ -1,0 +1,4 @@
+-r ../setup.txt
+twine
+grpcio-tools
+mypy-protobuf
