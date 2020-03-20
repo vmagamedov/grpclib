@@ -1,6 +1,24 @@
 Changelog
 =========
 
+0.3.2 (dev)
+~~~~~~~~~~~
+
+  - Implement connection checks using PING frame (experimental); pull request
+    courtesy Evhenii Popovych @a00920
+  - Fixed code generation plugin when a path to proto file contains hyphens
+    and/or ``.protodevel`` file extension; pull request courtesy 林玮 @linw1995
+  - Deprecated ``loop`` argument in a public APIs
+  - Exposed new import locations for the ``Status`` and ``GRPCError`` classes:
+
+    .. code-block:: python
+
+      from grpclib import Status, GRPCError
+
+  - Added ``grpclib.config.Configuration`` class to configure grpclib internals
+    (experimental)
+  - Disabled unnecessary and expensive headers validation and normalization
+
 0.3.1
 ~~~~~
 
