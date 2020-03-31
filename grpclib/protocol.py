@@ -371,8 +371,7 @@ class Stream:
             # this is the first thing we should check before even trying to
             # create new stream, because this wait() can be cancelled by timeout
             # and we wouldn't need to create new stream at all
-            if not self.connection.write_ready.is_set():
-                await self.connection.write_ready.wait()
+            await self.connection.write_ready.wait()
 
             # `get_next_available_stream_id()` should be as close to
             # `connection.send_headers()` as possible, without any async
@@ -408,8 +407,7 @@ class Stream:
         end_stream: bool = False,
     ) -> None:
         assert self.id is not None
-        if not self.connection.write_ready.is_set():
-            await self.connection.write_ready.wait()
+        await self.connection.write_ready.wait()
 
         # Workaround for the H2Connection.send_headers method, which will try
         # to create a new stream if it was removed earlier from the
@@ -427,8 +425,7 @@ class Stream:
         f_pos, f_last = 0, len(data)
 
         while True:
-            if not self.connection.write_ready.is_set():
-                await self.connection.write_ready.wait()
+            await self.connection.write_ready.wait()
 
             window = self._h2_connection.local_flow_control_window(self.id)
             # window can become negative
@@ -460,14 +457,12 @@ class Stream:
                 self.connection.data_send_process()
 
     async def end(self) -> None:
-        if not self.connection.write_ready.is_set():
-            await self.connection.write_ready.wait()
+        await self.connection.write_ready.wait()
         self._h2_connection.end_stream(self.id)
         self._transport.write(self._h2_connection.data_to_send())
 
     async def reset(self, error_code: ErrorCodes = ErrorCodes.NO_ERROR) -> None:
-        if not self.connection.write_ready.is_set():
-            await self.connection.write_ready.wait()
+        await self.connection.write_ready.wait()
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
 
