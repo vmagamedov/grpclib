@@ -54,15 +54,15 @@ class ServiceCheck(CheckBase):
     """
     _value = None
     _poll_task = None
-    _last_check = 0.0
+    _last_check = None
 
     def __init__(
         self,
         func: Callable[[], Awaitable[_Status]],
         *,
         loop: Optional[asyncio.AbstractEventLoop] = None,
-        check_ttl: int = DEFAULT_CHECK_TTL,
-        check_timeout: int = DEFAULT_CHECK_TIMEOUT,
+        check_ttl: float = DEFAULT_CHECK_TTL,
+        check_timeout: float = DEFAULT_CHECK_TIMEOUT,
     ) -> None:
         """
         :param func: callable object which returns awaitable object, where
@@ -92,7 +92,10 @@ class ServiceCheck(CheckBase):
         return self._value
 
     async def __check__(self) -> _Status:
-        if time.monotonic() - self._last_check < self._check_ttl:
+        if (
+            self._last_check is not None
+            and time.monotonic() - self._last_check < self._check_ttl
+        ):
             return self._value
 
         if not self._check_lock.is_set():
