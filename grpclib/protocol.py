@@ -130,38 +130,6 @@ class Buffer:
                    for _ in range(self._unacked.qsize()))
 
 
-class StreamsLimit:
-
-    def __init__(self, limit: Optional[int] = None) -> None:
-        self._limit = limit
-        self._current = 0
-        self._release = Event()
-
-    def reached(self) -> bool:
-        if self._limit is not None:
-            return self._current >= self._limit
-        else:
-            return False
-
-    async def wait(self) -> None:
-        # TODO: use FIFO queue for waiters
-        if self.reached():
-            self._release.clear()
-        await self._release.wait()
-
-    def acquire(self) -> None:
-        self._current += 1
-
-    def release(self) -> None:
-        self._current -= 1
-        if not self.reached():
-            self._release.set()
-
-    def set(self, value: Optional[int]) -> None:
-        assert value is None or value >= 0, value
-        self._limit = value
-
-
 class Connection:
     """
     Holds connection state (write_ready), and manages
