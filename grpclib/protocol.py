@@ -236,6 +236,12 @@ class Connection:
                 self._ping
             )
 
+    def is_closing(self) -> bool:
+        if hasattr(self, '_transport'):
+            return self._transport.is_closing()
+        else:
+            return True
+
     def close(self) -> None:
         if hasattr(self, '_transport'):
             self._transport.close()
@@ -553,7 +559,8 @@ class EventsProcessor:
             assert stream.id is not None
             _stream = _streams.pop(stream.id)
             self.connection.stream_close_waiter.set()
-            self.connection.ack(stream.id, _stream.buffer.unacked_size())
+            if not self.connection.is_closing():
+                self.connection.ack(stream.id, _stream.buffer.unacked_size())
 
         return release_stream
 

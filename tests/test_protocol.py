@@ -415,3 +415,25 @@ async def test_receive_goaway(config):
     with pytest.raises(StreamTerminatedError, match='Received GOAWAY frame'):
         with wrapper:
             pass
+
+
+@pytest.mark.asyncio
+async def test_release_stream_after_close(config):
+    client_h2c, server_h2c = create_connections()
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+    client_proc = EventsProcessor(DummyHandler(), client_conn)
+
+    client_stream = client_conn.create_stream()
+    release_stream = await client_stream.send_request(create_headers(),
+                                                      _processor=client_proc)
+
+    # to trigger connection.ack
+    client_stream.buffer.add(b'test', 4)
+
+    # to trigger data send
+    client_h2c.ping(b'00000000')
+
+    client_proc.close('test')
+    release_stream()
