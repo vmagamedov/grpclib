@@ -83,6 +83,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         status_details_codec: Optional[StatusDetailsCodecBase],
         dispatch: _DispatchServerEvents,
         deadline: Optional[Deadline] = None,
+        user_agent: Optional[str] = None,
     ):
         self._stream = stream
         self._method_name = method_name
@@ -97,6 +98,8 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         #: Invocation metadata, received with headers from the client.
         #: Represented as a multi-dict object.
         self.metadata: Optional[_Metadata] = None
+        #: Client's user-agent
+        self.user_agent = user_agent
 
     @property
     def _content_type(self) -> str:
@@ -406,12 +409,13 @@ async def request_handler(
             return
 
         metadata = decode_metadata(headers)
+        user_agent = headers_map.get('user-agent')
 
         async with Stream(
             _stream, method_name, method.cardinality,
             method.request_type, method.reply_type,
             codec=codec, status_details_codec=status_details_codec,
-            dispatch=dispatch, deadline=deadline,
+            dispatch=dispatch, deadline=deadline, user_agent=user_agent,
         ) as stream:
             deadline_wrapper: 'ContextManager[Any]'
             if deadline is None:
@@ -428,6 +432,7 @@ async def request_handler(
                         method_name=method_name,
                         deadline=deadline,
                         content_type=content_type,
+                        user_agent=user_agent,
                     )
                     await method_func(stream)
             except GRPCError:

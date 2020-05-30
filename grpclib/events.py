@@ -164,6 +164,7 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     :param read-only method_name: RPC's method name
     :param read-only deadline: request's :py:class:`~grpclib.metadata.Deadline`
     :param read-only content_type: request's content type
+    :param read-only user_agent: request's user agent
     """
     __payload__ = ('metadata', 'method_func')
 
@@ -172,6 +173,7 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     method_name: str
     deadline: Optional[Deadline]
     content_type: str
+    user_agent: Optional[str]
 
 
 class SendInitialMetadata(_Event, metaclass=_EventMeta):
@@ -205,6 +207,7 @@ class _DispatchServerEvents(_DispatchCommonEvents):
         method_name: str,
         deadline: Optional[Deadline],
         content_type: str,
+        user_agent: Optional[str],
     ) -> Tuple[_Metadata, 'IServerMethodFunc']:
         return await self.__dispatch__(RecvRequest(  # type: ignore
             metadata=metadata,
@@ -212,6 +215,7 @@ class _DispatchServerEvents(_DispatchCommonEvents):
             method_name=method_name,
             deadline=deadline,
             content_type=content_type,
+            user_agent=user_agent,
         ))
 
     @_dispatches(SendInitialMetadata)
