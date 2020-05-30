@@ -58,7 +58,7 @@ async def test_recv_request():
     assert event.metadata == MultiDict({'foo': 'bar'})
     assert event.method_name == '/dummy.DummyService/UnaryUnary'
     assert event.deadline.time_remaining() > 0
-    assert event.content_type == 'application/grpc+proto'
+    assert event.content_type == 'application/grpc'
     assert event.user_agent.startswith('grpc-python-grpclib')
     assert event.peer.addr() is None
 

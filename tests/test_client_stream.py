@@ -691,7 +691,7 @@ async def test_request_headers(cs: ClientStream):
             (':path', '/foo/bar'),
             (':authority', 'test.com'),
             ('te', 'trailers'),
-            ('content-type', 'application/grpc+proto'),
+            ('content-type', 'application/grpc'),
             ('user-agent', USER_AGENT),
         ]
         await stream.cancel()
@@ -713,7 +713,7 @@ async def test_request_headers_with_deadline():
             (':authority', 'test.com'),
             ('grpc-timeout', '100m'),
             ('te', 'trailers'),
-            ('content-type', 'application/grpc+proto'),
+            ('content-type', 'application/grpc'),
             ('user-agent', USER_AGENT),
         ]
         await stream.cancel()

@@ -55,7 +55,7 @@ async def test_send_request():
     assert event.metadata == MultiDict({'request': 'true'})
     assert event.method_name == '/dummy.DummyService/UnaryUnary'
     assert event.deadline.time_remaining() > 0
-    assert event.content_type == 'application/grpc+proto'
+    assert event.content_type == 'application/grpc'
 
 
 @pytest.mark.asyncio

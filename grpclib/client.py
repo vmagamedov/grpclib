@@ -183,8 +183,13 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             if self._deadline is not None:
                 timeout = self._deadline.time_remaining()
                 headers.append(('grpc-timeout', encode_timeout(timeout)))
-            content_type = (GRPC_CONTENT_TYPE
-                            + '+' + self._codec.__content_subtype__)
+            # FIXME: remove this check after this issue gets resolved:
+            #   https://github.com/googleapis/googleapis.github.io/issues/27
+            if self._codec.__content_subtype__ == 'proto':
+                content_type = GRPC_CONTENT_TYPE
+            else:
+                content_type = (GRPC_CONTENT_TYPE
+                                + '+' + self._codec.__content_subtype__)
             headers.extend((
                 ('te', 'trailers'),
                 ('content-type', content_type),
