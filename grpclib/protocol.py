@@ -138,9 +138,14 @@ class Peer:
         self._transport = transport
 
     def addr(self) -> Optional[Tuple[str, int]]:
+        """Returns the remote address to which we are connected"""
         return self._transport.get_extra_info('peername')  # type: ignore
 
     def cert(self) -> Optional[Dict[str, Any]]:
+        """Returns the peer certificate
+
+        Result of the :py:meth:`python:ssl.SSLSocket.getpeercert`
+        """
         ssl_object = self._transport.get_extra_info('ssl_object')
         if ssl_object is not None:
             return ssl_object.getpeercert()  # type: ignore

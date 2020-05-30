@@ -118,7 +118,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata: Optional[_Metadata] = None
 
-    #: Connection's peer info
+    #: Connection's peer info of type :py:class:`~grpclib.protocol.Peer`
     peer: Optional[Peer] = None
 
     # stats

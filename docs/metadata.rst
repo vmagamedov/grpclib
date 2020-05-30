@@ -113,4 +113,7 @@ Reference
 .. automodule:: grpclib.metadata
   :members: Deadline
 
+.. automodule:: grpclib.protocol
+  :members: Peer
+
 .. _gRPC Wire Format: https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md

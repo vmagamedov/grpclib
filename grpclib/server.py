@@ -100,7 +100,7 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         self.metadata: Optional[_Metadata] = None
         #: Client's user-agent
         self.user_agent = user_agent
-        #: Connection's peer info
+        #: Connection's peer info of type :py:class:`~grpclib.protocol.Peer`
         self.peer = self._stream.connection.get_peer()
 
     @property
