@@ -4,6 +4,18 @@ Changelog
 0.3.2 (dev)
 ~~~~~~~~~~~
 
+  - Using ``application/grpc`` content type on the client-side to be compatible
+    with faulty server implementations (e.g. googleapis.com)
+  - Introduced ``--python_grpclib_out=`` plugin and ``_grpclib.py`` file
+    extension to avoid any possible misunderstanding
+  - Added ``(client|server):Stream.peer`` property and corresponding property in
+    the ``RecvRequest`` event
+  - Added ``server:Stream.user_agent`` property and corresponding property in
+    the ``RecvRequest`` event
+  - Fixed ``time.monotonic()`` usage in the ``ServiceCheck`` class for the case
+    when monotonic time starts from zero
+  - Fixed ``release_stream()`` function to not send data over a connection if
+    connection is already closed
   - Implement connection checks using PING frame (experimental); pull request
     courtesy Evhenii Popovych @a00920
   - Fixed code generation plugin when a path to proto file contains hyphens
