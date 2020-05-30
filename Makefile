@@ -4,7 +4,8 @@ __default__:
 	@echo "Please specify a target to make"
 
 GEN=python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --mypy_out=.
-GENERATED=*{_pb2.py,_grpc.py,.pyi}
+GEN2=python3 -m grpc_tools.protoc -I. --python_out=. --python_grpclib_out=. --mypy_out=.
+GENERATED=*{_pb2.py,_grpc.py,_grpclib.py,.pyi}
 
 clean:
 	rm -f grpclib/health/v1/$(GENERATED)
@@ -17,14 +18,14 @@ clean:
 	rm -f tests/$(GENERATED)
 
 proto: clean
-	$(GEN) grpclib/health/v1/health.proto
-	$(GEN) grpclib/reflection/v1/reflection.proto
-	$(GEN) grpclib/reflection/v1alpha/reflection.proto
-	$(GEN) grpclib/channelz/v1/channelz.proto
+	$(GEN2) grpclib/health/v1/health.proto
+	$(GEN2) grpclib/reflection/v1/reflection.proto
+	$(GEN2) grpclib/reflection/v1alpha/reflection.proto
+	$(GEN2) grpclib/channelz/v1/channelz.proto
 	cd examples && $(GEN) --grpc_python_out=. helloworld/helloworld.proto
 	cd examples && $(GEN) streaming/helloworld.proto
 	cd examples && $(GEN) multiproc/primes.proto
-	cd tests && $(GEN) dummy.proto
+	cd tests && $(GEN2) dummy.proto
 
 release: proto
 	./scripts/release_check.sh

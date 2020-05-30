@@ -9,7 +9,7 @@ from .v1.channelz_pb2 import GetServerSocketsRequest, GetServerSocketsResponse
 from .v1.channelz_pb2 import GetChannelRequest, GetChannelResponse
 from .v1.channelz_pb2 import GetSubchannelRequest, GetSubchannelResponse
 from .v1.channelz_pb2 import GetSocketRequest, GetSocketResponse
-from .v1.channelz_grpc import ChannelzBase
+from .v1.channelz_grpclib import ChannelzBase
 
 
 class Channelz(ChannelzBase):

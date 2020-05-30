@@ -9,7 +9,7 @@ from grpclib.testing import ChannelFor
 from grpclib.exceptions import GRPCError
 
 from dummy_pb2 import DummyRequest, DummyReply
-from dummy_grpc import DummyServiceStub, DummyServiceBase
+from dummy_grpclib import DummyServiceStub, DummyServiceBase
 
 
 class DummyService(DummyServiceBase):

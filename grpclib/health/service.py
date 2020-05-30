@@ -8,7 +8,7 @@ from ..utils import _service_name
 from ..server import Stream
 
 from .v1.health_pb2 import HealthCheckRequest, HealthCheckResponse
-from .v1.health_grpc import HealthBase
+from .v1.health_grpclib import HealthBase
 
 
 if TYPE_CHECKING:

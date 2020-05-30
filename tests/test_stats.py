@@ -10,7 +10,7 @@ from grpclib.testing import ChannelFor
 from grpclib.exceptions import GRPCError
 
 from dummy_pb2 import DummyRequest, DummyReply
-from dummy_grpc import DummyServiceBase, DummyServiceStub
+from dummy_grpclib import DummyServiceBase, DummyServiceStub
 
 
 def _is_recent(value):

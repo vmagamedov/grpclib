@@ -34,7 +34,8 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'protoc-gen-python_grpc=grpclib.plugin.main:main',
+            'protoc-gen-python_grpc=grpclib.plugin.main:main_legacy',
+            'protoc-gen-python_grpclib=grpclib.plugin.main:main',
         ],
     },
     classifiers=[

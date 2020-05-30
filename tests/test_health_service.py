@@ -9,7 +9,7 @@ from grpclib.exceptions import GRPCError
 from grpclib.health.check import ServiceCheck, ServiceStatus
 from grpclib.health.service import Health
 from grpclib.health.v1.health_pb2 import HealthCheckRequest, HealthCheckResponse
-from grpclib.health.v1.health_grpc import HealthStub
+from grpclib.health.v1.health_grpclib import HealthStub
 
 
 class Check:
