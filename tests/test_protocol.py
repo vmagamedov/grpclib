@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 import asyncio
 
@@ -9,7 +11,7 @@ from h2.exceptions import StreamClosedError
 
 from grpclib.const import Status
 from grpclib.utils import Wrapper
-from grpclib.protocol import Connection, EventsProcessor
+from grpclib.protocol import Connection, EventsProcessor, Peer
 from grpclib.exceptions import StreamTerminatedError
 
 from stubs import TransportStub, DummyHandler
@@ -437,3 +439,26 @@ async def test_release_stream_after_close(config):
 
     client_proc.close('test')
     release_stream()
+
+
+def test_peer_addr():
+    transport = Mock()
+    transport.get_extra_info.return_value = ('123.45.67.89', 42)
+
+    peer = Peer(transport)
+    assert peer.addr() == ('123.45.67.89', 42)
+    transport.get_extra_info.assert_called_once_with('peername')
+
+
+@pytest.mark.parametrize('cert', [None, object()])
+def test_peer_cert(cert):
+    ssl_object = Mock()
+    ssl_object.getpeercert.return_value = cert
+
+    transport = Mock()
+    transport.get_extra_info.return_value = ssl_object
+
+    peer = Peer(transport)
+    assert peer.cert() is cert
+    transport.get_extra_info.assert_called_once_with('ssl_object')
+    ssl_object.getpeercert.assert_called_once_with()

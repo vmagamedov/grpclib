@@ -100,6 +100,8 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
         self.metadata: Optional[_Metadata] = None
         #: Client's user-agent
         self.user_agent = user_agent
+        #: Connection's peer info
+        self.peer = self._stream.connection.get_peer()
 
     @property
     def _content_type(self) -> str:

@@ -6,7 +6,7 @@ import logging
 
 from io import BytesIO
 from abc import ABC, abstractmethod
-from typing import Optional, List, Tuple, Dict, NamedTuple, Callable
+from typing import Optional, List, Tuple, Dict, NamedTuple, Callable, Any
 from typing import cast, TYPE_CHECKING
 from asyncio import Transport, Protocol, Event, BaseTransport, TimerHandle
 from asyncio import Queue
@@ -130,6 +130,24 @@ class Buffer:
                    for _ in range(self._unacked.qsize()))
 
 
+class Peer:
+    """
+    Represents an information about a connection's peer
+    """
+    def __init__(self, transport: Transport) -> None:
+        self._transport = transport
+
+    def addr(self) -> Optional[Tuple[str, int]]:
+        return self._transport.get_extra_info('peername')  # type: ignore
+
+    def cert(self) -> Optional[Dict[str, Any]]:
+        ssl_object = self._transport.get_extra_info('ssl_object')
+        if ssl_object is not None:
+            return ssl_object.getpeercert()  # type: ignore
+        else:
+            return None
+
+
 class Connection:
     """
     Holds connection state (write_ready), and manages
@@ -203,6 +221,9 @@ class Connection:
                 self._config._keepalive_time,
                 self._ping
             )
+
+    def get_peer(self) -> Peer:
+        return Peer(self._transport)
 
     def is_closing(self) -> bool:
         if hasattr(self, '_transport'):

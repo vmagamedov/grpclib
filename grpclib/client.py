@@ -23,7 +23,7 @@ from .config import Configuration
 from .stream import send_message, recv_message, StreamIterator
 from .stream import _RecvType, _SendType
 from .events import _DispatchChannelEvents
-from .protocol import H2Protocol, AbstractHandler, Stream as _Stream
+from .protocol import H2Protocol, AbstractHandler, Stream as _Stream, Peer
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata, _MetadataLike, _Metadata
 from .metadata import _STATUS_DETAILS_KEY, decode_bin_value
@@ -118,6 +118,9 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     #: after :py:meth:`recv_trailing_metadata` coroutine succeeds.
     trailing_metadata: Optional[_Metadata] = None
 
+    #: Connection's peer info
+    peer: Optional[Peer] = None
+
     # stats
     _messages_sent = 0
     _messages_received = 0
@@ -199,6 +202,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             )
             self._stream = stream
             self._release_stream = release_stream
+            self.peer = self._stream.connection.get_peer()
             self._send_request_done = True
             if end:
                 self._end_done = True

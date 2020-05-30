@@ -2,6 +2,7 @@ import struct
 
 from asyncio import Queue
 from collections import namedtuple
+from unittest.mock import Mock
 
 import pytest
 
@@ -41,15 +42,12 @@ class H2TransportStub:
         return False
 
 
-class ConnectionStub:
-    messages_sent = 0
-
-
 class H2StreamStub:
-    connection = ConnectionStub()
     _transport = H2TransportStub()
 
     def __init__(self):
+        self.connection = Mock()
+        self.connection.messages_sent = 0
         self.__headers__ = Queue()
         self.__data__ = Queue()
         self.__events__ = []
