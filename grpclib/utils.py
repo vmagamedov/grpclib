@@ -203,6 +203,8 @@ def graceful_exit(
     :param servers: list of servers
     :param loop: (deprecated) asyncio-compatible event loop
     :param signals: set of the OS signals to handle
+
+    .. note:: Not supported in Windows
     """
     if loop:
         warnings.warn("The loop argument is deprecated and scheduled "

@@ -19,6 +19,7 @@ class Greeter(GreeterBase):
 
 async def main(*, host: str = '127.0.0.1', port: int = 50051) -> None:
     server = Server([Greeter()])
+    # Note: graceful_exit isn't supported in Windows
     with graceful_exit([server]):
         await server.start(host, port)
         print(f'Serving on {host}:{port}')
