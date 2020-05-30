@@ -60,6 +60,7 @@ async def test_recv_request():
     assert event.deadline.time_remaining() > 0
     assert event.content_type == 'application/grpc+proto'
     assert event.user_agent.startswith('grpc-python-grpclib')
+    assert event.peer.addr() is None
 
 
 @pytest.mark.asyncio

@@ -435,6 +435,7 @@ async def request_handler(
                         deadline=deadline,
                         content_type=content_type,
                         user_agent=user_agent,
+                        peer=stream.peer,
                     )
                     await method_func(stream)
             except GRPCError:

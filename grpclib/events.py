@@ -9,6 +9,7 @@ from .metadata import Deadline, _Metadata
 if TYPE_CHECKING:
     from .stream import _SendType, _RecvType
     from ._typing import IEventsTarget, IServerMethodFunc  # noqa
+    from .protocol import Peer
 
 
 class _Event:
@@ -165,6 +166,7 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     :param read-only deadline: request's :py:class:`~grpclib.metadata.Deadline`
     :param read-only content_type: request's content type
     :param read-only user_agent: request's user agent
+    :param read-only peer: request's :py:class:`~grpclib.protocol.Peer`
     """
     __payload__ = ('metadata', 'method_func')
 
@@ -174,6 +176,7 @@ class RecvRequest(_Event, metaclass=_EventMeta):
     deadline: Optional[Deadline]
     content_type: str
     user_agent: Optional[str]
+    peer: 'Peer'
 
 
 class SendInitialMetadata(_Event, metaclass=_EventMeta):
@@ -208,6 +211,7 @@ class _DispatchServerEvents(_DispatchCommonEvents):
         deadline: Optional[Deadline],
         content_type: str,
         user_agent: Optional[str],
+        peer: 'Peer',
     ) -> Tuple[_Metadata, 'IServerMethodFunc']:
         return await self.__dispatch__(RecvRequest(  # type: ignore
             metadata=metadata,
@@ -216,6 +220,7 @@ class _DispatchServerEvents(_DispatchCommonEvents):
             deadline=deadline,
             content_type=content_type,
             user_agent=user_agent,
+            peer=peer,
         ))
 
     @_dispatches(SendInitialMetadata)
