@@ -10,7 +10,7 @@ from grpclib.reflection.service import ServerReflection
 from grpclib.reflection.v1.reflection_pb2 import ServerReflectionRequest
 from grpclib.reflection.v1.reflection_pb2 import ServerReflectionResponse
 from grpclib.reflection.v1.reflection_pb2 import ErrorResponse
-from grpclib.reflection.v1.reflection_grpclib import ServerReflectionStub
+from grpclib.reflection.v1.reflection_grpc import ServerReflectionStub
 
 from dummy_pb2 import DESCRIPTOR
 from test_functional import DummyService

@@ -176,9 +176,8 @@ def _proto2pb2_module_name(proto_file_path: str) -> str:
     return _base_module_name(proto_file_path) + "_pb2"
 
 
-def _proto2grpc_module_name(proto_file_path: str, *, legacy: bool) -> str:
-    suffix = "_grpc" if legacy else '_grpclib'
-    return _base_module_name(proto_file_path) + suffix
+def _proto2grpc_module_name(proto_file_path: str) -> str:
+    return _base_module_name(proto_file_path) + "_grpc"
 
 
 def _type_names(
@@ -207,7 +206,7 @@ def _type_names(
     parents.pop()
 
 
-def main(*, _legacy: bool = False) -> None:
+def main() -> None:
     with os.fdopen(sys.stdin.fileno(), 'rb') as inp:
         request = CodeGeneratorRequest.FromString(inp.read())
 
@@ -239,7 +238,7 @@ def main(*, _legacy: bool = False) -> None:
                                     methods=methods))
 
         file = response.file.add()
-        module_name = _proto2grpc_module_name(file_to_generate, legacy=_legacy)
+        module_name = _proto2grpc_module_name(file_to_generate)
         file.name = module_name.replace(".", "/") + ".py"
         file.content = render(
             proto_file=proto_file.name,
@@ -250,7 +249,3 @@ def main(*, _legacy: bool = False) -> None:
 
     with os.fdopen(sys.stdout.fileno(), 'wb') as out:
         out.write(response.SerializeToString())
-
-
-def main_legacy() -> None:
-    main(_legacy=True)

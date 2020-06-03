@@ -7,7 +7,7 @@ from pathlib import Path
 
 from grpclib.client import Channel
 from grpclib.health.v1.health_pb2 import HealthCheckRequest
-from grpclib.health.v1.health_grpclib import HealthStub
+from grpclib.health.v1.health_grpc import HealthStub
 
 
 DIR = Path(__file__).parent.joinpath('keys')

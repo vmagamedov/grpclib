@@ -10,7 +10,7 @@ from grpclib.exceptions import GRPCError
 
 from conn import ClientServer
 from dummy_pb2 import DummyRequest, DummyReply
-from dummy_grpclib import DummyServiceBase, DummyServiceStub
+from dummy_grpc import DummyServiceBase, DummyServiceStub
 
 
 class DummyService(DummyServiceBase):

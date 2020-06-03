@@ -28,7 +28,7 @@ from .v1.reflection_pb2 import ServerReflectionRequest, ServerReflectionResponse
 from .v1.reflection_pb2 import ErrorResponse, ListServiceResponse
 from .v1.reflection_pb2 import ServiceResponse, ExtensionNumberResponse
 from .v1.reflection_pb2 import FileDescriptorResponse
-from .v1.reflection_grpclib import ServerReflectionBase
+from .v1.reflection_grpc import ServerReflectionBase
 
 from ._deprecated import ServerReflection as _ServerReflectionV1Alpha
 

@@ -28,7 +28,7 @@ from .v1alpha.reflection_pb2 import ServerReflectionResponse
 from .v1alpha.reflection_pb2 import ErrorResponse, ListServiceResponse
 from .v1alpha.reflection_pb2 import ServiceResponse, ExtensionNumberResponse
 from .v1alpha.reflection_pb2 import FileDescriptorResponse
-from .v1alpha.reflection_grpclib import ServerReflectionBase
+from .v1alpha.reflection_grpc import ServerReflectionBase
 
 
 class ServerReflection(ServerReflectionBase):

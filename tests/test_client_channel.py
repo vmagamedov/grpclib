@@ -7,7 +7,7 @@ from grpclib.client import Channel
 from grpclib.testing import ChannelFor
 
 from dummy_pb2 import DummyRequest, DummyReply
-from dummy_grpclib import DummyServiceStub
+from dummy_grpc import DummyServiceStub
 from test_functional import DummyService
 
 
