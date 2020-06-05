@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.3.2 (dev)
-~~~~~~~~~~~
+0.3.2
+~~~~~
 
   - Using ``application/grpc`` content type on the client-side to be compatible
     with faulty server implementations (e.g. googleapis.com)

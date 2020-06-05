@@ -129,10 +129,17 @@ the ``protoc`` compiler as the ``protoc-gen-grpclib_python`` executable which
 should be installed by ``pip`` into your ``$PATH`` during installation of the
 ``grpclib`` library.
 
+Changed in v0.3.2: ``--python_grpc_out`` option was renamed into
+``--grpclib_python_out``.
+
 Contributing
 ~~~~~~~~~~~~
 
-Use Tox_ in order to test and lint your changes.
+* Please submit an issue before working on a Pull Request
+* Do not merge/squash/rebase your development branch while you work on a Pull
+  Request, use rebase if this is really necessary
+* You may use Tox_ in order to test and lint your changes, but it is Ok to rely
+  on CI for this matter
 
 .. _gRPC: http://www.grpc.io
 .. _hyper-h2: https://github.com/python-hyper/hyper-h2
