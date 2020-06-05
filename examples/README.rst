@@ -16,4 +16,4 @@ To re-generate ``helloworld_pb2.py`` and ``helloworld_grpc.py`` files (already g
 
 .. code-block:: shell
 
-    $ python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld/helloworld.proto
+    $ python3 -m grpc_tools.protoc -I. --python_out=. --grpclib_python_out=. helloworld/helloworld.proto

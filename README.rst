@@ -79,20 +79,20 @@ Server
 Installation
 ~~~~~~~~~~~~
 
-.. code-block:: shell
+.. code-block:: console
 
   $ pip3 install grpclib protobuf
 
 Bug fixes and new features are frequently published via release candidates:
 
-.. code-block:: shell
+.. code-block:: console
 
   $ pip3 install --upgrade --pre grpclib
 
 For the code generation you will also need a ``protoc`` compiler, which can be
 installed with ``protobuf`` system package:
 
-.. code-block:: shell
+.. code-block:: console
 
   $ brew install protobuf  # example for macOS users
   $ protoc --version
@@ -101,7 +101,7 @@ installed with ``protobuf`` system package:
 
 **Or** you can use ``protoc`` compiler from the ``grpcio-tools`` Python package:
 
-.. code-block:: shell
+.. code-block:: console
 
   $ pip3 install grpcio-tools
   $ python3 -m grpc_tools.protoc --version
@@ -116,16 +116,17 @@ runtime**, ``grpcio-tools`` package will be used only during code generation.
 In order to use this library you will have to generate special stub files using
 plugin provided, which can be used like this:
 
-.. code-block:: shell
+.. code-block:: console
 
-  $ python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. helloworld/helloworld.proto
+  $ python3 -m grpc_tools.protoc -I. --python_out=. --grpclib_python_out=. helloworld/helloworld.proto
+                                                      ^----- note -----^
 
 This command will generate ``helloworld_pb2.py`` and ``helloworld_grpc.py``
 files.
 
-Plugin, which implements ``--python_grpc_out`` option is available for
-``protoc`` compiler as ``protoc-gen-python_grpc`` executable, which will be
-installed by ``pip/setuptools`` into your ``$PATH`` during installation of the
+Plugin which implements ``--grpclib_python_out`` option should be available for
+the ``protoc`` compiler as the ``protoc-gen-grpclib_python`` executable which
+should be installed by ``pip`` into your ``$PATH`` during installation of the
 ``grpclib`` library.
 
 Contributing

@@ -34,7 +34,9 @@ setup(
     ],
     entry_points={
         'console_scripts': [
+            # backward compatibility
             'protoc-gen-python_grpc=grpclib.plugin.main:main',
+            'protoc-gen-grpclib_python=grpclib.plugin.main:main',
         ],
     },
     classifiers=[

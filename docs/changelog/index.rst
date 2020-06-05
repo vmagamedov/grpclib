@@ -6,8 +6,8 @@ Changelog
 
   - Using ``application/grpc`` content type on the client-side to be compatible
     with faulty server implementations (e.g. googleapis.com)
-  - Introduced ``--python_grpclib_out=`` plugin and ``_grpclib.py`` file
-    extension to avoid any possible misunderstanding
+  - Renamed ``--python_grpc_out=`` protoc option into ``--grpclib_python_out=``
+    to avoid misunderstanding and to follow grpc project naming
   - Added ``(client|server):Stream.peer`` property and corresponding property in
     the ``RecvRequest`` event
   - Added ``server:Stream.user_agent`` property and corresponding property in
