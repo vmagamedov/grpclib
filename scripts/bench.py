@@ -49,7 +49,7 @@ async def _grpclib_server(*, host='127.0.0.1', port=50051):
 
 @serve.command('grpclib')
 def serve_grpclib():
-    asyncio.get_event_loop().run_until_complete(_grpclib_server())
+    asyncio.run(_grpclib_server())
 
 
 @serve.command('grpclib+uvloop')
@@ -57,14 +57,28 @@ def serve_grpclib_uvloop():
     import uvloop
     uvloop.install()
 
-    asyncio.get_event_loop().run_until_complete(_grpclib_server())
+    asyncio.run(_grpclib_server())
 
 
 @serve.command('grpcio')
 def serve_grpcio():
     from _reference.server import serve
+
     try:
-        serve()
+        asyncio.run(serve())
+    except KeyboardInterrupt:
+        pass
+
+
+@serve.command('grpcio+uvloop')
+def serve_grpcio_uvloop():
+    import uvloop
+    uvloop.install()
+
+    from _reference.server import serve
+
+    try:
+        asyncio.run(serve())
     except KeyboardInterrupt:
         pass
 
