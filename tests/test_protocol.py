@@ -11,7 +11,8 @@ from h2.exceptions import StreamClosedError
 
 from grpclib.const import Status
 from grpclib.utils import Wrapper
-from grpclib.protocol import Connection, EventsProcessor, Peer
+from grpclib.config import Configuration
+from grpclib.protocol import Connection, EventsProcessor, Peer, H2Protocol
 from grpclib.exceptions import StreamTerminatedError
 
 from stubs import TransportStub, DummyHandler
@@ -462,3 +463,21 @@ def test_peer_cert(cert):
     assert peer.cert() is cert
     transport.get_extra_info.assert_called_once_with('ssl_object')
     ssl_object.getpeercert.assert_called_once_with()
+
+
+@pytest.mark.parametrize('config', [
+    Configuration(http2_connection_window_size=2**16 - 1),
+    Configuration(http2_connection_window_size=2**31 - 1),
+    Configuration(http2_stream_window_size=2**16 - 1),
+    Configuration(http2_stream_window_size=2**31 - 1),
+])
+def test_max_window_size(config):
+    server_h2c = H2Connection(H2Configuration(client_side=False,
+                                              header_encoding='ascii'))
+    proto = H2Protocol(Mock(), config.__for_test__(),
+                       H2Configuration(client_side=True))
+    proto.connection_made(TransportStub(server_h2c))
+    assert server_h2c.outbound_flow_control_window \
+        == config.http2_connection_window_size
+    assert server_h2c.remote_settings.initial_window_size \
+        == config.http2_stream_window_size

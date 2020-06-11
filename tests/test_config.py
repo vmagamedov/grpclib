@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from grpclib.config import Configuration
+from grpclib.config import Configuration, _range
 from grpclib.config import _DEFAULT, _with_defaults, _positive, _validate
 from grpclib.config import _optional, _chain, _of_type
 
@@ -102,3 +102,25 @@ def test_change_default():
             _validate(self)
 
     assert _with_defaults(Config(foo=1), 'test-default').foo == 1
+
+
+def test_range():
+    @dataclass
+    class Config:
+        foo: int = field(
+            default=42,
+            metadata={
+                'validate': _chain(_of_type(int), _range(1, 99)),
+            },
+        )
+
+        def __post_init__(self):
+            _validate(self)
+
+    Config()
+    Config(foo=1)
+    Config(foo=99)
+    with pytest.raises(ValueError, match='should be less or equal to 99'):
+        Config(foo=100)
+    with pytest.raises(ValueError, match='should be higher or equal to 1'):
+        Config(foo=0)

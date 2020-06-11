@@ -694,6 +694,17 @@ class H2Protocol(Protocol):
         h2_conn = H2Connection(config=self.h2_config)
         h2_conn.initiate_connection()
 
+        initial = h2_conn.local_settings.initial_window_size
+        conn_delta = self.config.http2_connection_window_size - initial
+        stream_delta = self.config.http2_stream_window_size - initial
+        if conn_delta:
+            h2_conn.increment_flow_control_window(conn_delta)
+        if stream_delta:
+            h2_conn.update_settings({
+                SettingCodes.INITIAL_WINDOW_SIZE:
+                    self.config.http2_stream_window_size,
+            })
+
         self.connection = Connection(
             h2_conn,
             cast(Transport, transport),

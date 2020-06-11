@@ -13,6 +13,10 @@ _ValidatorType = Callable[[str, Any], None]
 
 _ConfigurationType = TypeVar('_ConfigurationType')
 
+_WMIN = 2 ** 16 - 1
+_4MiB = 4 * 2 ** 20
+_WMAX = 2 ** 31 - 1
+
 
 def _optional(validator: _ValidatorType) -> _ValidatorType:
     def proc(name: str, value: Any) -> None:
@@ -39,6 +43,15 @@ def _of_type(*types: type) -> _ValidatorType:
 def _positive(name: str, value: Union[float, int]) -> None:
     if value <= 0:
         raise ValueError(f'"{name}" should be positive')
+
+
+def _range(min_: int, max_: int) -> _ValidatorType:
+    def proc(name: str, value: Union[float, int]) -> None:
+        if value < min_:
+            raise ValueError(f'"{name}" should be higher or equal to {min_}')
+        if value > max_:
+            raise ValueError(f'"{name}" should be less or equal to {max_}')
+    return proc
 
 
 def _validate(config: 'Configuration') -> None:
@@ -97,6 +110,18 @@ class Configuration:
         default=300,
         metadata={
             'validate': _optional(_chain(_of_type(int, float), _positive)),
+        },
+    )
+    http2_connection_window_size: int = field(
+        default=_4MiB,
+        metadata={
+            'validate': _chain(_of_type(int), _range(_WMIN, _WMAX)),
+        },
+    )
+    http2_stream_window_size: int = field(
+        default=_4MiB,
+        metadata={
+            'validate': _chain(_of_type(int), _range(_WMIN, _WMAX)),
         },
     )
 
