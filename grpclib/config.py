@@ -112,12 +112,16 @@ class Configuration:
             'validate': _optional(_chain(_of_type(int, float), _positive)),
         },
     )
+    #: Sets inbound window size for a connection. HTTP/2 spec allows this value
+    #: to be from 64 KiB to 2 GiB, 4 MiB is used by default
     http2_connection_window_size: int = field(
         default=_4MiB,
         metadata={
             'validate': _chain(_of_type(int), _range(_WMIN, _WMAX)),
         },
     )
+    #: Sets inbound window size for a stream. HTTP/2 spec allows this value
+    #: to be from 64 KiB to 2 GiB, 4 MiB is used by default
     http2_stream_window_size: int = field(
         default=_4MiB,
         metadata={

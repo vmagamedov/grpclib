@@ -23,6 +23,7 @@
   :caption: Advanced
   :hidden:
 
+  config
   events
   encoding
   health
