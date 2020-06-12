@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.3.3 (dev)
+~~~~~~~~~~~
+
+  - Added ``http2_connection_window_size`` and ``http2_stream_window_size``
+    config values, using 4 MiB as a default for both values instead of 64 KiB
+    (HTTP/2 default)
+
 0.3.2
 ~~~~~
 
