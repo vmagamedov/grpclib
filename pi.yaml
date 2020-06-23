@@ -58,7 +58,7 @@
 
 - !Image
   name: py38
-  from: &py38 !DockerImage python:3.8.0-slim
+  from: &py38 !DockerImage python:3.8.3-slim
   repository: localhost/grpclib/py38
   tasks:
   - run: pip3 install --no-cache-dir -r {{runtime}}
