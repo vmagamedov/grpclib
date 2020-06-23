@@ -18,6 +18,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='dummy',
   syntax='proto3',
   serialized_options=None,
+  create_key=_descriptor._internal_create_key,
   serialized_pb=b'\n\x0b\x64ummy.proto\x12\x05\x64ummy\"\x1d\n\x0c\x44ummyRequest\x12\r\n\x05value\x18\x01 \x01(\t\"\x1b\n\nDummyReply\x12\r\n\x05value\x18\x01 \x01(\t2\xfa\x01\n\x0c\x44ummyService\x12\x36\n\nUnaryUnary\x12\x13.dummy.DummyRequest\x1a\x11.dummy.DummyReply\"\x00\x12\x39\n\x0bUnaryStream\x12\x13.dummy.DummyRequest\x1a\x11.dummy.DummyReply\"\x00\x30\x01\x12\x39\n\x0bStreamUnary\x12\x13.dummy.DummyRequest\x1a\x11.dummy.DummyReply\"\x00(\x01\x12<\n\x0cStreamStream\x12\x13.dummy.DummyRequest\x1a\x11.dummy.DummyReply\"\x00(\x01\x30\x01\x62\x06proto3'
 )
 
@@ -30,6 +31,7 @@ _DUMMYREQUEST = _descriptor.Descriptor(
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
+  create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
       name='value', full_name='dummy.DummyRequest.value', index=0,
@@ -37,7 +39,7 @@ _DUMMYREQUEST = _descriptor.Descriptor(
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -61,6 +63,7 @@ _DUMMYREPLY = _descriptor.Descriptor(
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
+  create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
       name='value', full_name='dummy.DummyReply.value', index=0,
@@ -68,7 +71,7 @@ _DUMMYREPLY = _descriptor.Descriptor(
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -111,6 +114,7 @@ _DUMMYSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
+  create_key=_descriptor._internal_create_key,
   serialized_start=83,
   serialized_end=333,
   methods=[
@@ -122,6 +126,7 @@ _DUMMYSERVICE = _descriptor.ServiceDescriptor(
     input_type=_DUMMYREQUEST,
     output_type=_DUMMYREPLY,
     serialized_options=None,
+    create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
     name='UnaryStream',
@@ -131,6 +136,7 @@ _DUMMYSERVICE = _descriptor.ServiceDescriptor(
     input_type=_DUMMYREQUEST,
     output_type=_DUMMYREPLY,
     serialized_options=None,
+    create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
     name='StreamUnary',
@@ -140,6 +146,7 @@ _DUMMYSERVICE = _descriptor.ServiceDescriptor(
     input_type=_DUMMYREQUEST,
     output_type=_DUMMYREPLY,
     serialized_options=None,
+    create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
     name='StreamStream',
@@ -149,6 +156,7 @@ _DUMMYSERVICE = _descriptor.ServiceDescriptor(
     input_type=_DUMMYREQUEST,
     output_type=_DUMMYREPLY,
     serialized_options=None,
+    create_key=_descriptor._internal_create_key,
   ),
 ])
 _sym_db.RegisterServiceDescriptor(_DUMMYSERVICE)

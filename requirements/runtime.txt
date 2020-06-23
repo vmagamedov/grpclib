@@ -5,13 +5,13 @@
 #    pip-compile requirements/runtime.in
 #
 certifi==2020.6.20
-googleapis-common-protos==1.51.0
-h2==3.1.1
+googleapis-common-protos==1.52.0
+h2==3.2.0
 hpack==3.0.0
 hyperframe==5.2.0
-multidict==4.6.1
-protobuf==3.11.2
-six==1.14.0               # via protobuf
+multidict==4.7.6
+protobuf==3.12.2
+six==1.15.0               # via protobuf
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

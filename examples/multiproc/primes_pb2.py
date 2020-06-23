@@ -19,6 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='primes',
   syntax='proto3',
   serialized_options=None,
+  create_key=_descriptor._internal_create_key,
   serialized_pb=b'\n\x16multiproc/primes.proto\x12\x06primes\x1a\x1egoogle/protobuf/wrappers.proto\"\x19\n\x07Request\x12\x0e\n\x06number\x18\x01 \x01(\x03\"5\n\x05Reply\x12,\n\x08is_prime\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue23\n\x06Primes\x12)\n\x05\x43heck\x12\x0f.primes.Request\x1a\r.primes.Reply\"\x00\x62\x06proto3'
   ,
   dependencies=[google_dot_protobuf_dot_wrappers__pb2.DESCRIPTOR,])
@@ -32,6 +33,7 @@ _REQUEST = _descriptor.Descriptor(
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
+  create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
       name='number', full_name='primes.Request.number', index=0,
@@ -39,7 +41,7 @@ _REQUEST = _descriptor.Descriptor(
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -63,6 +65,7 @@ _REPLY = _descriptor.Descriptor(
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
+  create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
       name='is_prime', full_name='primes.Reply.is_prime', index=0,
@@ -70,7 +73,7 @@ _REPLY = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -114,6 +117,7 @@ _PRIMES = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
+  create_key=_descriptor._internal_create_key,
   serialized_start=148,
   serialized_end=199,
   methods=[
@@ -125,6 +129,7 @@ _PRIMES = _descriptor.ServiceDescriptor(
     input_type=_REQUEST,
     output_type=_REPLY,
     serialized_options=None,
+    create_key=_descriptor._internal_create_key,
   ),
 ])
 _sym_db.RegisterServiceDescriptor(_PRIMES)

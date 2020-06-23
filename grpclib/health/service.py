@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from .._typing import ICheckable  # noqa
 
 
-def _status(checks: Set['CheckBase']) -> 'HealthCheckResponse.ServingStatus':
+def _status(
+    checks: Set['CheckBase'],
+) -> 'HealthCheckResponse.ServingStatusValue':
     statuses = {check.__status__() for check in checks}
     if statuses == {None}:
         return HealthCheckResponse.UNKNOWN

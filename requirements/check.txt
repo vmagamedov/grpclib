@@ -4,20 +4,21 @@
 #
 #    pip-compile requirements/check.in
 #
-googleapis-common-protos==1.51.0
-grpcio-tools==1.26.0
-grpcio==1.26.0            # via grpcio-tools
-h2==3.1.1
+certifi==2020.6.20
+googleapis-common-protos==1.52.0
+grpcio-tools==1.30.0
+grpcio==1.30.0            # via grpcio-tools
+h2==3.2.0
 hpack==3.0.0
 hyperframe==5.2.0
-multidict==4.6.1
+multidict==4.7.6
 mypy-extensions==0.4.3    # via mypy
-mypy-protobuf==1.16
-mypy==0.761
-protobuf==3.11.2
-six==1.14.0               # via grpcio, protobuf
+mypy-protobuf==1.23
+mypy==0.782
+protobuf==3.12.2
+six==1.15.0               # via grpcio, protobuf
 typed-ast==1.4.1          # via mypy
-typing-extensions==3.7.4.1  # via mypy
+typing-extensions==3.7.4.2  # via mypy
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=setup.txt setup.py
 #
-h2==3.1.1
+h2==3.2.0
 hpack==3.0.0              # via h2
 hyperframe==5.2.0         # via h2
-multidict==4.6.1
+multidict==4.7.6
