@@ -706,7 +706,17 @@ class Channel:
         if _ssl is None:
             raise RuntimeError('SSL is not supported.')
 
-        ctx = _ssl.create_default_context(purpose=_ssl.Purpose.SERVER_AUTH)
+        try:
+            import certifi
+        except ImportError:
+            cafile = None
+        else:
+            cafile = certifi.where()
+
+        ctx = _ssl.create_default_context(
+            purpose=_ssl.Purpose.SERVER_AUTH,
+            cafile=cafile,
+        )
         ctx.options |= (_ssl.OP_NO_TLSv1 | _ssl.OP_NO_TLSv1_1)
         ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
         ctx.set_alpn_protocols(['h2'])

@@ -45,9 +45,34 @@ There are two ways to call RPC methods:
 See reference docs for all method types and for the
 :py:class:`~grpclib.client.Stream` methods and attributes.
 
+Secure Channels
+~~~~~~~~~~~~~~~
+
+Here is how to establish a secure connection to a public gRPC server:
+
+.. code-block:: python3
+
+  channel = Channel(host, port, ssl=True)
+                                ^^^^^^^^
+
+In this case ``grpclib`` uses system CA certificates. But ``grpclib`` has also
+a built-in support for a certifi_ package which contains actual Mozilla's
+collection of CA certificates. All you need is to install it and keep it
+updated -- this is a more favorable way than relying on system CA certificates:
+
+.. code-block:: console
+
+  $ pip3 install certifi
+
+``grpclib`` also allows you to use a custom SSL configuration by providing a
+:py:class:`~python:ssl.SSLContext` object. We have a simple mTLS auth example
+in our code repository to illustrate how this works.
+
 Reference
 ~~~~~~~~~
 
 .. automodule:: grpclib.client
   :members: Channel, Stream, UnaryUnaryMethod, UnaryStreamMethod,
     StreamUnaryMethod, StreamStreamMethod
+
+.. _certifi: https://github.com/certifi/python-certifi

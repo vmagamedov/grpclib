@@ -36,3 +36,16 @@ async def test_concurrent_connect(loop):
             replies = await asyncio.gather(*tasks)
     assert replies == reps
     po.assert_called_once_with(ANY, '127.0.0.1', 50051, ssl=None)
+
+
+def test_default_ssl_context():
+    certifi_channel = Channel(ssl=True)
+    with patch.dict('sys.modules', {'certifi': None}):
+        system_channel = Channel(ssl=True)
+
+    certifi_certs = certifi_channel._ssl.get_ca_certs(binary_form=True)
+    system_certs = system_channel._ssl.get_ca_certs(binary_form=True)
+
+    assert certifi_certs
+    assert system_certs
+    assert certifi_certs != system_certs

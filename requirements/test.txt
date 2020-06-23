@@ -6,6 +6,7 @@
 #
 async-timeout==3.0.1
 attrs==19.3.0             # via pytest
+certifi==2020.6.20
 coverage==5.0.3           # via pytest-cov
 faker==4.0.0
 googleapis-common-protos==1.51.0
