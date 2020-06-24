@@ -146,13 +146,13 @@ Contributing
 .. _grpcio: https://pypi.org/project/grpcio/
 .. _Tox: https://tox.readthedocs.io/
 .. _examples: https://github.com/vmagamedov/grpclib/tree/master/examples
-.. |version| image:: https://img.shields.io/pypi/v/grpclib.svg?label=stable&color=green
+.. |version| image:: https://img.shields.io/pypi/v/grpclib.svg?label=stable&color=blue
 .. _version: https://pypi.org/project/grpclib/
-.. |license| image:: https://img.shields.io/pypi/l/grpclib.svg
+.. |license| image:: https://img.shields.io/pypi/l/grpclib.svg?color=blue
 .. _license: https://github.com/vmagamedov/grpclib/blob/master/LICENSE.txt
-.. |tag| image:: https://img.shields.io/github/tag/vmagamedov/grpclib.svg?label=latest
+.. |tag| image:: https://img.shields.io/github/tag/vmagamedov/grpclib.svg?label=latest&color=blue
 .. _tag: https://pypi.org/project/grpclib/#history
-.. |project| image:: https://img.shields.io/badge/vmagamedov%2Fgrpclib-blueviolet.svg?logo=github
+.. |project| image:: https://img.shields.io/badge/vmagamedov%2Fgrpclib-blueviolet.svg?logo=github&color=blue
 .. _project: https://github.com/vmagamedov/grpclib
 .. |documentation| image:: https://img.shields.io/badge/docs-grpclib.rtfd.io-blue.svg
 .. _documentation: https://grpclib.readthedocs.io/en/latest/
