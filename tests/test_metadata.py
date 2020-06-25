@@ -87,11 +87,21 @@ def test_encode_metadata_errors():
     'Upper-Case',
     'invalid~character',
     ' spaces ',
+    'new-line\n',
 ])
 def test_encode_metadata_invalid_key(key):
     with pytest.raises(ValueError) as err:
         encode_metadata({key: 'anything'})
     err.match('Invalid metadata key')
+
+
+@pytest.mark.parametrize('value', [
+    'new-line\n',
+])
+def test_encode_metadata_invalid_value(value):
+    with pytest.raises(ValueError) as err:
+        encode_metadata({'foo': value})
+    err.match('Invalid metadata value')
 
 
 def test_decode_metadata_empty():

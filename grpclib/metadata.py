@@ -149,7 +149,11 @@ def encode_metadata(metadata: _MetadataLike) -> _Headers:
         metadata = metadata.items()
     result = []
     for key, value in metadata:
-        if key in _SPECIAL or key.startswith('grpc-') or not _KEY_RE.match(key):
+        if (
+            key in _SPECIAL
+            or key.startswith('grpc-')
+            or not _KEY_RE.fullmatch(key)
+        ):
             raise ValueError('Invalid metadata key: {!r}'.format(key))
         if key.endswith('-bin'):
             if not isinstance(value, bytes):
@@ -160,7 +164,7 @@ def encode_metadata(metadata: _MetadataLike) -> _Headers:
             if not isinstance(value, str):
                 raise TypeError('Invalid metadata value type, str expected: '
                                 '{!r}'.format(value))
-            if not _VALUE_RE.match(value):
+            if not _VALUE_RE.fullmatch(value):
                 raise ValueError('Invalid metadata value: {!r}'.format(value))
             result.append((key, value))
     return result
