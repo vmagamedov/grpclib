@@ -32,6 +32,7 @@ There are two ways to call RPC methods:
   .. code-block:: python3
 
     async with stub.BiDiMethod.open() as stream:
+        await stream.send_request()  # needed to initiate a call
         while True:
             task = await task_queue.get()
             if task is None:
