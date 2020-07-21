@@ -8,7 +8,8 @@ a single multiplexed connection. See :doc:`overview` for more details.
 
 .. code-block:: python3
 
-  channel = Channel(host, port)
+  async with Channel(host, port) as channel:
+      pass
 
 A single server can implement several services, so you can reuse one channel
 for all corresponding service stubs:

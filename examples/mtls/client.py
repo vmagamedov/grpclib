@@ -36,13 +36,13 @@ def create_secure_context(
 
 
 async def main(*, host: str = 'localhost', port: int = 50051) -> None:
-    channel = Channel(host, port, ssl=create_secure_context(
+    ssl_context = create_secure_context(
         CLIENT_CERT, CLIENT_KEY, trusted=SERVER_CERT,
-    ))
-    stub = HealthStub(channel)
-    response = await stub.Check(HealthCheckRequest())
-    print(response)
-    channel.close()
+    )
+    async with Channel(host, port, ssl=ssl_context) as channel:
+        stub = HealthStub(channel)
+        response = await stub.Check(HealthCheckRequest())
+        print(response)
 
 
 if __name__ == '__main__':

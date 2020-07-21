@@ -768,6 +768,17 @@ class Channel:
                 self.close()
                 self._loop.call_exception_handler({'message': message})
 
+    async def __aenter__(self) -> 'Channel':
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()
+
 
 class ServiceMethod(Generic[_SendType, _RecvType]):
     """

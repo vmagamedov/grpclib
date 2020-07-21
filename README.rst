@@ -29,13 +29,11 @@ Client
 
 
   async def main():
-      channel = Channel('127.0.0.1', 50051)
-      greeter = GreeterStub(channel)
+      async with Channel('127.0.0.1', 50051) as channel:
+          greeter = GreeterStub(channel)
 
-      reply: HelloReply = await greeter.SayHello(HelloRequest(name='Dr. Strange'))
-      print(reply.message)
-
-      channel.close()
+          reply = await greeter.SayHello(HelloRequest(name='Dr. Strange'))
+          print(reply.message)
 
 
   if __name__ == '__main__':

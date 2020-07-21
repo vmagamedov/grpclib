@@ -14,14 +14,12 @@ async def on_send_request(event: SendRequest) -> None:
 
 
 async def main() -> None:
-    channel = Channel('127.0.0.1', 50051)
-    listen(channel, SendRequest, on_send_request)
+    async with Channel('127.0.0.1', 50051) as channel:
+        listen(channel, SendRequest, on_send_request)
 
-    stub = GreeterStub(channel)
-    response = await stub.SayHello(HelloRequest(name='World'))
-    print(response.message)
-
-    channel.close()
+        stub = GreeterStub(channel)
+        response = await stub.SayHello(HelloRequest(name='World'))
+        print(response.message)
 
 
 if __name__ == '__main__':

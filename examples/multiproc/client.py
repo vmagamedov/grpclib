@@ -27,18 +27,16 @@ PRIMES = [
 
 
 async def main() -> None:
-    channel = Channel('127.0.0.1', 50051)
-    primes = PrimesStub(channel)
+    async with Channel('127.0.0.1', 50051) as channel:
+        primes = PrimesStub(channel)
 
-    async def check(n: int) -> Tuple[int, bool]:
-        reply = await primes.Check(Request(number=n))
-        return n, reply.is_prime.value
+        async def check(n: int) -> Tuple[int, bool]:
+            reply = await primes.Check(Request(number=n))
+            return n, reply.is_prime.value
 
-    for f in asyncio.as_completed([check(n) for n in PRIMES]):
-        number, is_prime = await f
-        print(f'Number {number} {"is" if is_prime else "is not"} prime')
-
-    channel.close()
+        for f in asyncio.as_completed([check(n) for n in PRIMES]):
+            number, is_prime = await f
+            print(f'Number {number} {"is" if is_prime else "is not"} prime')
 
 
 if __name__ == '__main__':
