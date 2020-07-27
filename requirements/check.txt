@@ -4,21 +4,21 @@
 #
 #    pip-compile requirements/check.in
 #
-certifi==2020.6.20
-flake8==3.8.3
-googleapis-common-protos==1.52.0
-grpcio-tools==1.30.0
+certifi==2020.6.20        # via -r requirements/runtime.in
+flake8==3.8.3             # via -r requirements/check.in
+googleapis-common-protos==1.52.0  # via -r requirements/runtime.in
+grpcio-tools==1.30.0      # via -r requirements/check.in
 grpcio==1.30.0            # via grpcio-tools
-h2==3.2.0
-hpack==3.0.0
-hyperframe==5.2.0
+h2==3.2.0                 # via -r requirements/../setup.txt
+hpack==3.0.0              # via -r requirements/../setup.txt, h2
+hyperframe==5.2.0         # via -r requirements/../setup.txt, h2
 importlib-metadata==1.7.0  # via flake8
 mccabe==0.6.1             # via flake8
-multidict==4.7.6
+multidict==4.7.6          # via -r requirements/../setup.txt
 mypy-extensions==0.4.3    # via mypy
-mypy-protobuf==1.23
-mypy==0.782
-protobuf==3.12.2
+mypy-protobuf==1.23       # via -r requirements/check.in
+mypy==0.782               # via -r requirements/check.in
+protobuf==3.12.2          # via -r requirements/runtime.in, googleapis-common-protos, grpcio-tools, mypy-protobuf
 pycodestyle==2.6.0        # via flake8
 pyflakes==2.2.0           # via flake8
 six==1.15.0               # via grpcio, protobuf

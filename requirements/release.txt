@@ -7,17 +7,18 @@
 bleach==3.1.5             # via readme-renderer
 certifi==2020.6.20        # via requests
 chardet==3.0.4            # via requests
+colorama==0.4.3           # via twine
 docutils==0.16            # via readme-renderer
-grpcio-tools==1.30.0
+grpcio-tools==1.30.0      # via -r requirements/release.in
 grpcio==1.30.0            # via grpcio-tools
-h2==3.2.0
-hpack==3.0.0
-hyperframe==5.2.0
-idna==2.9                 # via requests
-importlib-metadata==1.6.1  # via keyring, twine
+h2==3.2.0                 # via -r requirements/../setup.txt
+hpack==3.0.0              # via -r requirements/../setup.txt, h2
+hyperframe==5.2.0         # via -r requirements/../setup.txt, h2
+idna==2.10                # via requests
+importlib-metadata==1.7.0  # via keyring, twine
 keyring==21.2.1           # via twine
-multidict==4.7.6
-mypy-protobuf==1.23
+multidict==4.7.6          # via -r requirements/../setup.txt
+mypy-protobuf==1.23       # via -r requirements/release.in
 packaging==20.4           # via bleach
 pkginfo==1.5.0.1          # via twine
 protobuf==3.12.2          # via grpcio-tools, mypy-protobuf
@@ -26,10 +27,11 @@ pyparsing==2.4.7          # via packaging
 readme-renderer==26.0     # via twine
 requests-toolbelt==0.9.1  # via twine
 requests==2.24.0          # via requests-toolbelt, twine
+rfc3986==1.4.0            # via twine
 six==1.15.0               # via bleach, grpcio, packaging, protobuf, readme-renderer
-tqdm==4.46.1              # via twine
-twine==3.1.1
-urllib3==1.25.9           # via requests
+tqdm==4.48.0              # via twine
+twine==3.2.0              # via -r requirements/release.in
+urllib3==1.25.10          # via requests
 webencodings==0.5.1       # via bleach
 zipp==3.1.0               # via importlib-metadata
 

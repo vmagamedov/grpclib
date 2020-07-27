@@ -6,35 +6,35 @@
 #
 alabaster==0.7.12         # via sphinx
 babel==2.8.0              # via sphinx
-certifi==2020.6.20
+certifi==2020.6.20        # via -r requirements/runtime.in, requests
 chardet==3.0.4            # via requests
 docutils==0.16            # via sphinx
-googleapis-common-protos==1.52.0
-h2==3.2.0
-hpack==3.0.0
-hyperframe==5.2.0
-idna==2.9                 # via requests
+googleapis-common-protos==1.52.0  # via -r requirements/runtime.in
+h2==3.2.0                 # via -r requirements/../setup.txt
+hpack==3.0.0              # via -r requirements/../setup.txt, h2
+hyperframe==5.2.0         # via -r requirements/../setup.txt, h2
+idna==2.10                # via requests
 imagesize==1.2.0          # via sphinx
 jinja2==2.11.2            # via sphinx
 markupsafe==1.1.1         # via jinja2
-multidict==4.7.6
+multidict==4.7.6          # via -r requirements/../setup.txt
 packaging==20.4           # via sphinx
-protobuf==3.12.2
+protobuf==3.12.2          # via -r requirements/runtime.in, googleapis-common-protos
 pygments==2.6.1           # via sphinx
 pyparsing==2.4.7          # via packaging
 pytz==2020.1              # via babel
 requests==2.24.0          # via sphinx
 six==1.15.0               # via packaging, protobuf
 snowballstemmer==2.0.0    # via sphinx
-sphinx-rtd-theme==0.5.0
-sphinx==3.1.1
+sphinx-rtd-theme==0.5.0   # via -r requirements/docs.in
+sphinx==3.1.2             # via -r requirements/docs.in, sphinx-rtd-theme
 sphinxcontrib-applehelp==1.0.2  # via sphinx
 sphinxcontrib-devhelp==1.0.2  # via sphinx
 sphinxcontrib-htmlhelp==1.0.3  # via sphinx
 sphinxcontrib-jsmath==1.0.1  # via sphinx
 sphinxcontrib-qthelp==1.0.3  # via sphinx
 sphinxcontrib-serializinghtml==1.1.4  # via sphinx
-urllib3==1.25.9           # via requests
+urllib3==1.25.10          # via requests
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
