@@ -18,7 +18,6 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='helloworld',
   syntax='proto3',
   serialized_options=None,
-  create_key=_descriptor._internal_create_key,
   serialized_pb=b'\n\x1astreaming/helloworld.proto\x12\nhelloworld\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t2\xbd\x02\n\x07Greeter\x12H\n\x12UnaryUnaryGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00\x12K\n\x13UnaryStreamGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00\x30\x01\x12K\n\x13StreamUnaryGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00(\x01\x12N\n\x14StreamStreamGreeting\x12\x18.helloworld.HelloRequest\x1a\x16.helloworld.HelloReply\"\x00(\x01\x30\x01\x62\x06proto3'
 )
 
@@ -31,7 +30,6 @@ _HELLOREQUEST = _descriptor.Descriptor(
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
-  create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
       name='name', full_name='helloworld.HelloRequest.name', index=0,
@@ -39,7 +37,7 @@ _HELLOREQUEST = _descriptor.Descriptor(
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -63,7 +61,6 @@ _HELLOREPLY = _descriptor.Descriptor(
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
-  create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
       name='message', full_name='helloworld.HelloReply.message', index=0,
@@ -71,7 +68,7 @@ _HELLOREPLY = _descriptor.Descriptor(
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -114,7 +111,6 @@ _GREETER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  create_key=_descriptor._internal_create_key,
   serialized_start=104,
   serialized_end=421,
   methods=[
@@ -126,7 +122,6 @@ _GREETER = _descriptor.ServiceDescriptor(
     input_type=_HELLOREQUEST,
     output_type=_HELLOREPLY,
     serialized_options=None,
-    create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
     name='UnaryStreamGreeting',
@@ -136,7 +131,6 @@ _GREETER = _descriptor.ServiceDescriptor(
     input_type=_HELLOREQUEST,
     output_type=_HELLOREPLY,
     serialized_options=None,
-    create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
     name='StreamUnaryGreeting',
@@ -146,7 +140,6 @@ _GREETER = _descriptor.ServiceDescriptor(
     input_type=_HELLOREQUEST,
     output_type=_HELLOREPLY,
     serialized_options=None,
-    create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
     name='StreamStreamGreeting',
@@ -156,7 +149,6 @@ _GREETER = _descriptor.ServiceDescriptor(
     input_type=_HELLOREQUEST,
     output_type=_HELLOREPLY,
     serialized_options=None,
-    create_key=_descriptor._internal_create_key,
   ),
 ])
 _sym_db.RegisterServiceDescriptor(_GREETER)
