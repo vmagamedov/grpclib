@@ -45,6 +45,11 @@ def _positive(name: str, value: Union[float, int]) -> None:
         raise ValueError(f'"{name}" should be positive')
 
 
+def _non_negative(name: str, value: Union[float, int]) -> None:
+    if value < 0:
+        raise ValueError(f'"{name}" should not be negative')
+
+
 def _range(min_: int, max_: int) -> _ValidatorType:
     def proc(name: str, value: Union[float, int]) -> None:
         if value < min_:
@@ -103,7 +108,7 @@ class Configuration:
     _http2_max_pings_without_data: int = field(
         default=2,
         metadata={
-            'validate': _optional(_chain(_of_type(int), _positive)),
+            'validate': _optional(_chain(_of_type(int), _non_negative)),
         },
     )
     _http2_min_sent_ping_interval_without_data: float = field(
