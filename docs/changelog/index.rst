@@ -1,9 +1,15 @@
 Changelog
 =========
 
-0.3.3 (dev)
+0.4.0 (dev)
 ~~~~~~~~~~~
 
+  - Fixed ``Config._http2_max_pings_without_data`` value validation, it may be
+    equal to 0 to send ``PING`` frames infinitely
+  - Added context-manager protocol to the ``Channel`` class
+  - **BREAKING:** Fixed metadata validation, this may cause an exceptions when
+    you try to send invalid metadata values
+  - Added certifi support, documented secure channels
   - Added ``http2_connection_window_size`` and ``http2_stream_window_size``
     config values, using 4 MiB as a default for both values instead of 64 KiB
     (HTTP/2 default)
