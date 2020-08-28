@@ -1,11 +1,11 @@
 Changelog
 =========
 
-0.4.0 (dev)
-~~~~~~~~~~~
+0.4.0
+~~~~~
 
   - Fixed ``Config._http2_max_pings_without_data`` value validation, it may be
-    equal to 0 to send ``PING`` frames infinitely
+    equal to 0 to send ``PING`` frames indefinitely
   - Added context-manager protocol to the ``Channel`` class
   - **BREAKING:** Fixed metadata validation, this may cause an exceptions when
     you try to send invalid metadata values
