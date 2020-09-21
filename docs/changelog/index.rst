@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.4.1
+~~~~~
+
+  - Fixed ``h2==4.0.0`` compatibility, fixed project dependencies
+
 0.4.0
 ~~~~~
 
