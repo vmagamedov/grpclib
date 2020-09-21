@@ -9,9 +9,9 @@ flake8==3.8.3             # via -r requirements/check.in
 googleapis-common-protos==1.52.0  # via -r requirements/runtime.in
 grpcio-tools==1.30.0      # via -r requirements/check.in
 grpcio==1.30.0            # via grpcio-tools
-h2==3.2.0                 # via -r requirements/../setup.txt
-hpack==3.0.0              # via -r requirements/../setup.txt, h2
-hyperframe==5.2.0         # via -r requirements/../setup.txt, h2
+h2==4.0.0                 # via -r requirements/../setup.txt
+hpack==4.0.0              # via -r requirements/../setup.txt, h2
+hyperframe==6.0.0         # via -r requirements/../setup.txt, h2
 importlib-metadata==1.7.0  # via flake8
 mccabe==0.6.1             # via flake8
 multidict==4.7.6          # via -r requirements/../setup.txt

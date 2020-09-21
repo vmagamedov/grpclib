@@ -11,9 +11,9 @@ colorama==0.4.3           # via twine
 docutils==0.16            # via readme-renderer
 grpcio-tools==1.28.1      # via -r requirements/release.in
 grpcio==1.30.0            # via grpcio-tools
-h2==3.2.0                 # via -r requirements/../setup.txt
-hpack==3.0.0              # via -r requirements/../setup.txt, h2
-hyperframe==5.2.0         # via -r requirements/../setup.txt, h2
+h2==4.0.0                 # via -r requirements/../setup.txt
+hpack==4.0.0              # via -r requirements/../setup.txt, h2
+hyperframe==6.0.0         # via -r requirements/../setup.txt, h2
 idna==2.10                # via requests
 importlib-metadata==1.7.0  # via keyring, twine
 keyring==21.2.1           # via twine

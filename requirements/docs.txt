@@ -10,9 +10,9 @@ certifi==2020.6.20        # via -r requirements/runtime.in, requests
 chardet==3.0.4            # via requests
 docutils==0.16            # via sphinx
 googleapis-common-protos==1.52.0  # via -r requirements/runtime.in
-h2==3.2.0                 # via -r requirements/../setup.txt
-hpack==3.0.0              # via -r requirements/../setup.txt, h2
-hyperframe==5.2.0         # via -r requirements/../setup.txt, h2
+h2==4.0.0                 # via -r requirements/../setup.txt
+hpack==4.0.0              # via -r requirements/../setup.txt, h2
+hyperframe==6.0.0         # via -r requirements/../setup.txt, h2
 idna==2.10                # via requests
 imagesize==1.2.0          # via sphinx
 jinja2==2.11.2            # via sphinx

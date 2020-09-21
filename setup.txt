@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=setup.txt setup.py
 #
-h2==3.2.0                 # via grpclib (setup.py)
-hpack==3.0.0              # via h2
-hyperframe==5.2.0         # via h2
+h2==4.0.0                 # via grpclib (setup.py)
+hpack==4.0.0              # via h2
+hyperframe==6.0.0         # via h2
 multidict==4.7.6          # via grpclib (setup.py)

@@ -4,7 +4,7 @@ import pytest
 import asyncio
 
 from h2.config import H2Configuration
-from h2.events import StreamEnded, WindowUpdated, PingAcknowledged
+from h2.events import StreamEnded, WindowUpdated, PingAckReceived
 from h2.settings import SettingCodes
 from h2.connection import H2Connection
 from h2.exceptions import StreamClosedError
@@ -166,7 +166,7 @@ async def test_stream_release(config):
 
     server_stream, = server_processor.streams.values()
     await server_stream.recv_data(len(msg))
-    await server_stream.end()
+    await server_stream.send_headers([(':status', '200')], end_stream=True)
 
     events3 = to_client_transport.process(client_processor)
     assert any(isinstance(e, StreamEnded) for e in events3), events3
@@ -268,7 +268,7 @@ async def test_ping(config):
     server_conn.flush()
 
     ping_ack, = to_client_transport.process(client_processor)
-    assert isinstance(ping_ack, PingAcknowledged)
+    assert isinstance(ping_ack, PingAckReceived)
     assert ping_ack.ping_data == b'12345678'
 
 
