@@ -80,7 +80,7 @@ class ServiceCheck(CheckBase):
 
         if loop:
             warnings.warn("The loop argument is deprecated and scheduled "
-                          "for removal in grpclib 0.4",
+                          "for removal in grpclib 0.5",
                           DeprecationWarning, stacklevel=2)
 
         self._check_lock = asyncio.Event()
@@ -186,7 +186,7 @@ class ServiceStatus(CheckBase):
         """
         if loop:
             warnings.warn("The loop argument is deprecated and scheduled "
-                          "for removal in grpclib 0.4",
+                          "for removal in grpclib 0.5",
                           DeprecationWarning, stacklevel=2)
 
         self._value: _Status = None

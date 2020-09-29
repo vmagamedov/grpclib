@@ -208,7 +208,7 @@ def graceful_exit(
     """
     if loop:
         warnings.warn("The loop argument is deprecated and scheduled "
-                      "for removal in grpclib 0.4",
+                      "for removal in grpclib 0.5",
                       DeprecationWarning, stacklevel=2)
 
     loop = loop or asyncio.get_event_loop()
