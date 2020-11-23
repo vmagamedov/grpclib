@@ -216,6 +216,13 @@ def main() -> None:
             types_map.update(_type_names(pf, mt))
 
     response = CodeGeneratorResponse()
+
+    # See https://github.com/protocolbuffers/protobuf/blob/v3.12.0/docs/implementing_proto3_presence.md  # noqa
+    if hasattr(CodeGeneratorResponse, 'Feature'):
+        response.supported_features = (  # type: ignore
+            CodeGeneratorResponse.FEATURE_PROTO3_OPTIONAL  # type: ignore
+        )
+
     for file_to_generate in request.file_to_generate:
         proto_file = _get_proto(request, file_to_generate)
 
