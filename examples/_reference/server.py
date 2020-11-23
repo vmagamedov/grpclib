@@ -1,6 +1,6 @@
 import asyncio
 
-import grpc.experimental.aio as grpc_aio
+import grpc.aio
 
 from helloworld import helloworld_pb2
 from helloworld import helloworld_pb2_grpc
@@ -13,7 +13,7 @@ class Greeter(helloworld_pb2_grpc.GreeterServicer):
 
 
 async def serve(host='127.0.0.1', port=50051):
-    server = grpc_aio.server()
+    server = grpc.aio.server()
     helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), server)
     server.add_insecure_port(f'{host}:{port}')
     await server.start()
