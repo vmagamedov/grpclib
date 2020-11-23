@@ -730,5 +730,5 @@ class Server(_GC, asyncio.AbstractServer):
         await self._server.wait_closed()
         if self._handlers:
             await asyncio.wait({
-                asyncio.create_task(h.wait_closed()) for h in self._handlers
+                self._loop.create_task(h.wait_closed()) for h in self._handlers
             })
