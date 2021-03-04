@@ -1,3 +1,6 @@
 import setuptools
 
-setuptools.setup()
+setuptools.setup(
+    name="grpclib",
+    python_requires='>=3.6',
+)
