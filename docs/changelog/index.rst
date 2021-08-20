@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.4.2 (dev)
+~~~~~~~~~~~
+
+  - Extended ``SendTrailingMetadata`` event with a status-related properties
+  - Fixed deprecation warning related to ``asyncio.wait()`` and Python 3.9
+  - Added support for the ``--experimental_allow_proto3_optional`` protoc flag
+
 0.4.1
 ~~~~~
 
