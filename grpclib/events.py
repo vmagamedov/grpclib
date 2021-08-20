@@ -3,6 +3,7 @@ from typing import Optional, Callable, Any, Collection, List, Coroutine
 from itertools import chain
 from collections import defaultdict
 
+from .const import Status
 from .metadata import Deadline, _Metadata
 
 
@@ -193,10 +194,16 @@ class SendTrailingMetadata(_Event, metaclass=_EventMeta):
     """Dispatches before sending trailers with trailing metadata to the client
 
     :param mutable metadata: trailing metadata
+    :param read-only status: status of the RPC call
+    :param read-only status_message: description of the status
+    :param read-only status_details: additional to the status details
     """
     __payload__ = ('metadata',)
 
     metadata: _Metadata
+    status: Status
+    status_message: Optional[str]
+    status_details: Any
 
 
 class _DispatchServerEvents(_DispatchCommonEvents):
@@ -236,9 +243,16 @@ class _DispatchServerEvents(_DispatchCommonEvents):
     async def send_trailing_metadata(
         self,
         metadata: _Metadata,
+        *,
+        status: Status,
+        status_message: Optional[str],
+        status_details: Any,
     ) -> Tuple[_Metadata]:
         return await self.__dispatch__(SendTrailingMetadata(  # type: ignore
             metadata=metadata,
+            status=status,
+            status_message=status_message,
+            status_details=status_details,
         ))
 
 

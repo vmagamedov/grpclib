@@ -256,7 +256,12 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
             headers.append((_STATUS_DETAILS_KEY, status_details_bin))
 
         metadata = MultiDict(metadata or ())
-        metadata, = await self._dispatch.send_trailing_metadata(metadata)
+        metadata, = await self._dispatch.send_trailing_metadata(
+            metadata,
+            status=status,
+            status_message=status_message,
+            status_details=status_details,
+        )
         headers.extend(encode_metadata(cast(_Metadata, metadata)))
 
         await self._stream.send_headers(headers, end_stream=True)

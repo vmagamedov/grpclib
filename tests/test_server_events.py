@@ -1,6 +1,7 @@
 import pytest
 
 from multidict import MultiDict
+from google.rpc.error_details_pb2 import ResourceInfo
 
 from grpclib.const import Status
 from grpclib.events import listen, RecvRequest, RecvMessage, SendMessage
@@ -18,7 +19,12 @@ class DummyService(DummyServiceBase):
         await stream.recv_message()
         await stream.send_initial_metadata(metadata={'initial': 'true'})
         await stream.send_message(DummyReply(value='pong'))
-        await stream.send_trailing_metadata(metadata={'trailing': 'true'})
+        await stream.send_trailing_metadata(
+            metadata={'trailing': 'true'},
+            status=Status.OK,
+            status_message="Everything is OK",
+            status_details=[ResourceInfo()],
+        )
 
     async def UnaryStream(self, stream):
         raise GRPCError(Status.UNIMPLEMENTED)
@@ -85,3 +91,6 @@ async def test_send_initial_metadata():
 async def test_send_trailing_metadata():
     event = await _test(SendTrailingMetadata)
     assert event.metadata == MultiDict({'trailing': 'true'})
+    assert event.status is Status.OK
+    assert event.status_message == "Everything is OK"
+    assert isinstance(event.status_details[0], ResourceInfo)
