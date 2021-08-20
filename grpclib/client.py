@@ -7,7 +7,7 @@ import warnings
 
 from types import TracebackType
 from typing import Generic, Optional, Union, Type, List, Sequence, Any, cast
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, Tuple, TYPE_CHECKING
 
 try:
     import ssl as _ssl
@@ -312,7 +312,9 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                             'Invalid content-type: {!r}'
                             .format(content_type))
 
-    def _raise_for_grpc_status(self, headers_map: Dict[str, str]) -> None:
+    def _process_grpc_status(
+        self, headers_map: Dict[str, str],
+    ) -> Tuple[Status, Optional[str], Any]:
         grpc_status = headers_map.get('grpc-status')
         if grpc_status is None:
             raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
@@ -322,11 +324,11 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             raise GRPCError(Status.UNKNOWN, ('Invalid grpc-status: {!r}'
                                              .format(grpc_status)))
         else:
+            message, details = None, None
             if status is not Status.OK:
                 message = headers_map.get('grpc-message')
                 if message is not None:
                     message = decode_grpc_message(message)
-                details = None
                 if self._status_details_codec is not None:
                     details_bin = headers_map.get(_STATUS_DETAILS_KEY)
                     if details_bin is not None:
@@ -334,7 +336,13 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                             status, message,
                             decode_bin_value(details_bin.encode('ascii'))
                         )
-                raise GRPCError(status, message, details)
+        return status, message, details
+
+    def _raise_for_grpc_status(
+        self, status: Status, message: Optional[str], details: Any,
+    ) -> None:
+        if status is not Status.OK:
+            raise GRPCError(status, message, details)
 
     async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
@@ -369,11 +377,20 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 im, = await self._dispatch.recv_initial_metadata(im)
                 self.initial_metadata = im
 
+                status, message, details = self._process_grpc_status(
+                    headers_map,
+                )
+
                 tm = decode_metadata(headers)
-                tm, = await self._dispatch.recv_trailing_metadata(tm)
+                tm, = await self._dispatch.recv_trailing_metadata(
+                    tm,
+                    status=status,
+                    status_message=message,
+                    status_details=details,
+                )
                 self.trailing_metadata = tm
 
-                self._raise_for_grpc_status(headers_map)
+                self._raise_for_grpc_status(status, message, details)
             else:
                 im = decode_metadata(headers)
                 im, = await self._dispatch.recv_initial_metadata(im)
@@ -451,11 +468,20 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 trailers = await self._stream.recv_trailers()
                 self._recv_trailing_metadata_done = True
 
+                status, message, details = self._process_grpc_status(
+                    dict(trailers),
+                )
+
                 tm = decode_metadata(trailers)
-                tm, = await self._dispatch.recv_trailing_metadata(tm)
+                tm, = await self._dispatch.recv_trailing_metadata(
+                    tm,
+                    status=status,
+                    status_message=message,
+                    status_details=details,
+                )
                 self.trailing_metadata = tm
 
-                self._raise_for_grpc_status(dict(trailers))
+                self._raise_for_grpc_status(status, message, details)
 
     async def cancel(self) -> None:
         """Coroutine to cancel this request/stream.
@@ -500,11 +526,17 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if self._stream.headers is not None:
             self._raise_for_status(dict(self._stream.headers))
         if self._stream.trailers is not None:
-            self._raise_for_grpc_status(dict(self._stream.trailers))
+            status, message, details = self._process_grpc_status(
+                dict(self._stream.trailers),
+            )
+            self._raise_for_grpc_status(status, message, details)
         elif self._stream.headers is not None:
             headers_map = dict(self._stream.headers)
             if 'grpc-status' in headers_map:
-                self._raise_for_grpc_status(headers_map)
+                status, message, details = self._process_grpc_status(
+                    headers_map,
+                )
+                self._raise_for_grpc_status(status, message, details)
 
     async def __aexit__(
         self,

@@ -196,7 +196,7 @@ class SendTrailingMetadata(_Event, metaclass=_EventMeta):
     :param mutable metadata: trailing metadata
     :param read-only status: status of the RPC call
     :param read-only status_message: description of the status
-    :param read-only status_details: additional to the status details
+    :param read-only status_details: additional status details
     """
     __payload__ = ('metadata',)
 
@@ -288,10 +288,16 @@ class RecvTrailingMetadata(_Event, metaclass=_EventMeta):
     from the server
 
     :param mutable metadata: trailing metadata
+    :param read-only status: status of the RPC call
+    :param read-only status_message: description of the status
+    :param read-only status_details: additional status details
     """
     __payload__ = ('metadata',)
 
     metadata: _Metadata
+    status: Status
+    status_message: Optional[str]
+    status_details: Any
 
 
 class _DispatchChannelEvents(_DispatchCommonEvents):
@@ -325,7 +331,14 @@ class _DispatchChannelEvents(_DispatchCommonEvents):
     async def recv_trailing_metadata(
         self,
         metadata: _Metadata,
+        *,
+        status: Status,
+        status_message: Optional[str],
+        status_details: Any,
     ) -> Tuple[_Metadata]:
         return await self.__dispatch__(RecvTrailingMetadata(  # type: ignore
             metadata=metadata,
+            status=status,
+            status_message=status_message,
+            status_details=status_details,
         ))
