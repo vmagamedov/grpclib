@@ -1,9 +1,11 @@
 Changelog
 =========
 
-0.4.2 (dev)
-~~~~~~~~~~~
+0.4.2
+~~~~~
 
+  - **BREAKING:** Regenerated internal ``*_pb2.py`` files, they now require
+    ``protobuf>=3.12.0``
   - Extended ``SendTrailingMetadata`` and ``RecvTrailingMetadata`` events with a
     status-related properties
   - Fixed deprecation warning related to ``asyncio.wait()`` and Python 3.9
