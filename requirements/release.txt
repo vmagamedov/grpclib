@@ -9,8 +9,8 @@ certifi==2020.12.5        # via requests
 chardet==4.0.0            # via requests
 colorama==0.4.4           # via twine
 docutils==0.16            # via readme-renderer
-grpcio-tools==1.28.1      # via -r requirements/release.in
-grpcio==1.36.1            # via grpcio-tools
+grpcio-tools==1.39.0      # via -r requirements/release.in
+grpcio==1.39.0            # via grpcio-tools
 h2==4.0.0                 # via -r requirements/../setup.txt
 hpack==4.0.0              # via -r requirements/../setup.txt, h2
 hyperframe==6.0.0         # via -r requirements/../setup.txt, h2

@@ -1,4 +1,4 @@
 -r ../setup.txt
 twine
-grpcio-tools==1.28.1
+grpcio-tools
 mypy-protobuf
