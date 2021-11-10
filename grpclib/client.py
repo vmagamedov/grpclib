@@ -401,9 +401,9 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
 
         If server sends UNARY response, then you can call this coroutine only
         once. If server sends STREAM response, then you should call this
-        coroutine several times, until it returns None when the server has ended the stream. To simplify you code in
-        this case, :py:class:`Stream` implements async iterations protocol, so
-        you can use it like this:
+        coroutine several times, until it returns None when the server has
+        ended the stream. To simplify you code in this case, :py:class:`Stream`
+        implements async iterations protocol, so you can use it like this:
 
         .. code-block:: python3
 
@@ -816,6 +816,7 @@ class ServiceMethod(Generic[_SendType, _RecvType]):
     """
     Base class for all gRPC method types
     """
+
     def __init__(
         self,
         channel: Channel,

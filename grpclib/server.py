@@ -112,9 +112,10 @@ class Stream(StreamIterator[_RecvType], Generic[_RecvType, _SendType]):
 
         If client sends UNARY request, then you can call this coroutine
         only once. If client sends STREAM request, then you should call this
-        coroutine several times, until it returns None. To simplify your code
-        in this case, :py:class:`Stream` class implements async iteration
-        protocol, so you can use it like this:
+        coroutine several times, until it returns None when the client has
+        ended the stream. To simplify your code in this case,
+        :py:class:`Stream` class implements async iteration protocol, so
+        you can use it like this:
 
         .. code-block:: python3
 
