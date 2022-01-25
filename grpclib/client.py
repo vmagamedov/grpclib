@@ -756,6 +756,9 @@ class Channel:
             ctx.set_npn_protocols(['h2'])
         except NotImplementedError:
             pass
+        except AttributeError:
+            # Python 3.10 throws an attribute error now
+            pass
 
         return ctx
 
