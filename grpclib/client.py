@@ -752,7 +752,7 @@ class Channel:
         ctx.options |= (_ssl.OP_NO_TLSv1 | _ssl.OP_NO_TLSv1_1)
         ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
         ctx.set_alpn_protocols(['h2'])
-        if ssl.HAS_NPN:
+        if _ssl.HAS_NPN:
             ctx.set_npn_protocols(['h2'])
 
         return ctx
