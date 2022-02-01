@@ -1,4 +1,3 @@
-import ssl
 import sys
 import enum
 import http
@@ -754,10 +753,7 @@ class Channel:
         ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
         ctx.set_alpn_protocols(['h2'])
         if ssl.HAS_NPN:
-            try:
-                ctx.set_npn_protocols(['h2'])
-            except NotImplementedError:
-                pass
+            ctx.set_npn_protocols(['h2'])
 
         return ctx
 
