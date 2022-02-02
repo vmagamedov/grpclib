@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.4.3 (dev)
+~~~~~~~~~~~
+
+  - Added Python 3.10 support, dropped Python 3.6 support
+  - Fixed setup.cfg to include generated .pyi files
+
 0.4.2
 ~~~~~
 
