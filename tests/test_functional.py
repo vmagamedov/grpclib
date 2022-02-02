@@ -60,34 +60,9 @@ class ClientServer:
         return dummy_service, dummy_stub
 
     async def __aexit__(self, *exc_info):
+        self.channel.close()
         self.server.close()
         await self.server.wait_closed()
-        self.channel.close()
-
-
-class ClientServerCurrentLoop:
-    server = None
-    channel = None
-
-    async def __aenter__(self):
-        host = '127.0.0.1'
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('127.0.0.1', 0))
-            _, port = s.getsockname()
-
-        dummy_service = DummyService()
-
-        self.server = Server([dummy_service])
-        await self.server.start(host, port)
-
-        self.channel = Channel(host=host, port=port)
-        dummy_stub = DummyServiceStub(self.channel)
-        return dummy_service, dummy_stub
-
-    async def __aexit__(self, *exc_info):
-        self.server.close()
-        await self.server.wait_closed()
-        self.channel.close()
 
 
 class UnixClientServer:
@@ -110,9 +85,9 @@ class UnixClientServer:
         return dummy_service, dummy_stub
 
     async def __aexit__(self, *exc_info):
+        self.channel.close()
         self.server.close()
         await self.server.wait_closed()
-        self.channel.close()
         if os.path.exists(self.sock):
             os.unlink(self.sock)
         if os.path.exists(self.temp):
@@ -230,11 +205,3 @@ async def test_stream_stream_advanced():
             assert await stream.recv_message() == DummyReply(value='baz')
 
             assert await stream.recv_message() is None
-
-
-@pytest.mark.asyncio
-async def test_unary_unary_with_current_loop():
-    async with ClientServerCurrentLoop() as (handler, stub):
-        reply = await stub.UnaryUnary(DummyRequest(value='ping'))
-        assert reply == DummyReply(value='pong')
-        assert handler.log == [DummyRequest(value='ping')]

@@ -1,23 +1,6 @@
 - !Image
-  name: py36
-  from: &py36 !DockerImage python:3.6.0-slim
-  repository: localhost/grpclib/py36
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{runtime}}
-    runtime: !File "requirements/runtime.txt"
-
-- !Image
-  name: test36
-  from: *py36
-  repository: localhost/grpclib/test36
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{test}}
-    test: !File "requirements/test.txt"
-
-
-- !Image
   name: py37
-  from: &py37 !DockerImage python:3.7.0-slim
+  from: &py37 !DockerImage python:3.7.12-slim
   repository: localhost/grpclib/py37
   tasks:
   - run: pip3 install --no-cache-dir -r {{runtime}}
@@ -30,14 +13,6 @@
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
     test: !File "requirements/test.txt"
-
-- !Image
-  name: lint37
-  from: *py37
-  repository: localhost/grpclib/lint37
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{lint}}
-    lint: !File "requirements/lint.txt"
 
 - !Image
   name: check37
@@ -98,13 +73,6 @@
     PYTHONPATH: .
 
 - !Command
-  name: test36
-  image: test36
-  run: [py.test]
-  environ:
-    PYTHONPATH: .
-
-- !Command
   name: test37
   image: test37
   run: [py.test]
@@ -120,10 +88,53 @@
 
 - !Command
   name: flake8
-  image: lint37
+  image: check37
   run: [flake8]
 
 - !Command
   name: mypy
   image: check37
   run: [mypy]
+
+
+- !Image
+  name: py310
+  from: &py310 !DockerImage python:3.10.0-slim
+  repository: localhost/grpclib/py310
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{runtime}}
+    runtime: !File "requirements/runtime.txt"
+
+- !Image
+  name: test310
+  from: *py310
+  repository: localhost/grpclib/test310
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{test}}
+    test: !File "requirements/test.txt"
+
+- !Command
+  name: test310
+  image: test310
+  run: [py.test]
+  environ:
+    PYTHONPATH: .
+
+
+- !Image
+  name: pip-compile
+  from: !DockerImage python:3.7.12-slim
+  repository: localhost/grpclib/pip-compile
+  tasks:
+  - run: pip3 install --no-cache-dir pip-tools
+
+- !Command
+  name: upgrade
+  image: pip-compile
+  run: |
+    pip-compile -U --annotation-style=line setup.py -o setup.txt
+    pip-compile -U --annotation-style=line requirements/runtime.in
+    pip-compile -U --annotation-style=line requirements/docs.in
+    pip-compile -U --annotation-style=line requirements/test.in
+    pip-compile -U --annotation-style=line requirements/check.in
+    pip-compile -U --annotation-style=line requirements/release.in

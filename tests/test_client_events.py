@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+
 import pytest
 
 from multidict import MultiDict
@@ -7,7 +9,6 @@ from grpclib.const import Status
 from grpclib.events import listen, SendRequest, SendMessage, RecvMessage
 from grpclib.events import RecvInitialMetadata, RecvTrailingMetadata
 from grpclib.testing import ChannelFor
-from grpclib._compat import nullcontext
 from grpclib.exceptions import GRPCError
 
 from dummy_pb2 import DummyRequest, DummyReply

@@ -110,7 +110,7 @@ async def test_watch_unknown_service():
                 status=HealthCheckResponse.SERVICE_UNKNOWN,
             )
             try:
-                with async_timeout.timeout(0.01):
+                async with async_timeout.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass
@@ -131,7 +131,7 @@ async def test_watch_zero_checks():
                 status=HealthCheckResponse.SERVING,
             )
             try:
-                with async_timeout.timeout(0.01):
+                async with async_timeout.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass
@@ -158,7 +158,7 @@ async def test_watch_service_check():
 
             # check that there are no unnecessary messages
             try:
-                with async_timeout.timeout(0.01):
+                async with async_timeout.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass
@@ -217,7 +217,7 @@ async def test_watch_service_status():
             # changed
             s1.set(True)
             try:
-                with async_timeout.timeout(0.01):
+                async with async_timeout.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass

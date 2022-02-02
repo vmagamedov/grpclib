@@ -45,7 +45,6 @@ def _check(type_name):
         objgraph.show_backrefs(obj, max_depth=3, filename='graph.png')
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7), reason='Python < 3.7')
 def test_connection():
     loop = asyncio.new_event_loop()
 
@@ -81,7 +80,6 @@ def test_connection():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 7), reason='Python < 3.7')
 async def test_stream():
     cs = ClientServer(DummyService, DummyServiceStub)
     async with cs as (_, stub):

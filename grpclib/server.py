@@ -8,6 +8,7 @@ import warnings
 from types import TracebackType
 from typing import TYPE_CHECKING, Optional, Collection, Generic, Type, cast
 from typing import List, Tuple, Dict, Any, Callable, ContextManager, Set
+from contextlib import nullcontext
 
 import h2.config
 import h2.exceptions
@@ -29,7 +30,6 @@ from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
 from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
 from .encoding.proto import _googleapis_available
 
-from ._compat import nullcontext
 from ._registry import servers as _servers
 
 if TYPE_CHECKING:

@@ -35,7 +35,8 @@ async def test_concurrent_connect(loop):
     po.assert_awaited_once_with(ANY, '127.0.0.1', 50051, ssl=None)
 
 
-def test_default_ssl_context():
+@pytest.mark.asyncio
+async def test_default_ssl_context():
     certifi_channel = Channel(ssl=True)
     with patch.dict('sys.modules', {'certifi': None}):
         system_channel = Channel(ssl=True)

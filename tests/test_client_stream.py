@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 import async_timeout
+import pytest_asyncio
 
 from faker import Faker
 from h2.events import StreamReset, StreamEnded
@@ -24,8 +25,8 @@ from dummy_pb2 import DummyRequest, DummyReply
 fake = Faker()
 
 
-@pytest.fixture(name='cs')
-def client_stream_fixture():
+@pytest_asyncio.fixture(name='cs')
+async def client_stream_fixture():
     return ClientStream(send_type=DummyRequest, recv_type=DummyReply)
 
 
@@ -203,7 +204,7 @@ async def test_deadline_during_send_request():
     cs = ClientStream(timeout=0.01, connect_time=1,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        with async_timeout.timeout(5) as safety_timeout:
+        async with async_timeout.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 try:
                     await stream.send_request()
@@ -219,7 +220,7 @@ async def test_deadline_during_send_message():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        with async_timeout.timeout(5) as safety_timeout:
+        async with async_timeout.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_request()
 
@@ -239,7 +240,7 @@ async def test_deadline_during_recv_initial_metadata():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        with async_timeout.timeout(5) as safety_timeout:
+        async with async_timeout.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_message(DummyRequest(value='ping'),
                                           end=True)
@@ -258,7 +259,7 @@ async def test_deadline_during_recv_message():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        with async_timeout.timeout(5) as safety_timeout:
+        async with async_timeout.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_message(DummyRequest(value='ping'), end=True)
 
@@ -286,7 +287,7 @@ async def test_deadline_during_recv_trailing_metadata():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        with async_timeout.timeout(5) as safety_timeout:
+        async with async_timeout.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_message(DummyRequest(value='ping'), end=True)
 
@@ -322,7 +323,7 @@ async def test_deadline_during_cancel():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        with async_timeout.timeout(5) as safety_timeout:
+        async with async_timeout.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_request()
 

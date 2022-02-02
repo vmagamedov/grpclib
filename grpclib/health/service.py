@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 def _status(
     checks: Set['CheckBase'],
-) -> 'HealthCheckResponse.ServingStatusValue':
+) -> 'HealthCheckResponse.ServingStatus.ValueType':
     statuses = {check.__status__() for check in checks}
     if statuses == {None}:
         return HealthCheckResponse.UNKNOWN

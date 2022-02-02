@@ -1,6 +1,7 @@
 import socket
 
 import pytest
+import pytest_asyncio
 
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
 
@@ -24,13 +25,13 @@ def port_fixture():
     return port
 
 
-@pytest.fixture(name='channel')
-def channel_fixture(loop, port):
+@pytest_asyncio.fixture(name='channel')
+async def channel_fixture(port):
     services = [DummyService()]
     services = ServerReflection.extend(services)
 
     server = Server(services)
-    loop.run_until_complete(server.start(port=port))
+    await server.start(port=port)
 
     channel = Channel(port=port)
     try:
@@ -38,7 +39,7 @@ def channel_fixture(loop, port):
     finally:
         channel.close()
         server.close()
-        loop.run_until_complete(server.wait_closed())
+        await server.wait_closed()
 
 
 @pytest.mark.asyncio
