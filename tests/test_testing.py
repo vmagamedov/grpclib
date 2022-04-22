@@ -1,4 +1,4 @@
-from asyncio.exceptions import TimeoutError
+import asyncio
 
 import pytest
 
@@ -35,6 +35,6 @@ async def test_failure():
 async def test_timeout(caplog):
     async with ChannelFor([DummyService()]) as channel:
         stub = DummyServiceStub(channel)
-        with pytest.raises(TimeoutError):
+        with pytest.raises(asyncio.TimeoutError):
             await stub.UnaryUnary(DummyRequest(value='ping'), timeout=-1)
     assert not caplog.records
