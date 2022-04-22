@@ -1,3 +1,5 @@
+from asyncio.exceptions import TimeoutError
+
 import pytest
 
 from grpclib import GRPCError, Status
@@ -27,3 +29,12 @@ async def test_failure():
         with pytest.raises(GRPCError) as err:
             await stub.UnaryUnary(DummyRequest(value='ping'))
         assert err.value.status is Status.FAILED_PRECONDITION
+
+
+@pytest.mark.asyncio
+async def test_timeout(caplog):
+    async with ChannelFor([DummyService()]) as channel:
+        stub = DummyServiceStub(channel)
+        with pytest.raises(TimeoutError):
+            await stub.UnaryUnary(DummyRequest(value='ping'), timeout=-1)
+    assert not caplog.records

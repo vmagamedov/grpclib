@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Collection, Optional, Type
 
 from .client import Channel
 from .server import Server
+from .protocol import H2Protocol
 from .encoding.base import CodecBase, StatusDetailsCodecBase
 
 if TYPE_CHECKING:
@@ -24,15 +25,19 @@ class _InMemoryTransport(asyncio.Transport):
 
     def __init__(
         self,
-        protocol: asyncio.Protocol,
+        protocol: H2Protocol,
     ) -> None:
         super().__init__()
         self._loop = asyncio.get_event_loop()
         self._protocol = protocol
 
+    def _write_soon(self, data: bytes) -> None:
+        if not self._protocol.connection.is_closing():
+            self._protocol.data_received(data)
+
     def write(self, data: bytes) -> None:
         if data:
-            self._loop.call_soon(self._protocol.data_received, data)
+            self._loop.call_soon(self._write_soon, data)
 
     def is_closing(self) -> bool:
         return False
