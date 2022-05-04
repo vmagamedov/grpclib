@@ -42,7 +42,9 @@ class DummyService(DummyServiceBase):
 
 class ClientServer:
     server = None
+    server_ctx = None
     channel = None
+    channel_ctx = None
 
     async def __aenter__(self):
         host = '127.0.0.1'
@@ -54,22 +56,25 @@ class ClientServer:
 
         self.server = Server([dummy_service])
         await self.server.start(host, port)
+        self.server_ctx = await self.server.__aenter__()
 
         self.channel = Channel(host=host, port=port)
+        self.channel_ctx = await self.channel.__aenter__()
         dummy_stub = DummyServiceStub(self.channel)
         return dummy_service, dummy_stub
 
     async def __aexit__(self, *exc_info):
-        self.channel.close()
-        self.server.close()
-        await self.server.wait_closed()
+        await self.channel_ctx.__aexit__(*exc_info)
+        await self.server_ctx.__aexit__(*exc_info)
 
 
 class UnixClientServer:
     temp = None
     sock = None
     server = None
+    server_ctx = None
     channel = None
+    channel_ctx = None
 
     async def __aenter__(self):
         self.temp = tempfile.mkdtemp()
@@ -79,15 +84,16 @@ class UnixClientServer:
 
         self.server = Server([dummy_service])
         await self.server.start(path=self.sock)
+        self.server_ctx = await self.server.__aenter__()
 
         self.channel = Channel(path=self.sock)
+        self.channel_ctx = await self.channel.__aenter__()
         dummy_stub = DummyServiceStub(self.channel)
         return dummy_service, dummy_stub
 
     async def __aexit__(self, *exc_info):
-        self.channel.close()
-        self.server.close()
-        await self.server.wait_closed()
+        await self.channel_ctx.__aexit__(*exc_info)
+        await self.server_ctx.__aexit__(*exc_info)
         if os.path.exists(self.sock):
             os.unlink(self.sock)
         if os.path.exists(self.temp):

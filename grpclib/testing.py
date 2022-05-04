@@ -14,6 +14,18 @@ if TYPE_CHECKING:
 
 class _Server(asyncio.AbstractServer):
 
+    def get_loop(self) -> asyncio.AbstractEventLoop:
+        raise NotImplementedError
+
+    def is_serving(self) -> bool:
+        raise NotImplementedError
+
+    async def start_serving(self) -> None:
+        raise NotImplementedError
+
+    async def serve_forever(self) -> None:
+        raise NotImplementedError
+
     def close(self) -> None:
         pass
 

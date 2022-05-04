@@ -551,7 +551,7 @@ class Handler(_GC, AbstractHandler):
         return not self._tasks and not self._cancelled
 
 
-class Server(_GC, asyncio.AbstractServer):
+class Server(_GC):
     """
     HTTP/2 server, which uses gRPC service handlers to handle requests.
 
@@ -738,3 +738,15 @@ class Server(_GC, asyncio.AbstractServer):
             await asyncio.wait({
                 self._loop.create_task(h.wait_closed()) for h in self._handlers
             })
+
+    async def __aenter__(self) -> 'Server':
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()
+        await self.wait_closed()

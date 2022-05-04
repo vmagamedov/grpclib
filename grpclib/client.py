@@ -712,7 +712,7 @@ class Channel:
                 self._protocol_factory, self._host, self._port,
                 ssl=self._ssl,
             )
-        return cast(H2Protocol, protocol)
+        return protocol
 
     @property
     def _connected(self) -> bool:
