@@ -4,18 +4,18 @@
 #
 #    pip-compile --annotation-style=line requirements/check.in
 #
-certifi==2021.10.8        # via -r requirements/runtime.in
+certifi==2022.5.18.1      # via -r requirements/runtime.in
 flake8==4.0.1             # via -r requirements/check.in
-googleapis-common-protos==1.56.0  # via -r requirements/runtime.in
-grpcio==1.46.0            # via grpcio-tools
-grpcio-tools==1.46.0      # via -r requirements/check.in
+googleapis-common-protos==1.56.2  # via -r requirements/runtime.in
+grpcio==1.46.3            # via grpcio-tools
+grpcio-tools==1.46.3      # via -r requirements/check.in
 h2==4.1.0                 # via -r requirements/../setup.txt
 hpack==4.0.0              # via -r requirements/../setup.txt, h2
 hyperframe==6.0.1         # via -r requirements/../setup.txt, h2
 importlib-metadata==4.2.0  # via flake8
 mccabe==0.6.1             # via flake8
 multidict==6.0.2          # via -r requirements/../setup.txt
-mypy==0.950               # via -r requirements/check.in
+mypy==0.960               # via -r requirements/check.in
 mypy-extensions==0.4.3    # via mypy
 mypy-protobuf==3.2.0      # via -r requirements/check.in
 protobuf==3.20.1          # via -r requirements/runtime.in, googleapis-common-protos, grpcio-tools, mypy-protobuf
@@ -23,9 +23,9 @@ pycodestyle==2.8.0        # via flake8
 pyflakes==2.4.0           # via flake8
 six==1.16.0               # via grpcio
 tomli==2.0.1              # via mypy
-typed-ast==1.5.3          # via mypy
+typed-ast==1.5.4          # via mypy
 types-certifi==2021.10.8.2  # via -r requirements/check.in
-types-protobuf==3.19.18   # via mypy-protobuf
+types-protobuf==3.19.21   # via mypy-protobuf
 typing-extensions==4.2.0  # via importlib-metadata, mypy
 zipp==3.8.0               # via importlib-metadata
 
