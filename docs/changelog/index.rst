@@ -4,7 +4,15 @@ Changelog
 0.4.3 (dev)
 ~~~~~~~~~~~
 
+  - **BREAKING:** Regenerated internal ``*_pb2.py`` files, they now require
+    ``protobuf>=3.15.0``
+  - Fixed mistake of subclassing ``AbstractServer`` in
+    ``grpclib.server.Server``, this fixes mypy errors
+  - Fixed ``ChannelFor`` utility to properly cleanup resources without cryptic
+    tracebacks (see #156)
   - Added Python 3.10 support, dropped Python 3.6 support
+  - Fixed TLS support in Python 3.10; pull request courtesy Scott Phillips
+    @fundthmcalculus
   - Fixed setup.cfg to include generated .pyi files
 
 0.4.2
