@@ -670,7 +670,7 @@ class Channel:
 
         self._host = host
         self._port = port
-        self._loop = loop or asyncio.get_event_loop()
+        self._loop = loop
         self._path = path
         self._codec = codec
         self._status_details_codec = status_details_codec
@@ -703,6 +703,8 @@ class Channel:
         return H2Protocol(Handler(), self._config, self._h2_config)
 
     async def _create_connection(self) -> H2Protocol:
+        if not self._loop:
+            self._loop = asyncio.get_running_loop()
         if self._path is not None:
             _, protocol = await self._loop.create_unix_connection(
                 self._protocol_factory, self._path, ssl=self._ssl,
