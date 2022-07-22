@@ -798,10 +798,9 @@ class Channel:
             except RuntimeError:
                 # There is no loop to handle exception on.
                 return
-            if loop.is_closed():
-                return
-            self.close()
-            loop.call_exception_handler({'message': message})
+            if not loop.is_closed():
+                self.close()
+                loop.call_exception_handler({'message': message})
 
     async def __aenter__(self) -> 'Channel':
         return self
