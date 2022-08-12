@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.4.3 (dev)
-~~~~~~~~~~~
+0.4.3
+~~~~~
 
   - **BREAKING:** Regenerated internal ``*_pb2.py`` files, they now require
     ``protobuf>=3.15.0``
