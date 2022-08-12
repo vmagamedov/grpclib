@@ -82,13 +82,13 @@ Installation
 
 .. code-block:: console
 
-  $ pip3 install grpclib protobuf
+  $ pip3 install "grpclib[protobuf]"
 
 Bug fixes and new features are frequently published via release candidates:
 
 .. code-block:: console
 
-  $ pip3 install --upgrade --pre grpclib
+  $ pip3 install --upgrade --pre "grpclib[protobuf]"
 
 For the code generation you will also need a ``protoc`` compiler, which can be
 installed with ``protobuf`` system package:
