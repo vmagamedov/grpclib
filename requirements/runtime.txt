@@ -4,10 +4,23 @@
 #
 #    pip-compile --annotation-style=line requirements/runtime.in
 #
-certifi==2022.5.18.1      # via -r requirements/runtime.in
-googleapis-common-protos==1.56.2  # via -r requirements/runtime.in
-h2==4.1.0                 # via -r requirements/../setup.txt
-hpack==4.0.0              # via -r requirements/../setup.txt, h2
-hyperframe==6.0.1         # via -r requirements/../setup.txt, h2
-multidict==6.0.2          # via -r requirements/../setup.txt
-protobuf==3.20.2          # via -r requirements/runtime.in, googleapis-common-protos
+certifi==2022.5.18.1
+    # via -r runtime.in
+googleapis-common-protos==1.56.2
+    # via -r runtime.in
+h2==4.1.0
+    # via -r ../setup.txt
+hpack==4.0.0
+    # via
+    #   -r ../setup.txt
+    #   h2
+hyperframe==6.0.1
+    # via
+    #   -r ../setup.txt
+    #   h2
+multidict==6.0.2
+    # via -r ../setup.txt
+protobuf==3.20.2
+    # via
+    #   -r runtime.in
+    #   googleapis-common-protos
