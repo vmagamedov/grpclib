@@ -484,7 +484,7 @@ def test_max_window_size(config):
 
 
 @pytest.mark.asyncio
-def test_goaway_twice(config):
+async def test_goaway_twice(config):
     """
     We should be able to receive frames after connection close with GOAWAY frame
     """
