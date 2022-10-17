@@ -564,6 +564,8 @@ class EventsProcessor:
             proc = self.processors[event.__class__]
         except KeyError:
             raise NotImplementedError(event)
+        except AttributeError:
+            pass  # connection was closed and self.processors was deleted
         else:
             proc(event)
 

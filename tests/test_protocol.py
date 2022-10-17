@@ -481,3 +481,24 @@ def test_max_window_size(config):
         == config.http2_connection_window_size
     assert server_h2c.remote_settings.initial_window_size \
         == config.http2_stream_window_size
+
+
+@pytest.mark.asyncio
+def test_goaway_twice(config):
+    """
+    We should be able to receive frames after connection close with GOAWAY frame
+    """
+    client_h2c, server_h2c = create_connections()
+
+    to_client_transport = TransportStub(client_h2c)
+    server_conn = Connection(server_h2c, to_client_transport, config=config)
+
+    to_server_transport = TransportStub(server_h2c)
+    client_conn = Connection(client_h2c, to_server_transport, config=config)
+
+    server_processor = EventsProcessor(DummyHandler(), server_conn)
+
+    client_h2c.close_connection()
+    client_h2c.close_connection()
+    client_conn.flush()
+    to_server_transport.process(server_processor)
