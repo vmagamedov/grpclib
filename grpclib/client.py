@@ -294,13 +294,17 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if status is not None and status != _H2_OK:
             grpc_status = _H2_TO_GRPC_STATUS_MAP.get(status, Status.UNKNOWN)
             raise GRPCError(grpc_status,
-                            'Received :status = {!r}'.format(status))
+                            'Received :status = {!r}'.format(status),
+                            headers=headers_map,
+                            http_status=status)
 
     def _raise_for_content_type(self, headers_map: Dict[str, str]) -> None:
         content_type = headers_map.get('content-type')
         if content_type is None:
             raise GRPCError(Status.UNKNOWN,
-                            'Missing content-type header')
+                            'Missing content-type header',
+                            headers=headers_map,
+                            http_status=headers_map.get(":status"))
 
         base_content_type, _, sub_type = content_type.partition('+')
         sub_type = sub_type or ProtoCodec.__content_subtype__
@@ -310,19 +314,26 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         ):
             raise GRPCError(Status.UNKNOWN,
                             'Invalid content-type: {!r}'
-                            .format(content_type))
+                            .format(content_type),
+                            headers=headers_map,
+                            http_status=headers_map.get(":status"))
 
     def _process_grpc_status(
         self, headers_map: Dict[str, str],
     ) -> Tuple[Status, Optional[str], Any]:
         grpc_status = headers_map.get('grpc-status')
         if grpc_status is None:
-            raise GRPCError(Status.UNKNOWN, 'Missing grpc-status header')
+            raise GRPCError(Status.UNKNOWN,
+                            'Missing grpc-status header',
+                            headers=headers_map,
+                            http_status=headers_map.get(":status"))
         try:
             status = Status(int(grpc_status))
         except ValueError:
-            raise GRPCError(Status.UNKNOWN, ('Invalid grpc-status: {!r}'
-                                             .format(grpc_status)))
+            raise GRPCError(Status.UNKNOWN,
+                            'Invalid grpc-status: {!r}'.format(grpc_status),
+                            headers=headers_map,
+                            http_status=headers_map.get(":status"))
         else:
             message, details = None, None
             if status is not Status.OK:
@@ -339,10 +350,15 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         return status, message, details
 
     def _raise_for_grpc_status(
-        self, status: Status, message: Optional[str], details: Any,
+            self,
+            status: Status,
+            message: Optional[str],
+            details: Any,
+            headers: Dict[str, str] = None
     ) -> None:
         if status is not Status.OK:
-            raise GRPCError(status, message, details)
+            status = headers.get(":status") if headers is not None else None
+            raise GRPCError(status, message, details, headers, http_status=status)
 
     async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
@@ -390,7 +406,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 )
                 self.trailing_metadata = tm
 
-                self._raise_for_grpc_status(status, message, details)
+                self._raise_for_grpc_status(status, message, details, headers_map)
             else:
                 im = decode_metadata(headers)
                 im, = await self._dispatch.recv_initial_metadata(im)
@@ -523,20 +539,22 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 await self.recv_trailing_metadata()
 
     def _maybe_raise(self) -> None:
+        headers_map = {}
         if self._stream.headers is not None:
-            self._raise_for_status(dict(self._stream.headers))
+            headers_map = dict(self._stream.headers)
+            self._raise_for_status(headers_map)
         if self._stream.trailers is not None:
             status, message, details = self._process_grpc_status(
                 dict(self._stream.trailers),
             )
-            self._raise_for_grpc_status(status, message, details)
+            self._raise_for_grpc_status(status, message, details, headers)
         elif self._stream.headers is not None:
             headers_map = dict(self._stream.headers)
             if 'grpc-status' in headers_map:
                 status, message, details = self._process_grpc_status(
                     headers_map,
                 )
-                self._raise_for_grpc_status(status, message, details)
+                self._raise_for_grpc_status(status, message, details, headers_map)
 
     async def __aexit__(
         self,

@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 from .const import Status
 
@@ -31,6 +31,8 @@ class GRPCError(Exception):
         status: Status,
         message: Optional[str] = None,
         details: Any = None,
+        headers: Dict[str, str] = None,
+        http_status: Optional[str] = None
     ) -> None:
         super().__init__(status, message, details)
         #: :py:class:`~grpclib.const.Status` of the error
@@ -39,6 +41,10 @@ class GRPCError(Exception):
         self.message = message
         #: Error details
         self.details = details
+        #: http headers
+        self.headers = headers
+        #: http status
+        self.http_status = http_status
 
 
 class ProtocolError(Exception):
