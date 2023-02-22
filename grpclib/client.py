@@ -27,7 +27,7 @@ from .protocol import H2Protocol, AbstractHandler, Stream as _Stream, Peer
 from .metadata import Deadline, USER_AGENT, decode_grpc_message, encode_timeout
 from .metadata import encode_metadata, decode_metadata, _MetadataLike, _Metadata
 from .metadata import _STATUS_DETAILS_KEY, decode_bin_value
-from .exceptions import GRPCError, ProtocolError, StreamTerminatedError
+from .exceptions import GRPCError, ProtocolError, StreamTerminatedError, HTTPDetails
 from .encoding.base import GRPC_CONTENT_TYPE, CodecBase, StatusDetailsCodecBase
 from .encoding.proto import ProtoCodec, ProtoStatusDetailsCodec
 from .encoding.proto import _googleapis_available
@@ -295,16 +295,14 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             grpc_status = _H2_TO_GRPC_STATUS_MAP.get(status, Status.UNKNOWN)
             raise GRPCError(grpc_status,
                             'Received :status = {!r}'.format(status),
-                            headers=headers_map,
-                            http_status=status)
+                            HTTPDetails(status, headers_map))
 
     def _raise_for_content_type(self, headers_map: Dict[str, str]) -> None:
         content_type = headers_map.get('content-type')
         if content_type is None:
             raise GRPCError(Status.UNKNOWN,
                             'Missing content-type header',
-                            headers=headers_map,
-                            http_status=headers_map.get(":status"))
+                            HTTPDetails(headers_map.get(":status"), headers_map))
 
         base_content_type, _, sub_type = content_type.partition('+')
         sub_type = sub_type or ProtoCodec.__content_subtype__
@@ -315,8 +313,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             raise GRPCError(Status.UNKNOWN,
                             'Invalid content-type: {!r}'
                             .format(content_type),
-                            headers=headers_map,
-                            http_status=headers_map.get(":status"))
+                            HTTPDetails(headers_map.get(":status"), headers_map))
 
     def _process_grpc_status(
         self, headers_map: Dict[str, str],
@@ -325,15 +322,13 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if grpc_status is None:
             raise GRPCError(Status.UNKNOWN,
                             'Missing grpc-status header',
-                            headers=headers_map,
-                            http_status=headers_map.get(":status"))
+                            HTTPDetails(headers_map.get(":status"), headers_map))
         try:
             status = Status(int(grpc_status))
         except ValueError:
             raise GRPCError(Status.UNKNOWN,
                             'Invalid grpc-status: {!r}'.format(grpc_status),
-                            headers=headers_map,
-                            http_status=headers_map.get(":status"))
+                            HTTPDetails(headers_map.get(":status"), headers_map))
         else:
             message, details = None, None
             if status is not Status.OK:
@@ -358,7 +353,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
     ) -> None:
         if status is not Status.OK:
             status = headers.get(":status") if headers is not None else None
-            raise GRPCError(status, message, details, headers, http_status=status)
+            raise GRPCError(status, message, details, HTTPDetails(status, headers))
 
     async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
