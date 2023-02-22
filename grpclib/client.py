@@ -295,14 +295,14 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             grpc_status = _H2_TO_GRPC_STATUS_MAP.get(status, Status.UNKNOWN)
             raise GRPCError(grpc_status,
                             'Received :status = {!r}'.format(status),
-                            HTTPDetails(status, headers_map))
+                            http_details=HTTPDetails(status, headers_map))
 
     def _raise_for_content_type(self, headers_map: Dict[str, str]) -> None:
         content_type = headers_map.get('content-type')
         if content_type is None:
             raise GRPCError(Status.UNKNOWN,
                             'Missing content-type header',
-                            HTTPDetails(headers_map.get(":status"), headers_map))
+                            http_details=HTTPDetails(headers_map.get(":status"), headers_map))
 
         base_content_type, _, sub_type = content_type.partition('+')
         sub_type = sub_type or ProtoCodec.__content_subtype__
@@ -313,7 +313,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             raise GRPCError(Status.UNKNOWN,
                             'Invalid content-type: {!r}'
                             .format(content_type),
-                            HTTPDetails(headers_map.get(":status"), headers_map))
+                            http_details=HTTPDetails(headers_map.get(":status"), headers_map))
 
     def _process_grpc_status(
         self, headers_map: Dict[str, str],
@@ -322,13 +322,13 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
         if grpc_status is None:
             raise GRPCError(Status.UNKNOWN,
                             'Missing grpc-status header',
-                            HTTPDetails(headers_map.get(":status"), headers_map))
+                            http_details=HTTPDetails(headers_map.get(":status"), headers_map))
         try:
             status = Status(int(grpc_status))
         except ValueError:
             raise GRPCError(Status.UNKNOWN,
                             'Invalid grpc-status: {!r}'.format(grpc_status),
-                            HTTPDetails(headers_map.get(":status"), headers_map))
+                            http_details=HTTPDetails(headers_map.get(":status"), headers_map))
         else:
             message, details = None, None
             if status is not Status.OK:
