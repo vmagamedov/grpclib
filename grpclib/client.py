@@ -352,8 +352,8 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
             headers: Dict[str, str] = None
     ) -> None:
         if status is not Status.OK:
-            status = headers.get(":status") if headers is not None else None
-            raise GRPCError(status, message, details, HTTPDetails(status, headers))
+            http_status = headers.get(":status") if headers is not None else None
+            raise GRPCError(status, message, details, HTTPDetails(http_status, headers))
 
     async def recv_initial_metadata(self) -> None:
         """Coroutine to wait for headers with initial metadata from the server.
