@@ -3,6 +3,7 @@ import asyncio
 from unittest.mock import patch, ANY
 
 import pytest
+import certifi
 
 from grpclib.client import Channel
 from grpclib.testing import ChannelFor
@@ -35,14 +36,13 @@ async def test_concurrent_connect(loop):
     po.assert_awaited_once_with(ANY, '127.0.0.1', 50051, ssl=None)
 
 
-@pytest.mark.asyncio
-async def test_default_ssl_context():
-    certifi_channel = Channel(ssl=True)
-    with patch.dict('sys.modules', {'certifi': None}):
-        system_channel = Channel(ssl=True)
+def test_default_ssl_context():
+    with patch.object(certifi, "where", return_value=certifi.where()) as po:
+        certifi_channel = Channel(ssl=True)
+        assert certifi_channel._ssl
+        po.assert_called_once()
 
-    certifi_certs = certifi_channel._ssl.get_ca_certs(binary_form=True)
-    system_certs = system_channel._ssl.get_ca_certs(binary_form=True)
-
-    assert certifi_certs
-    assert certifi_certs != system_certs
+    with patch.object(certifi, "where", side_effect=AssertionError):
+        with patch.dict("sys.modules", {"certifi": None}):
+            system_channel = Channel(ssl=True)
+            assert system_channel._ssl
