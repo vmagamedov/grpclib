@@ -4,7 +4,7 @@ Pure-Python gRPC implementation for asyncio
 .. image:: https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/7e1631d13476f1e870af0d5605b643fc14471a6d/banner-direct-single.svg
   :target: https://standforukraine.com
 
-|project|_ |documentation|_ |version|_ |tag|_ |license|_
+|project|_ |documentation|_ |version|_ |tag|_ |downloads|_ |license|_
 
 This project is based on `hyper-h2`_ and **requires Python >= 3.7**.
 
@@ -157,3 +157,5 @@ Contributing
 .. _project: https://github.com/vmagamedov/grpclib
 .. |documentation| image:: https://img.shields.io/badge/docs-grpclib.rtfd.io-blue.svg
 .. _documentation: https://grpclib.readthedocs.io/en/latest/
+.. |downloads| image:: https://static.pepy.tech/badge/grpclib/month
+.. _downloads: https://pepy.tech/project/grpclib
