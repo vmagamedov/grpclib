@@ -1,11 +1,18 @@
 Changelog
 =========
 
+0.4.5
+~~~~~
+
+  - Fixed stubs generation for services with no rpc methods defined; pull
+    request courtesy @xloem
+
 0.4.4
 ~~~~~
 
   - Fixed deprecation warnings in tests
-  - Fixed minor issue by allowing to receive frames after receiving GOAWAY frame
+  - Fixed minor issue by allowing to receive frames after receiving ``GOAWAY``
+    frame
 
 0.4.3
 ~~~~~
