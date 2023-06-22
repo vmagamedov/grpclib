@@ -129,6 +129,8 @@ def render(
             buf.add('def __init__(self, channel: {}.{}) -> None:'
                     .format(client.__name__, client.Channel.__name__))
             with buf.indent():
+                if len(service.methods) == 0:
+                    buf.add('pass')
                 for method in service.methods:
                     name, cardinality, request_type, reply_type = method
                     full_name = '/{}/{}'.format(service_name, name)
