@@ -20,7 +20,7 @@ def _status_pb2() -> Any:
 @_cached
 def _sym_db() -> Any:
     from google.protobuf.symbol_database import Default
-    return Default()  # type: ignore
+    return Default()
 
 
 @_cached

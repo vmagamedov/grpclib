@@ -1,5 +1,5 @@
 from typing import Optional, TypeVar, Callable, Any, Union, cast
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import dataclass, field, fields, replace, is_dataclass
 
 
 class _DefaultType:
@@ -71,6 +71,7 @@ def _validate(config: 'Configuration') -> None:
 def _with_defaults(
     cls: _ConfigurationType, metadata_key: str,
 ) -> _ConfigurationType:
+    assert is_dataclass(cls)
     defaults = {}
     for f in fields(cls):
         if getattr(cls, f.name) is _DEFAULT:
@@ -79,7 +80,7 @@ def _with_defaults(
             else:
                 default = f.metadata['default']
             defaults[f.name] = default
-    return replace(cls, **defaults)
+    return replace(cls, **defaults)  # type: ignore
 
 
 @dataclass(frozen=True)

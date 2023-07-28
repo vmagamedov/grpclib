@@ -30,8 +30,8 @@ def _status(
 
 def _reset_waits(
     events: Collection[asyncio.Event],
-    waits: Mapping[asyncio.Event, 'asyncio.Future[bool]'],
-) -> Dict[asyncio.Event, 'asyncio.Future[bool]']:
+    waits: Mapping[asyncio.Event, 'asyncio.Task[bool]'],
+) -> Dict[asyncio.Event, 'asyncio.Task[bool]']:
     new_waits = {}
     for event in events:
         wait = waits.get(event)
