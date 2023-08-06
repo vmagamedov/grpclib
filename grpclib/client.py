@@ -621,7 +621,9 @@ class Channel:
         path: Optional[str] = None,
         codec: Optional[CodecBase] = None,
         status_details_codec: Optional[StatusDetailsCodecBase] = None,
-        ssl: Union[None, bool, '_ssl.SSLContext'] = None,
+        ssl: Union[
+            None, bool, "_ssl.SSLContext", "_ssl.DefaultVerifyPaths"
+        ] = None,
         config: Optional[Configuration] = None,
     ):
         """Initialize connection to the server
@@ -642,8 +644,9 @@ class Channel:
             decode error details in a trailing metadata, if omitted
             ``ProtoStatusDetailsCodec`` is used by default
 
-        :param ssl: ``True`` or :py:class:`~python:ssl.SSLContext` object; if
-            ``True``, default SSL context is used.
+        :param ssl: ``True`` or :py:class:`~python:ssl.SSLContext` object or
+            :py:class:`~python:ssl.DefaultVerifyPaths` object; if ``True``,
+            default SSL context is used.
         """
         if path is not None and (host is not None or port is not None):
             raise ValueError("The 'path' parameter can not be used with the "
@@ -655,8 +658,13 @@ class Channel:
             if port is None:
                 port = 50051
 
+        if ssl is not None and _ssl is None:
+            raise RuntimeError('SSL is not supported.')
+
         if ssl is True:
             ssl = self._get_default_ssl_context()
+        elif isinstance(ssl, _ssl.DefaultVerifyPaths):
+            ssl = self._get_default_ssl_context(verify_paths=ssl)
 
         if codec is None:
             codec = ProtoCodec()
@@ -746,27 +754,29 @@ class Channel:
         return cast(H2Protocol, self._protocol)
 
     # https://python-hyper.org/projects/h2/en/stable/negotiating-http2.html
-    def _get_default_ssl_context(self) -> '_ssl.SSLContext':
-        if _ssl is None:
-            raise RuntimeError('SSL is not supported.')
-
-        try:
-            import certifi
-        except ImportError:
-            cafile = None
+    def _get_default_ssl_context(
+        self, *, verify_paths: Optional['_ssl.DefaultVerifyPaths'] = None,
+    ) -> '_ssl.SSLContext':
+        if verify_paths is not None:
+            cafile = verify_paths.cafile
+            capath = verify_paths.capath
         else:
-            cafile = certifi.where()
+            try:
+                import certifi
+            except ImportError:
+                cafile = None
+            else:
+                cafile = certifi.where()
+            capath = None
 
         ctx = _ssl.create_default_context(
             purpose=_ssl.Purpose.SERVER_AUTH,
             cafile=cafile,
+            capath=capath,
         )
         ctx.minimum_version = _ssl.TLSVersion.TLSv1_2
         ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
         ctx.set_alpn_protocols(['h2'])
-        if _ssl.HAS_NPN:
-            ctx.set_npn_protocols(['h2'])
-
         return ctx
 
     def request(
