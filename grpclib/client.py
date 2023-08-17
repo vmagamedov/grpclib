@@ -670,7 +670,7 @@ class Channel:
 
         self._host = host
         self._port = port
-        self._loop = loop or asyncio.get_event_loop()
+        self._loop = loop
         self._path = path
         self._codec = codec
         self._status_details_codec = status_details_codec
@@ -703,12 +703,13 @@ class Channel:
         return H2Protocol(Handler(), self._config, self._h2_config)
 
     async def _create_connection(self) -> H2Protocol:
+        loop = self._loop or asyncio.get_running_loop()
         if self._path is not None:
-            _, protocol = await self._loop.create_unix_connection(
+            _, protocol = await loop.create_unix_connection(
                 self._protocol_factory, self._path, ssl=self._ssl,
             )
         else:
-            _, protocol = await self._loop.create_connection(
+            _, protocol = await loop.create_connection(
                 self._protocol_factory, self._host, self._port,
                 ssl=self._ssl,
             )
@@ -792,11 +793,14 @@ class Channel:
         if self._protocol is not None:
             message = 'Unclosed connection: {!r}'.format(self)
             warnings.warn(message, ResourceWarning)
-            if self._loop.is_closed():
+            try:
+                loop = self._loop or asyncio.get_running_loop()
+            except RuntimeError:
+                # There is no loop to handle exception on.
                 return
-            else:
+            if not loop.is_closed():
                 self.close()
-                self._loop.call_exception_handler({'message': message})
+                loop.call_exception_handler({'message': message})
 
     async def __aenter__(self) -> 'Channel':
         return self
