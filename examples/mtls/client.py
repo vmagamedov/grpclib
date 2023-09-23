@@ -21,17 +21,10 @@ CLIENT_KEY = DIR.joinpath('spock-imposter.key' if SPY_MODE else 'spock.key')
 def create_secure_context(
     client_cert: Path, client_key: Path, *, trusted: Path,
 ) -> ssl.SSLContext:
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
-    ctx.verify_mode = ssl.CERT_REQUIRED
+    ctx = ssl.create_default_context(cafile=str(trusted))
     ctx.load_cert_chain(str(client_cert), str(client_key))
-    ctx.load_verify_locations(str(trusted))
-    ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
     ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
     ctx.set_alpn_protocols(['h2'])
-    try:
-        ctx.set_npn_protocols(['h2'])
-    except NotImplementedError:
-        pass
     return ctx
 
 

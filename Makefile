@@ -45,6 +45,9 @@ server:
 server_streaming:
 	@PYTHONPATH=examples python3 -m streaming.server
 
+server_mtls:
+	@PYTHONPATH=examples python3 -m mtls.server
+
 _server:
 	@PYTHONPATH=examples python3 -m _reference.server
 
@@ -53,6 +56,9 @@ client:
 
 client_streaming:
 	@PYTHONPATH=examples python3 -m streaming.client
+
+client_mtls:
+	@PYTHONPATH=examples python3 -m mtls.client
 
 _client:
 	@PYTHONPATH=examples python3 -m _reference.client
