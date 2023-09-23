@@ -705,12 +705,24 @@ class Channel:
     async def _create_connection(self) -> H2Protocol:
         if self._path is not None:
             _, protocol = await self._loop.create_unix_connection(
-                self._protocol_factory, self._path, ssl=self._ssl,
+                self._protocol_factory,
+                self._path,
+                ssl=self._ssl,
+                server_hostname=(
+                    self._config.ssl_target_name_override
+                    if self._ssl is not None else None
+                ),
             )
         else:
             _, protocol = await self._loop.create_connection(
-                self._protocol_factory, self._host, self._port,
+                self._protocol_factory,
+                self._host,
+                self._port,
                 ssl=self._ssl,
+                server_hostname=(
+                    self._config.ssl_target_name_override
+                    if self._ssl is not None else None
+                ),
             )
         return protocol
 

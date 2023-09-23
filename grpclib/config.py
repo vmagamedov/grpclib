@@ -135,6 +135,13 @@ class Configuration:
         },
     )
 
+    #: NOTE: This should be used for testing only. Overrides the hostname that
+    #: the target server’s certificate will be matched against. By default, the
+    #: value of the host argument is used.
+    ssl_target_name_override: Optional[str] = field(
+        default=None,
+    )
+
     def __post_init__(self) -> None:
         _validate(self)
 
