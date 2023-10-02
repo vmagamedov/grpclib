@@ -1,6 +1,0 @@
-requirements_file: requirements/docs.txt
-build:
-  image: latest
-python:
-  version: 3.7
-  pip_install: True
