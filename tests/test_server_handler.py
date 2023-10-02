@@ -5,7 +5,7 @@ import pytest
 
 from h2.errors import ErrorCodes
 
-from grpclib.const import Handler, Cardinality
+from grpclib.const import Handler, Cardinality, Status
 from grpclib.events import _DispatchServerEvents
 from grpclib.server import request_handler
 from grpclib.protocol import Connection, EventsProcessor
@@ -168,7 +168,7 @@ async def test_deadline(
         (':path', '/package.Service/Method'),
         ('te', 'trailers'),
         ('content-type', 'application/grpc'),
-        ('grpc-timeout', '10m'),
+        ('grpc-timeout', '50m'),
     ]
     methods = {'/package.Service/Method': Handler(
         handler,
@@ -179,12 +179,12 @@ async def test_deadline(
     task = loop.create_task(
         call_handler(methods, stream, headers)
     )
-    await asyncio.wait_for(task, 0.1)
+    await asyncio.wait_for(task, 0.1)  # should be bigger than grpc-timeout
     assert stream.__events__ == [
         SendHeaders(headers=[
             (':status', '200'),
             ('content-type', 'application/grpc+proto'),
-            ('grpc-status', '4'),  # DEADLINE_EXCEEDED
+            ('grpc-status', str(Status.DEADLINE_EXCEEDED.value)),
         ], end_stream=True),
         Reset(ErrorCodes.NO_ERROR),
     ]
