@@ -59,12 +59,30 @@ Here is how to establish a secure connection to a public gRPC server:
 
 In this case ``grpclib`` uses system CA certificates. But ``grpclib`` has also
 a built-in support for a certifi_ package which contains actual Mozilla's
-collection of CA certificates. All you need is to install it and keep it
-updated -- this is a more favorable way than relying on system CA certificates:
+collection of CA certificates. All you need is to install it and keep it up to
+date -- this is a more favorable way than relying on system CA certificates:
 
 .. code-block:: console
 
   $ pip3 install certifi
+
+Another way to tell which CA certificates to use is by using
+:py:func:`python:ssl.get_default_verify_paths` function:
+
+.. code-block:: python
+
+  channel = Channel(host, port, ssl=ssl.get_default_verify_paths())
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This function also supports reading ``SSL_CERT_FILE`` and ``SSL_CERT_DIR``
+environment variables to override your system defaults. It returns
+``DefaultVerifyPaths`` named tuple structure which you can customize and provide
+your own ``cafile`` and ``capath`` values without using environment variables or
+placing certificates into a distribution-specific directory:
+
+.. code-block:: python3
+
+  ssl.get_default_verify_paths()._replace(cafile=YOUR_CA_FILE)
 
 ``grpclib`` also allows you to use a custom SSL configuration by providing a
 :py:class:`~python:ssl.SSLContext` object. We have a simple mTLS auth example

@@ -645,8 +645,8 @@ class Channel:
             ``ProtoStatusDetailsCodec`` is used by default
 
         :param ssl: ``True`` or :py:class:`~python:ssl.SSLContext` object or
-            :py:class:`~python:ssl.DefaultVerifyPaths` object; if ``True``,
-            default SSL context is used.
+            ``ssl.DefaultVerifyPaths`` object; if ``True``, default SSL context
+            is used.
         """
         if path is not None and (host is not None or port is not None):
             raise ValueError("The 'path' parameter can not be used with the "
