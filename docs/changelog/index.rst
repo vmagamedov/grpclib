@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.4.6
+~~~~~
+
+  - **BREAKING:** Regenerated internal ``*_pb2.py`` files, they now require
+    ``protobuf>=3.20.0``
+  - Implemented support for ``ssl.get_default_verify_paths()`` as a way to
+    specify CA certificates to create secure ``Channel``
+  - Implemented ``Configuration.ssl_target_name_override`` option
+
 0.4.5
 ~~~~~
 
