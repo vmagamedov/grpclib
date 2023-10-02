@@ -1,5 +1,8 @@
+import ssl
 import sys
 import asyncio
+import tempfile
+import contextlib
 from unittest.mock import patch, ANY
 
 import pytest
@@ -77,3 +80,21 @@ async def test_ssl_target_name_override(loop):
             po.assert_awaited_once_with(
                 ANY, ANY, ANY, ssl=channel._ssl, server_hostname="example.com"
             )
+
+
+def test_default_verify_paths():
+    with contextlib.ExitStack() as cm:
+        tf = cm.enter_context(tempfile.NamedTemporaryFile()).name
+        td = cm.enter_context(tempfile.TemporaryDirectory())
+        po = cm.enter_context(
+            patch.object(ssl.SSLContext, "load_verify_locations"),
+        )
+        cm.enter_context(
+            patch.dict("os.environ", SSL_CERT_FILE=tf, SSL_CERT_DIR=td),
+        )
+        default_verify_paths = ssl.get_default_verify_paths()
+        channel = Channel(ssl=default_verify_paths)
+        assert channel._ssl
+        po.assert_called_once_with(tf, td, None)
+        assert default_verify_paths.openssl_cafile_env == "SSL_CERT_FILE"
+        assert default_verify_paths.openssl_capath_env == "SSL_CERT_DIR"
