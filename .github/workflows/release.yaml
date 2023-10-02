@@ -6,12 +6,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/cache@v1
+    - uses: actions/checkout@v4
+    - uses: actions/cache@v3
       with:
         path: ~/.cache/pip
         key: pip-${{ hashFiles('requirements/release.txt') }} }}
-    - uses: actions/setup-python@v1
+    - uses: actions/setup-python@v4
       with:
         python-version: "3.7"
     - run: pip3 install -r requirements/release.txt
