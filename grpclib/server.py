@@ -625,6 +625,7 @@ class Server(_GC):
         self._config = config.__for_server__()
 
         self._server: Optional[asyncio.AbstractServer] = None
+        self._server_closed_fut: Optional[asyncio.Future[None]] = None
         self._handlers: Set[Handler] = set()
 
         self.__dispatch__ = _DispatchServerEvents()
@@ -703,7 +704,6 @@ class Server(_GC):
                 self._protocol_factory, path, sock=sock, backlog=backlog,
                 ssl=ssl
             )
-
         else:
             # FIXME: Not all union combinations were tried because there are
             #  too many unions
@@ -715,15 +715,18 @@ class Server(_GC):
                 backlog=backlog, ssl=ssl,
                 reuse_address=reuse_address, reuse_port=reuse_port
             )
+        self._server_closed_fut = self._loop.create_future()
 
     def close(self) -> None:
         """Stops accepting new connections, cancels all currently running
         requests. Request handlers are able to handle `CancelledError` and
         exit properly.
         """
-        if self._server is None:
+        if self._server is None or self._server_closed_fut is None:
             raise RuntimeError('Server is not started')
         self._server.close()
+        if not self._server_closed_fut.done():
+            self._server_closed_fut.set_result(None)
         for handler in self._handlers:
             handler.close()
 
@@ -731,8 +734,9 @@ class Server(_GC):
         """Coroutine to wait until all existing request handlers will exit
         properly.
         """
-        if self._server is None:
+        if self._server is None or self._server_closed_fut is None:
             raise RuntimeError('Server is not started')
+        await self._server_closed_fut
         await self._server.wait_closed()
         if self._handlers:
             await asyncio.wait({

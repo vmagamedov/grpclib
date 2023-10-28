@@ -167,6 +167,6 @@ class ClientServer:
         return handler, stub
 
     async def __aexit__(self, *exc_info):
+        self.channel.close()
         self.server.close()
         await self.server.wait_closed()
-        self.channel.close()

@@ -106,6 +106,7 @@ class ChannelFor:
             status_details_codec=self._status_details_codec,
         )
         self._server._server = _Server()
+        self._server._server_closed_fut = self._server._loop.create_future()
         self._server_protocol = self._server._protocol_factory()
 
         self._channel = Channel(
