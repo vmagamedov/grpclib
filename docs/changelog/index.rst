@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.4.7
+~~~~~
+
+  - Added Python 3.12 support
+
 0.4.6
 ~~~~~
 

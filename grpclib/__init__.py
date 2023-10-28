@@ -1,7 +1,7 @@
 from .const import Status
 from .exceptions import GRPCError
 
-__version__ = '0.4.6'
+__version__ = '0.4.7rc1'
 
 __all__ = (
     'Status',
