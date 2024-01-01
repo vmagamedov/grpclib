@@ -231,7 +231,8 @@ class Connection:
 
     def close(self) -> None:
         if hasattr(self, '_transport'):
-            self._transport.close()
+            if not self._transport.is_closing():
+                self._transport.close()
             # remove cyclic references to improve memory usage
             del self._transport
             if hasattr(self._connection, '_frame_dispatch_table'):
