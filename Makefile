@@ -29,7 +29,7 @@ proto: clean
 release: proto
 	./scripts/release_check.sh
 	rm -rf grpclib.egg-info
-	python setup.py sdist
+	python setup.py sdist bdist_wheel
 
 reqs:
 	pip-compile -U setup.py -o setup.txt
