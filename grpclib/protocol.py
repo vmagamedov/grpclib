@@ -476,6 +476,8 @@ class Stream:
 
     @property
     def closable(self) -> bool:
+        if self._transport.is_closing():
+            return False
         if self._h2_connection.state_machine.state is ConnectionState.CLOSED:
             return False
         stream = self._h2_connection.streams.get(self.id)
