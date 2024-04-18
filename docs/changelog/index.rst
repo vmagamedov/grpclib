@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.4.8
+~~~~~
+
+  - Dropped Python 3.7 support
+  - Added "wheel" packaging format
+
 0.4.7
 ~~~~~
 
