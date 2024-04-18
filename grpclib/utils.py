@@ -5,7 +5,7 @@ import warnings
 
 from types import TracebackType
 from typing import TYPE_CHECKING, Optional, Set, Type, ContextManager, List
-from typing import Iterator, Collection, Callable, Any
+from typing import Iterator, Collection, Callable, Any, cast
 from functools import wraps
 from contextlib import contextmanager
 
@@ -143,14 +143,14 @@ def _second_stage(sig_num: 'signal.Signals') -> None:
 
 
 def _exit_handler(
-    sig_num: 'signal.Signals',
+    sig_num: int,
     servers: Collection['IClosable'],
     flag: List[bool],
 ) -> None:
     if flag:
-        _second_stage(sig_num)
+        _second_stage(cast('signal.Signals', sig_num))
     else:
-        _first_stage(sig_num, servers)
+        _first_stage(cast('signal.Signals', sig_num), servers)
         flag.append(True)
 
 
