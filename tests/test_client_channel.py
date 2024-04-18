@@ -1,5 +1,4 @@
 import ssl
-import sys
 import asyncio
 import tempfile
 import contextlib
@@ -21,7 +20,6 @@ from stubs import TransportStub
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="Python < 3.8")
 async def test_concurrent_connect(loop):
     count = 5
     reqs = [DummyRequest(value="ping") for _ in range(count)]
@@ -62,7 +60,6 @@ def test_default_ssl_context():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="Python < 3.8")
 async def test_ssl_target_name_override(loop):
     config = Configuration(ssl_target_name_override="example.com")
 

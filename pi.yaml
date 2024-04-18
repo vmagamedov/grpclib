@@ -1,39 +1,6 @@
 - !Image
-  name: py37
-  from: &py37 !DockerImage python:3.7.12-slim
-  repository: localhost/grpclib/py37
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{runtime}}
-    runtime: !File "requirements/runtime.txt"
-
-- !Image
-  name: test37
-  from: *py37
-  repository: localhost/grpclib/test37
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{test}}
-    test: !File "requirements/test.txt"
-
-- !Image
-  name: check37
-  from: *py37
-  repository: localhost/grpclib/check37
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{check}}
-    check: !File "requirements/check.txt"
-
-- !Image
-  name: docs37
-  from: *py37
-  repository: localhost/grpclib/docs37
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{docs}}
-    docs: !File "requirements/docs.txt"
-
-
-- !Image
   name: py38
-  from: &py38 !DockerImage python:3.8.3-slim
+  from: &py38 !DockerImage python:3.8.19-slim
   repository: localhost/grpclib/py38
   tasks:
   - run: pip3 install --no-cache-dir -r {{runtime}}
@@ -46,6 +13,22 @@
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
     test: !File "requirements/test.txt"
+
+- !Image
+  name: check38
+  from: *py38
+  repository: localhost/grpclib/check38
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{check}}
+    check: !File "requirements/check.txt"
+
+- !Image
+  name: docs38
+  from: *py38
+  repository: localhost/grpclib/docs38
+  tasks:
+  - run: pip3 install --no-cache-dir -r {{docs}}
+    docs: !File "requirements/docs.txt"
 
 
 - !Command
@@ -67,14 +50,14 @@
 
 - !Command
   name: docs
-  image: docs37
+  image: docs38
   run: sphinx-build -b html docs build
   environ:
     PYTHONPATH: .
 
 - !Command
-  name: test37
-  image: test37
+  name: test38
+  image: test38
   run: [py.test]
   environ:
     PYTHONPATH: .
@@ -88,34 +71,34 @@
 
 - !Command
   name: flake8
-  image: check37
+  image: check38
   run: [flake8]
 
 - !Command
   name: mypy
-  image: check37
+  image: check38
   run: [mypy]
 
 
 - !Image
-  name: py310
-  from: &py310 !DockerImage python:3.10.0-slim
-  repository: localhost/grpclib/py310
+  name: py312
+  from: &py312 !DockerImage python:3.12.3-slim
+  repository: localhost/grpclib/py312
   tasks:
   - run: pip3 install --no-cache-dir -r {{runtime}}
     runtime: !File "requirements/runtime.txt"
 
 - !Image
-  name: test310
-  from: *py310
-  repository: localhost/grpclib/test310
+  name: test312
+  from: *py312
+  repository: localhost/grpclib/test312
   tasks:
   - run: pip3 install --no-cache-dir -r {{test}}
     test: !File "requirements/test.txt"
 
 - !Command
-  name: test310
-  image: test310
+  name: test312
+  image: test312
   run: [py.test]
   environ:
     PYTHONPATH: .
@@ -123,7 +106,7 @@
 
 - !Image
   name: pip-compile
-  from: !DockerImage python:3.7.12-slim
+  from: !DockerImage python:3.8.19-slim
   repository: localhost/grpclib/pip-compile
   tasks:
   - run: pip3 install --no-cache-dir pip-tools

@@ -13,7 +13,7 @@ jobs:
         key: pip-${{ hashFiles('requirements/check.txt') }}
     - uses: actions/setup-python@v4
       with:
-        python-version: "3.7"
+        python-version: "3.8"
     - run: pip3 install -r requirements/check.txt
     - run: pip3 install -e .
     - run: make proto
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
     - uses: actions/checkout@v4
     - uses: actions/cache@v3
