@@ -1,0 +1,15 @@
+name: Release Dry Run
+on:
+  push:
+    branches: [ release-dry-run ]
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.7"
+    - run: pip3 install -r requirements/release.txt
+    - run: pip3 install -e .
+    - run: make release
