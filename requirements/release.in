@@ -2,3 +2,4 @@
 twine
 grpcio-tools
 mypy-protobuf
+wheel

@@ -7,4 +7,4 @@
 h2==4.1.0                 # via grpclib (setup.py)
 hpack==4.0.0              # via h2
 hyperframe==6.0.1         # via h2
-multidict==6.0.4          # via grpclib (setup.py)
+multidict==6.0.5          # via grpclib (setup.py)
