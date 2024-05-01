@@ -154,12 +154,20 @@ def _exit_handler(
         flag.append(True)
 
 
+def _single_stage_exit_handler(sig_num: int, servers: Collection['IClosable']) -> None:
+    """More aggressive version of exit_handler which runs the two stages sequentially.
+    """
+    _first_stage(cast('signal.Signals', sig_num), servers)
+    _second_stage(cast('signal.Signals', sig_num))
+
+
 @contextmanager
 def graceful_exit(
     servers: Collection['IClosable'],
     *,
     loop: Optional[asyncio.AbstractEventLoop] = None,
     signals: Collection[int] = (signal.SIGINT, signal.SIGTERM),
+    single_stage: bool = False,
 ) -> Iterator[None]:
     """Utility context-manager to help properly shutdown server in response to
     the OS signals
@@ -203,6 +211,7 @@ def graceful_exit(
     :param servers: list of servers
     :param loop: (deprecated) asyncio-compatible event loop
     :param signals: set of the OS signals to handle
+    :param single_stage: call first and second stages sequentially
 
     .. note:: Not supported in Windows
     """
@@ -215,7 +224,10 @@ def graceful_exit(
     signals = set(signals)
     flag: 'List[bool]' = []
     for sig_num in signals:
-        loop.add_signal_handler(sig_num, _exit_handler, sig_num, servers, flag)
+        if single_stage:
+            loop.add_signal_handler(sig_num, _single_stage_exit_handler, sig_num, servers)
+        else:
+            loop.add_signal_handler(sig_num, _exit_handler, sig_num, servers, flag)
     try:
         yield
     finally:
