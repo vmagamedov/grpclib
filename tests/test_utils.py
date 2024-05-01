@@ -118,7 +118,7 @@ from grpclib.server import Server
 
 async def main():
     server = Server([])
-    with graceful_exit([server]):
+    with graceful_exit([server]{extra_args}):
         await server.start('127.0.0.1')
         print("Started!")
         await server.wait_closed()
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     (signal.SIGTERM, signal.SIGINT),
 ])
 def test_graceful_exit_sluggish_server(sig1, sig2):
-    cmd = [sys.executable, '-u', '-c', SLUGGISH_SERVER]
+    cmd = [sys.executable, '-u', '-c', SLUGGISH_SERVER.format(extra_args="")]
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         try:
             assert proc.stdout.readline() == b'Started!\n'
@@ -146,6 +146,19 @@ def test_graceful_exit_sluggish_server(sig1, sig2):
                 proc.wait(0.01)
             proc.send_signal(sig2)
             assert proc.wait(1) == 128 + sig2
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+
+
+def test_graceful_exit_single_stage():
+    cmd = [sys.executable, '-u', '-c', SLUGGISH_SERVER.format(extra_args=", single_stage=True")]
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+        try:
+            assert proc.stdout.readline() == b'Started!\n'
+            time.sleep(0.001)
+            proc.send_signal(signal.SIGTERM)
+            assert proc.wait(1) == 128 + signal.SIGTERM
         finally:
             if proc.returncode is None:
                 proc.kill()
