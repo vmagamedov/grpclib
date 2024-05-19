@@ -489,6 +489,10 @@ class Stream:
 class AbstractHandler(ABC):
 
     @abstractmethod
+    def connection_made(self, connection: Connection) -> None:
+        pass
+
+    @abstractmethod
     def accept(
         self,
         stream: Stream,
@@ -709,6 +713,7 @@ class H2Protocol(Protocol):
         self.connection.flush()
         self.connection.initialize()
 
+        self.handler.connection_made(self.connection)
         self.processor = EventsProcessor(self.handler, self.connection)
 
     def data_received(self, data: bytes) -> None:
