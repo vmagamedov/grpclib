@@ -8,6 +8,7 @@ import pytest
 import certifi
 from h2.connection import H2Connection
 
+import grpclib.client
 from grpclib.client import Channel, Handler
 from grpclib.config import Configuration
 from grpclib.protocol import H2Protocol
@@ -95,3 +96,11 @@ def test_default_verify_paths():
         po.assert_called_once_with(tf, td, None)
         assert default_verify_paths.openssl_cafile_env == "SSL_CERT_FILE"
         assert default_verify_paths.openssl_capath_env == "SSL_CERT_DIR"
+
+
+def test_no_ssl_support():
+    with patch.object(grpclib.client, "_ssl", None):
+        Channel()
+        with pytest.raises(RuntimeError) as err:
+            Channel(ssl=True)
+        err.match("SSL is not supported")

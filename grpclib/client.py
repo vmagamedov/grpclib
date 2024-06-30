@@ -658,10 +658,10 @@ class Channel:
             if port is None:
                 port = 50051
 
-        if ssl is not None and _ssl is None:
-            raise RuntimeError('SSL is not supported.')
-
-        if ssl is True:
+        if _ssl is None:
+            if ssl is not None:
+                raise RuntimeError('SSL is not supported')
+        elif ssl is True:
             ssl = self._get_default_ssl_context()
         elif isinstance(ssl, _ssl.DefaultVerifyPaths):
             ssl = self._get_default_ssl_context(verify_paths=ssl)
