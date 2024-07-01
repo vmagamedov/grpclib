@@ -47,6 +47,9 @@ class DummyHandler(AbstractHandler):
     headers = None
     release_stream = None
 
+    def connection_made(self, connection):
+        pass
+
     def accept(self, stream, headers, release_stream):
         self.stream = stream
         self.headers = headers

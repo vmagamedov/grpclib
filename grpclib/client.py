@@ -62,7 +62,10 @@ _H2_TO_GRPC_STATUS_MAP = {
 
 
 class Handler(AbstractHandler):
-    connection_lost = False
+    closing = False
+
+    def connection_made(self, connection: Any) -> None:
+        pass
 
     def accept(self, stream: Any, headers: Any, release_stream: Any) -> None:
         raise NotImplementedError('Client connection can not accept requests')
@@ -71,7 +74,7 @@ class Handler(AbstractHandler):
         pass
 
     def close(self) -> None:
-        self.connection_lost = True
+        self.closing = True
 
 
 class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
@@ -737,7 +740,7 @@ class Channel:
     @property
     def _connected(self) -> bool:
         return (self._protocol is not None
-                and not self._protocol.handler.connection_lost)
+                and not cast(Handler, self._protocol.handler).closing)
 
     async def __connect__(self) -> H2Protocol:
         if not self._connected:
