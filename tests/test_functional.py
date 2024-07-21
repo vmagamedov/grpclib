@@ -1,6 +1,7 @@
 import os
 import socket
 import tempfile
+import ipaddress
 
 import pytest
 
@@ -46,19 +47,27 @@ class ClientServer:
     channel = None
     channel_ctx = None
 
+    def __init__(self, *, host="127.0.0.1"):
+        self.host = host
+
     async def __aenter__(self):
-        host = '127.0.0.1'
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('127.0.0.1', 0))
-            _, port = s.getsockname()
+        try:
+            ipaddress.IPv6Address(self.host)
+        except ipaddress.AddressValueError:
+            family = socket.AF_INET
+        else:
+            family = socket.AF_INET6
+        with socket.socket(family, socket.SOCK_STREAM) as s:
+            s.bind((self.host, 0))
+            _, port, *_ = s.getsockname()
 
         dummy_service = DummyService()
 
         self.server = Server([dummy_service])
-        await self.server.start(host, port)
+        await self.server.start(self.host, port)
         self.server_ctx = await self.server.__aenter__()
 
-        self.channel = Channel(host=host, port=port)
+        self.channel = Channel(host=self.host, port=port)
         self.channel_ctx = await self.channel.__aenter__()
         dummy_stub = DummyServiceStub(self.channel)
         return dummy_service, dummy_stub
@@ -211,3 +220,12 @@ async def test_stream_stream_advanced():
             assert await stream.recv_message() == DummyReply(value='baz')
 
             assert await stream.recv_message() is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not socket.has_ipv6, reason="No IPv6 support")
+async def test_ipv6():
+    async with ClientServer(host="::1") as (handler, stub):
+        reply = await stub.UnaryUnary(DummyRequest(value='ping'))
+        assert reply == DummyReply(value='pong')
+        assert handler.log == [DummyRequest(value='ping')]

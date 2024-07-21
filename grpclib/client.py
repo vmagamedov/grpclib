@@ -4,6 +4,7 @@ import http
 import time
 import asyncio
 import warnings
+import ipaddress
 
 from types import TracebackType
 from typing import Generic, Optional, Union, Type, List, Sequence, Any, cast
@@ -683,9 +684,8 @@ class Channel:
         self._codec = codec
         self._status_details_codec = status_details_codec
         self._ssl = ssl or None
-        self._authority = '{}:{}'.format(self._host, self._port)
         self._scheme = 'https' if self._ssl else 'http'
-        self._authority = '{}:{}'.format(self._host, self._port)
+        self._authority = self._get_authority(self._host, self._port)
         self._h2_config = H2Configuration(
             client_side=True,
             header_encoding='ascii',
@@ -778,6 +778,15 @@ class Channel:
         ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
         ctx.set_alpn_protocols(['h2'])
         return ctx
+
+    def _get_authority(self, host: str, port: int) -> str:
+        try:
+            ipv6_address = ipaddress.IPv6Address(host)
+        except ipaddress.AddressValueError:
+            pass
+        else:
+            host = f"[{ipv6_address}]"
+        return "{}:{}".format(host, port)
 
     def request(
         self,
