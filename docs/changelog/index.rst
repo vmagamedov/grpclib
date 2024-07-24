@@ -4,6 +4,9 @@ Changelog
 0.4.8
 ~~~~~
 
+  - Fixed ``authority`` header for the case when Channel's ``host`` argument
+    is the IPv6 address
+  - Fixed ``Channel`` for the case when ``ssl`` module is not available
   - Dropped Python 3.7 support
   - Added "wheel" packaging format
 
