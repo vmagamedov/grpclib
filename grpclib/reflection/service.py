@@ -14,7 +14,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Collection, List
+from typing import TYPE_CHECKING, Any, Collection, List
 
 from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
@@ -41,10 +41,14 @@ class ServerReflection(ServerReflectionBase):
     """
     Implements server reflection protocol.
     """
-    def __init__(self, *, _service_names: Collection[str]):
+    def __init__(
+        self, *,
+        _service_names: Collection[str],
+        _pool: Any | None = None  # type: ignore
+    ):
         self._service_names = _service_names
         # FIXME: DescriptorPool has incomplete typings
-        self._pool = Default()  # type: ignore
+        self._pool = _pool or Default()  # type: ignore
 
     def _not_found_response(self) -> ServerReflectionResponse:
         return ServerReflectionResponse(
@@ -161,7 +165,10 @@ class ServerReflection(ServerReflectionBase):
             await stream.send_message(response)
 
     @classmethod
-    def extend(cls, services: 'Collection[IServable]') -> 'List[IServable]':
+    def extend(
+        cls, services: 'Collection[IServable]',
+        pool: Any | None = None   # type: ignore
+    ) -> 'List[IServable]':
         """
         Extends services list with reflection service:
 
@@ -181,6 +188,7 @@ class ServerReflection(ServerReflectionBase):
         for service in services:
             service_names.append(_service_name(service))
         services = list(services)
-        services.append(cls(_service_names=service_names))
-        services.append(_ServerReflectionV1Alpha(_service_names=service_names))
+        services.append(cls(_service_names=service_names, _pool=pool))
+        services.append(
+            _ServerReflectionV1Alpha(_service_names=service_names, _pool=pool))
         return services
