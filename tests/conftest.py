@@ -1,12 +1,14 @@
+import asyncio
+
 import pytest
 
 from grpclib.config import Configuration
 
 
 @pytest.fixture(name='loop')
-def loop_fixture(event_loop):
+async def loop_fixture():
     """ Shortcut """
-    return event_loop
+    return asyncio.get_running_loop()
 
 
 @pytest.fixture(name='config')
