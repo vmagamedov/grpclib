@@ -1,11 +1,12 @@
 import asyncio
 
 import pytest
+import pytest_asyncio
 
 from grpclib.config import Configuration
 
 
-@pytest.fixture(name='loop')
+@pytest_asyncio.fixture(name='loop')
 async def loop_fixture():
     """ Shortcut """
     return asyncio.get_running_loop()
