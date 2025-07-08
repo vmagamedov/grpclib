@@ -1,5 +1,7 @@
 import socket
 
+from google.protobuf.descriptor_pool import DescriptorPool
+
 import pytest
 import pytest_asyncio
 
@@ -108,3 +110,45 @@ async def test_list_services_response(channel):
 
     service, = r1.list_services_response.service
     assert service.name == DESCRIPTOR.services_by_name['DummyService'].full_name
+
+
+@pytest.mark.asyncio
+async def test_file_containing_symbol_response_custom_pool(port):
+    my_pool = DescriptorPool()
+    services = [DummyService()]
+    services = ServerReflection.extend(services, pool=my_pool)
+
+    server = Server(services)
+    await server.start(port=port)
+
+    channel = Channel(port=port)
+    try:
+        # because we use our own pool (my_pool), there's no descriptors to find.
+        req = ServerReflectionRequest(
+            file_containing_symbol=(
+                DESCRIPTOR.message_types_by_name['DummyRequest'].full_name
+            ),
+        )
+        resp, = await ServerReflectionStub(channel).ServerReflectionInfo([req])
+
+        assert resp == ServerReflectionResponse(
+            error_response=ErrorResponse(
+                error_code=5,
+                error_message='not found',
+            ),
+        )
+
+        # once we update the pool, we should find the descriptor.
+        my_pool.AddSerializedFile(DESCRIPTOR.serialized_pb)
+
+        resp, = await ServerReflectionStub(channel).ServerReflectionInfo([req])
+
+        proto_bytes, = resp.file_descriptor_response.file_descriptor_proto
+        dummy_proto = FileDescriptorProto()
+        dummy_proto.ParseFromString(proto_bytes)
+        assert dummy_proto.name == DESCRIPTOR.name
+        assert dummy_proto.package == DESCRIPTOR.package
+    finally:
+        channel.close()
+        server.close()
+        await server.wait_closed()
