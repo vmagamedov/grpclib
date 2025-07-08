@@ -14,7 +14,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Any, Collection, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Collection, List, Optional
 
 from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
