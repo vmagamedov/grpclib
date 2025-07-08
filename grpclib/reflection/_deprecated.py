@@ -38,7 +38,7 @@ class ServerReflection(ServerReflectionBase):
     def __init__(
         self, *,
         _service_names: Collection[str],
-        _pool: Union[Any, None] = None
+        _pool: Optional[Any] = None
     ):
         self._service_names = _service_names
         # FIXME: DescriptorPool has incomplete typings
