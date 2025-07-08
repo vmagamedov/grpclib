@@ -14,7 +14,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 #
-from typing import TYPE_CHECKING, Any, Collection, List, Union
+from typing import TYPE_CHECKING, Any, Collection, List, Optional, Union
 
 from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
@@ -44,7 +44,7 @@ class ServerReflection(ServerReflectionBase):
     def __init__(
         self, *,
         _service_names: Collection[str],
-        _pool: Union[Any, None] = None
+        _pool: Optional[Any] = None
     ):
         self._service_names = _service_names
         # FIXME: DescriptorPool has incomplete typings
@@ -167,7 +167,8 @@ class ServerReflection(ServerReflectionBase):
     @classmethod
     def extend(
         cls, services: 'Collection[IServable]',
-        pool: Union[Any, None] = None
+        *,
+        pool: Optional[Any] = None
     ) -> 'List[IServable]':
         """
         Extends services list with reflection service:
