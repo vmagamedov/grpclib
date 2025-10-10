@@ -16,16 +16,19 @@ try:
     # annotationlib introduced in Python 3.14 to introspect annotations
     import annotationlib
 except ImportError:
-    annotationlib = None
+    annotationlib = None  # type: ignore
 
 
-def _get_annotations(params: dict):
+def _get_annotations(params: dict[str, Any]) -> dict[str, Any]:
     """Get annotations compatible with Python 3.14's deferred annotations."""
 
     if "__annotations__" in params:
-        return params["__annotations__"]
+        annotations: dict[str, Any] = params["__annotations__"]
+        return annotations
     elif annotationlib is not None:
         annotate = annotationlib.get_annotate_from_class_namespace(params)
+        if annotate is None:
+            return {}
         return annotationlib.call_annotate_function(
             annotate, format=annotationlib.Format.FORWARDREF
         )
