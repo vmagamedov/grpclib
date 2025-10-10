@@ -20,7 +20,7 @@ except ImportError:
 
 
 def _get_annotations(params: dict):
-    """Get annotations that is compatible with Python 3.14's deferred annotations."""
+    """Get annotations compatible with Python 3.14's deferred annotations."""
 
     if "__annotations__" in params:
         return params["__annotations__"]
