@@ -12,6 +12,26 @@ if TYPE_CHECKING:
     from ._typing import IEventsTarget, IServerMethodFunc  # noqa
     from .protocol import Peer
 
+try:
+    # annotationlib introduced in Python 3.14 to introspect annotations
+    import annotationlib
+except ImportError:
+    annotationlib = None
+
+
+def _get_annotations(params: dict):
+    """Get annotations that is compatible with Python 3.14's deferred annotations."""
+
+    if "__annotations__" in params:
+        return params["__annotations__"]
+    elif annotationlib is not None:
+        annotate = annotationlib.get_annotate_from_class_namespace(params)
+        return annotationlib.call_annotate_function(
+            annotate, format=annotationlib.Format.FORWARDREF
+        )
+    else:
+        return {}
+
 
 class _Event:
     __slots__ = ('__interrupted__',)
@@ -41,7 +61,7 @@ _EventType = TypeVar('_EventType', bound=_Event)
 class _EventMeta(type):
 
     def __new__(mcs, name, bases, params):  # type: ignore
-        annotations = params.get('__annotations__') or {}
+        annotations = _get_annotations(params)
         payload = params.get('__payload__') or ()
         params['__slots__'] = tuple(name for name in annotations)
         params['__readonly__'] = frozenset(name for name in annotations
