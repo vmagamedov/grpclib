@@ -28,7 +28,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - run:
+    - run: |
         if [[ "${{ matrix.python-version }}" == "3.14" ]]; then
           echo "REQUIREMENTS=requirements/test_314.txt" >> $GITHUB_ENV
         else
