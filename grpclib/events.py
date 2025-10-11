@@ -19,11 +19,11 @@ except ImportError:
     annotationlib = None  # type: ignore
 
 
-def _get_annotations(params: dict[str, Any]) -> dict[str, Any]:
+def _get_annotations(params: Dict[str, Any]) -> Dict[str, Any]:
     """Get annotations compatible with Python 3.14's deferred annotations."""
 
     if "__annotations__" in params:
-        annotations: dict[str, Any] = params["__annotations__"]
+        annotations: Dict[str, Any] = params["__annotations__"]
         return annotations
     elif annotationlib is not None:
         annotate = annotationlib.get_annotate_from_class_namespace(params)
