@@ -92,7 +92,7 @@ async def main():
         await server.wait_closed()
 
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
 """
 
 
@@ -125,7 +125,7 @@ async def main():
         await asyncio.sleep(10)
 
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
 """
 
 
