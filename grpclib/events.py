@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from ._typing import IEventsTarget, IServerMethodFunc  # noqa
     from .protocol import Peer
 
-annotationlib: Optional[ModuleType]
 try:
     # annotationlib introduced in Python 3.14 to introspect annotations
     import annotationlib
