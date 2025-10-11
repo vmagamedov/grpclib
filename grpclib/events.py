@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Type, TypeVar, Tuple, FrozenSet, Dict
 from typing import Optional, Callable, Any, Collection, List, Coroutine
+from types import ModuleType
 from itertools import chain
 from collections import defaultdict
 
@@ -12,26 +13,29 @@ if TYPE_CHECKING:
     from ._typing import IEventsTarget, IServerMethodFunc  # noqa
     from .protocol import Peer
 
+annotationlib: Optional[ModuleType]
 try:
     # annotationlib introduced in Python 3.14 to introspect annotations
     import annotationlib
 except ImportError:
-    annotationlib = None  # type: ignore
+    annotationlib = None
 
 
 def _get_annotations(params: Dict[str, Any]) -> Dict[str, Any]:
     """Get annotations compatible with Python 3.14's deferred annotations."""
 
+    annotations: Dict[str, Any]
     if "__annotations__" in params:
-        annotations: Dict[str, Any] = params["__annotations__"]
+        annotations = params["__annotations__"]
         return annotations
     elif annotationlib is not None:
         annotate = annotationlib.get_annotate_from_class_namespace(params)
         if annotate is None:
             return {}
-        return annotationlib.call_annotate_function(
+        annotations = annotationlib.call_annotate_function(
             annotate, format=annotationlib.Format.FORWARDREF
         )
+        return annotations
     else:
         return {}
 
