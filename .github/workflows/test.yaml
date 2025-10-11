@@ -25,15 +25,22 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
     steps:
     - uses: actions/checkout@v4
+    - run:
+        if [[ "${{ matrix.python-version }}" == "3.14 "]]; then
+          echo "REQUIREMENTS=requirements/test_314.txt" >> $GITHUB_ENV
+        else
+          echo "REQUIREMENTS=requirements/test.txt" >> $GITHUB_ENV
+        fi
     - uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: pip-${{ matrix.python-version }}-${{ hashFiles('requirements/test.txt') }}
+        key: pip-${{ matrix.python-version }}-${{ hashFiles( env.REQUIREMENTS )) }}
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - run: pip3 install -r requirements/test.txt
+    - run: pip3 install -r ${{ env.REQUIREMENTS }}
     - run: pip3 install -e .
     - run: pytest
