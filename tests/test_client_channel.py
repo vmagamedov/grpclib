@@ -1,5 +1,4 @@
 import ssl
-import sys
 import asyncio
 import tempfile
 import contextlib
