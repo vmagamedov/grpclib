@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, Type, TypeVar, Tuple, FrozenSet, Dict
 from typing import Optional, Callable, Any, Collection, List, Coroutine
-from types import ModuleType
 from itertools import chain
 from collections import defaultdict
 
