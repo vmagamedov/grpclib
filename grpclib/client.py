@@ -679,18 +679,7 @@ class Channel:
 
         self._host = host
         self._port = port
-        if loop is None:
-            try:
-                self._loop = asyncio.get_event_loop()
-            except RuntimeError:
-                # In Python 3.14, if there is no event loop, then
-                # `get_event_loop` will raise an error and not create an
-                # event loop. To reproduce pre 3.14 behavior, we'll create
-                # one here.
-                self._loop = asyncio.new_event_loop()
-        else:
-            self._loop = loop
-
+        self._loop = loop or asyncio.get_event_loop()
         self._path = path
         self._codec = codec
         self._status_details_codec = status_details_codec
