@@ -5,37 +5,13 @@ from collections import defaultdict
 
 from .const import Status
 from .metadata import Deadline, _Metadata
+from ._compat import get_annotations
 
 
 if TYPE_CHECKING:
     from .stream import _SendType, _RecvType
     from ._typing import IEventsTarget, IServerMethodFunc  # noqa
     from .protocol import Peer
-
-try:
-    # annotationlib introduced in Python 3.14 to introspect annotations
-    import annotationlib
-except ImportError:
-    annotationlib = None
-
-
-def _get_annotations(params: Dict[str, Any]) -> Dict[str, Any]:
-    """Get annotations compatible with Python 3.14's deferred annotations."""
-
-    annotations: Dict[str, Any]
-    if "__annotations__" in params:
-        annotations = params["__annotations__"]
-        return annotations
-    elif annotationlib is not None:
-        annotate = annotationlib.get_annotate_from_class_namespace(params)
-        if annotate is None:
-            return {}
-        annotations = annotationlib.call_annotate_function(
-            annotate, format=annotationlib.Format.FORWARDREF
-        )
-        return annotations
-    else:
-        return {}
 
 
 class _Event:
@@ -66,7 +42,7 @@ _EventType = TypeVar('_EventType', bound=_Event)
 class _EventMeta(type):
 
     def __new__(mcs, name, bases, params):  # type: ignore
-        annotations = _get_annotations(params)
+        annotations = get_annotations(params)
         payload = params.get('__payload__') or ()
         params['__slots__'] = tuple(name for name in annotations)
         params['__readonly__'] = frozenset(name for name in annotations
