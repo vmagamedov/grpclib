@@ -27,8 +27,8 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
           - requirements: "requirements/test.txt"
-          - python-version: "3.8"
-            requirements: "requirements/test_38.txt"
+          - python-version: "3.14"
+            requirements: "requirements/test_314.txt"
     steps:
     - uses: actions/checkout@v4
     - uses: actions/cache@v4
