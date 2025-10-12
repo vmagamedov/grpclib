@@ -7,7 +7,8 @@ PY314 = sys.version_info >= (3, 14)
 def get_annotations(params: Dict[str, Any]) -> Dict[str, Any]:
     """Get annotations compatible with Python 3.14's deferred annotations."""
 
-    # Recipe from https://docs.python.org/3.14/library/annotationlib.html#recipes
+    # This recipe was inferred from
+    # https://docs.python.org/3.14/library/annotationlib.html#recipes
     annotations: Dict[str, Any]
     if "__annotations__" in params:
         annotations = params["__annotations__"]
