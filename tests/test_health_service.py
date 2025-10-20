@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-import async_timeout
 
 from grpclib.const import Status
 from grpclib.testing import ChannelFor
@@ -110,7 +109,7 @@ async def test_watch_unknown_service():
                 status=HealthCheckResponse.SERVICE_UNKNOWN,
             )
             try:
-                async with async_timeout.timeout(0.01):
+                async with asyncio.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass
@@ -131,7 +130,7 @@ async def test_watch_zero_checks():
                 status=HealthCheckResponse.SERVING,
             )
             try:
-                async with async_timeout.timeout(0.01):
+                async with asyncio.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass
@@ -158,7 +157,7 @@ async def test_watch_service_check():
 
             # check that there are no unnecessary messages
             try:
-                async with async_timeout.timeout(0.01):
+                async with asyncio.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass
@@ -217,7 +216,7 @@ async def test_watch_service_status():
             # changed
             s1.set(True)
             try:
-                async with async_timeout.timeout(0.01):
+                async with asyncio.timeout(0.01):
                     assert not await stream.recv_message()
             except asyncio.TimeoutError:
                 pass

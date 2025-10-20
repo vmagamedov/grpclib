@@ -3,7 +3,6 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
-import async_timeout
 import pytest_asyncio
 
 from faker import Faker
@@ -204,12 +203,12 @@ async def test_deadline_during_send_request():
     cs = ClientStream(timeout=0.01, connect_time=1,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        async with async_timeout.timeout(5) as safety_timeout:
+        async with asyncio.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 try:
                     await stream.send_request()
                 except asyncio.TimeoutError:
-                    if safety_timeout.expired:
+                    if safety_timeout.expired():
                         raise
                     else:
                         raise ErrorDetected()
@@ -220,7 +219,7 @@ async def test_deadline_during_send_message():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        async with async_timeout.timeout(5) as safety_timeout:
+        async with asyncio.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_request()
 
@@ -229,7 +228,7 @@ async def test_deadline_during_send_message():
                     await stream.send_message(DummyRequest(value='ping'),
                                               end=True)
                 except asyncio.TimeoutError:
-                    if safety_timeout.expired:
+                    if safety_timeout.expired():
                         raise
                     else:
                         raise ErrorDetected()
@@ -240,7 +239,7 @@ async def test_deadline_during_recv_initial_metadata():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        async with async_timeout.timeout(5) as safety_timeout:
+        async with asyncio.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_message(DummyRequest(value='ping'),
                                           end=True)
@@ -248,7 +247,7 @@ async def test_deadline_during_recv_initial_metadata():
                 try:
                     await stream.recv_initial_metadata()
                 except asyncio.TimeoutError:
-                    if safety_timeout.expired:
+                    if safety_timeout.expired():
                         raise
                     else:
                         raise ErrorDetected()
@@ -259,7 +258,7 @@ async def test_deadline_during_recv_message():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        async with async_timeout.timeout(5) as safety_timeout:
+        async with asyncio.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_message(DummyRequest(value='ping'), end=True)
 
@@ -276,7 +275,7 @@ async def test_deadline_during_recv_message():
                 try:
                     await stream.recv_message()
                 except asyncio.TimeoutError:
-                    if safety_timeout.expired:
+                    if safety_timeout.expired():
                         raise
                     else:
                         raise ErrorDetected()
@@ -287,7 +286,7 @@ async def test_deadline_during_recv_trailing_metadata():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        async with async_timeout.timeout(5) as safety_timeout:
+        async with asyncio.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_message(DummyRequest(value='ping'), end=True)
 
@@ -312,7 +311,7 @@ async def test_deadline_during_recv_trailing_metadata():
                 try:
                     await stream.recv_trailing_metadata()
                 except asyncio.TimeoutError:
-                    if safety_timeout.expired:
+                    if safety_timeout.expired():
                         raise
                     else:
                         raise ErrorDetected()
@@ -323,7 +322,7 @@ async def test_deadline_during_cancel():
     cs = ClientStream(timeout=0.01,
                       send_type=DummyRequest, recv_type=DummyReply)
     with pytest.raises(ErrorDetected):
-        async with async_timeout.timeout(5) as safety_timeout:
+        async with asyncio.timeout(5) as safety_timeout:
             async with cs.client_stream as stream:
                 await stream.send_request()
 
@@ -331,7 +330,7 @@ async def test_deadline_during_cancel():
                 try:
                     await stream.cancel()
                 except asyncio.TimeoutError:
-                    if safety_timeout.expired:
+                    if safety_timeout.expired():
                         raise
                     else:
                         raise ErrorDetected()
