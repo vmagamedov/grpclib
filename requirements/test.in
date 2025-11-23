@@ -3,4 +3,5 @@ pytest
 pytest-cov
 pytest-asyncio
 async_timeout
+backports-asyncio-runner; python_version < '3.11'
 faker

@@ -433,7 +433,7 @@ class Stream(StreamIterator[_RecvType], Generic[_SendType, _RecvType]):
                 self._messages_received += 1
                 self._stream.connection.messages_received += 1
                 self._stream.connection.last_message_received = time.monotonic()
-                return message
+                return message  # type: ignore[no-any-return]
             else:
                 return None
 

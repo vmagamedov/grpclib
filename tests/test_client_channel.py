@@ -48,7 +48,8 @@ async def test_concurrent_connect(loop):
     )
 
 
-def test_default_ssl_context():
+@pytest.mark.asyncio
+async def test_default_ssl_context():
     with patch.object(certifi, "where", return_value=certifi.where()) as po:
         certifi_channel = Channel(ssl=True)
         assert certifi_channel._ssl
@@ -80,7 +81,8 @@ async def test_ssl_target_name_override(loop):
             )
 
 
-def test_default_verify_paths():
+@pytest.mark.asyncio
+async def test_default_verify_paths():
     with contextlib.ExitStack() as cm:
         tf = cm.enter_context(tempfile.NamedTemporaryFile()).name
         td = cm.enter_context(tempfile.TemporaryDirectory())
@@ -98,7 +100,8 @@ def test_default_verify_paths():
         assert default_verify_paths.openssl_capath_env == "SSL_CERT_DIR"
 
 
-def test_no_ssl_support():
+@pytest.mark.asyncio
+async def test_no_ssl_support():
     with patch.object(grpclib.client, "_ssl", None):
         Channel()
         with pytest.raises(RuntimeError) as err:

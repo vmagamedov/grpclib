@@ -186,7 +186,7 @@ class Connection:
         self.stream_close_waiter = Event()
 
     def feed(self, data: bytes) -> List[H2Event]:
-        return self._connection.receive_data(data)  # type: ignore
+        return self._connection.receive_data(data)
 
     def ack(self, stream_id: int, size: int) -> None:
         if size:
@@ -414,6 +414,7 @@ class Stream:
         self.connection.headers_send_process()
 
     async def send_data(self, data: bytes, end_stream: bool = False) -> None:
+        assert self.id is not None
         f = BytesIO(data)
         f_pos, f_last = 0, len(data)
 
@@ -450,11 +451,13 @@ class Stream:
                 self.connection.data_send_process()
 
     async def end(self) -> None:
+        assert self.id is not None
         await self.connection.write_ready.wait()
         self._h2_connection.end_stream(self.id)
         self._transport.write(self._h2_connection.data_to_send())
 
     async def reset(self, error_code: ErrorCodes = ErrorCodes.NO_ERROR) -> None:
+        assert self.id is not None
         await self.connection.write_ready.wait()
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         self._transport.write(self._h2_connection.data_to_send())
@@ -463,6 +466,7 @@ class Stream:
         self,
         error_code: ErrorCodes = ErrorCodes.NO_ERROR,
     ) -> None:
+        assert self.id is not None
         self._h2_connection.reset_stream(self.id, error_code=error_code)
         if self.connection.write_ready.is_set():
             self._transport.write(self._h2_connection.data_to_send())
@@ -476,6 +480,7 @@ class Stream:
 
     @property
     def closable(self) -> bool:
+        assert self.id is not None
         if self._transport.is_closing():
             return False
         if self._h2_connection.state_machine.state is ConnectionState.CLOSED:
@@ -569,18 +574,22 @@ class EventsProcessor:
         except AttributeError:
             pass  # connection was closed and self.processors was deleted
         else:
-            proc(event)
+            proc(event)  # type: ignore[operator]
 
     def process_request_received(self, event: RequestReceived) -> None:
         stream = self.connection.create_stream(stream_id=event.stream_id)
         release_stream = self.register(stream)
-        self.handler.accept(stream, event.headers, release_stream)
+        self.handler.accept(
+            stream,
+            event.headers,  # type: ignore[arg-type]
+            release_stream,
+        )
         # TODO: check EOF
 
     def process_response_received(self, event: ResponseReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.headers = event.headers
+            stream.headers = event.headers  # type: ignore[assignment]
             stream.headers_received.set()
 
     def process_remote_settings_changed(
@@ -626,7 +635,7 @@ class EventsProcessor:
     def process_trailers_received(self, event: TrailersReceived) -> None:
         stream = self.streams.get(event.stream_id)
         if stream is not None:
-            stream.trailers = event.headers
+            stream.trailers = event.headers  # type: ignore[assignment]
             stream.trailers_received.set()
 
     def process_stream_ended(self, event: StreamEnded) -> None:
