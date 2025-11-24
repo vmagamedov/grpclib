@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from .const import Status
 from .metadata import Deadline, _Metadata
+from ._compat import get_annotations
 
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ _EventType = TypeVar('_EventType', bound=_Event)
 class _EventMeta(type):
 
     def __new__(mcs, name, bases, params):  # type: ignore
-        annotations = params.get('__annotations__') or {}
+        annotations = get_annotations(params)
         payload = params.get('__payload__') or ()
         params['__slots__'] = tuple(name for name in annotations)
         params['__readonly__'] = frozenset(name for name in annotations
