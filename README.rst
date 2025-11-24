@@ -2,7 +2,7 @@ Pure-Python gRPC implementation for asyncio
 ===========================================
 
 .. image:: https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/7e1631d13476f1e870af0d5605b643fc14471a6d/banner-direct-single.svg
-  :target: https://standforukraine.com
+  :target: https://savelife.in.ua/en/
 
 |project|_ |documentation|_ |version|_ |tag|_ |downloads|_ |license|_
 
