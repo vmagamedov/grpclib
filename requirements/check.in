@@ -3,4 +3,3 @@ grpcio-tools
 mypy
 mypy-protobuf
 flake8
-types-certifi
