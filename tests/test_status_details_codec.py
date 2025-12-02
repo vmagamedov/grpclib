@@ -34,11 +34,12 @@ class ServiceType2(DummyService):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('svc_type', [ServiceType1, ServiceType2])
-async def test_send_trailing_metadata(loop, svc_type):
+@pytest.mark.parametrize('status_details_codec', [ProtoStatusDetailsCodec(), None])
+async def test_send_trailing_metadata(loop, svc_type, status_details_codec):
     async with ChannelFor(
         [svc_type()],
         codec=ProtoCodec(),
-        status_details_codec=ProtoStatusDetailsCodec(),
+        status_details_codec=status_details_codec,
     ) as channel:
         stub = DummyServiceStub(channel)
         with pytest.raises(GRPCError) as error:
