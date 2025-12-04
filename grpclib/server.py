@@ -606,8 +606,9 @@ class Server(_GC):
 
         if codec is None:
             codec = ProtoCodec()
-            if status_details_codec is None and _googleapis_available():
-                status_details_codec = ProtoStatusDetailsCodec()
+
+        if status_details_codec is None and _googleapis_available():
+            status_details_codec = ProtoStatusDetailsCodec()
 
         self._codec = codec
         self._status_details_codec = status_details_codec

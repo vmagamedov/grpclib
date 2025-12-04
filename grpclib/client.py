@@ -669,8 +669,9 @@ class Channel:
 
         if codec is None:
             codec = ProtoCodec()
-            if status_details_codec is None and _googleapis_available():
-                status_details_codec = ProtoStatusDetailsCodec()
+
+        if status_details_codec is None and _googleapis_available():
+            status_details_codec = ProtoStatusDetailsCodec()
 
         if loop:
             warnings.warn("The loop argument is deprecated and scheduled "
