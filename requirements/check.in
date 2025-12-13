@@ -1,5 +1,5 @@
 -r runtime.in
-grpcio-tools
+grpcio-tools==1.62.1
 mypy
-mypy-protobuf
+mypy-protobuf==3.6.0
 flake8

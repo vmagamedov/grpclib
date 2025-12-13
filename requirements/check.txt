@@ -8,21 +8,22 @@ certifi==2025.11.12       # via -r requirements/runtime.in
 flake8==7.3.0             # via -r requirements/check.in
 googleapis-common-protos==1.72.0  # via -r requirements/runtime.in
 grpcio==1.76.0            # via grpcio-tools
-grpcio-tools==1.76.0      # via -r requirements/check.in
+grpcio-tools==1.62.1      # via -r requirements/check.in
 h2==4.3.0                 # via -r setup.txt
 hpack==4.1.0              # via -r setup.txt, h2
 hyperframe==6.1.0         # via -r setup.txt, h2
+librt==0.7.3              # via mypy
 mccabe==0.7.0             # via flake8
 multidict==6.7.0          # via -r setup.txt
-mypy==1.18.2              # via -r requirements/check.in
+mypy==1.19.0              # via -r requirements/check.in
 mypy-extensions==1.1.0    # via mypy
-mypy-protobuf==3.7.0      # via -r requirements/check.in
+mypy-protobuf==3.6.0      # via -r requirements/check.in
 pathspec==0.12.1          # via mypy
-protobuf==6.33.1          # via -r requirements/runtime.in, googleapis-common-protos, grpcio-tools, mypy-protobuf
+protobuf==4.25.8          # via -r requirements/runtime.in, googleapis-common-protos, grpcio-tools, mypy-protobuf
 pycodestyle==2.14.0       # via flake8
 pyflakes==3.4.0           # via flake8
 tomli==2.3.0              # via mypy
-types-protobuf==6.32.1.20251105  # via mypy-protobuf
+types-protobuf==6.32.1.20251210  # via mypy-protobuf
 typing-extensions==4.15.0  # via -r setup.txt, grpcio, multidict, mypy
 
 # The following packages are considered to be unsafe in a requirements file:

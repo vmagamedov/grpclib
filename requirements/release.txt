@@ -9,7 +9,7 @@ certifi==2025.11.12       # via requests
 charset-normalizer==3.4.4  # via requests
 docutils==0.22.3          # via readme-renderer
 grpcio==1.76.0            # via grpcio-tools
-grpcio-tools==1.76.0      # via -r requirements/release.in
+grpcio-tools==1.62.1      # via -r requirements/release.in
 h2==4.3.0                 # via -r setup.txt
 hpack==4.1.0              # via -r setup.txt, h2
 hyperframe==6.1.0         # via -r setup.txt, h2
@@ -24,10 +24,10 @@ markdown-it-py==4.0.0     # via rich
 mdurl==0.1.2              # via markdown-it-py
 more-itertools==10.8.0    # via jaraco-classes, jaraco-functools
 multidict==6.7.0          # via -r setup.txt
-mypy-protobuf==3.7.0      # via -r requirements/release.in
+mypy-protobuf==3.6.0      # via -r requirements/release.in
 nh3==0.3.2                # via readme-renderer
 packaging==25.0           # via twine
-protobuf==6.33.1          # via grpcio-tools, mypy-protobuf
+protobuf==4.25.8          # via grpcio-tools, mypy-protobuf
 pygments==2.19.2          # via readme-renderer, rich
 readme-renderer==44.0     # via twine
 requests==2.32.5          # via id, requests-toolbelt, twine
@@ -35,9 +35,9 @@ requests-toolbelt==1.0.0  # via twine
 rfc3986==2.0.0            # via twine
 rich==14.2.0              # via twine
 twine==6.2.0              # via -r requirements/release.in
-types-protobuf==6.32.1.20251105  # via mypy-protobuf
+types-protobuf==6.32.1.20251210  # via mypy-protobuf
 typing-extensions==4.15.0  # via -r setup.txt, grpcio, multidict
-urllib3==2.5.0            # via requests, twine
+urllib3==2.6.2            # via requests, twine
 wheel==0.45.1             # via -r requirements/release.in
 zipp==3.23.0              # via importlib-metadata
 
