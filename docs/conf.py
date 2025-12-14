@@ -14,8 +14,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = 'grpclib'
-copyright = '2019, Vladimir Magamedov'
-author = 'Vladimir Magamedov'
+copyright = '2019, Volodymyr Magamedov'
+author = 'Volodymyr Magamedov'
 
 templates_path = []
 
