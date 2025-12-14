@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.4.9
+~~~~~
+
+  - Added Python 3.14 support; pull request courtesy Thomas J. Fan @thomasjpfan
+  - Dropped Python 3.8 and 3.9 support
+  - Added support for a custom ``DescriptorPool`` for the server reflection
+    (#204); pull request courtesy Eric Daniels @edaniels
+
 0.4.8
 ~~~~~
 
