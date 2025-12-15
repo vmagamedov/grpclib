@@ -22,6 +22,7 @@ _CARDINALITY = {
     (True, True): const.Cardinality.STREAM_STREAM,
 }
 
+_PB2_MODULE_PREFIX_PARAMETER_KEY = 'pb2_module_prefix'
 
 class Method(NamedTuple):
     name: str
@@ -174,8 +175,9 @@ def _base_module_name(proto_file_path: str) -> str:
     return basename.replace("-", "_").replace("/", ".")
 
 
+_pb2_module_prefix: str = ''
 def _proto2pb2_module_name(proto_file_path: str) -> str:
-    return _base_module_name(proto_file_path) + "_pb2"
+    return _pb2_module_prefix + _base_module_name(proto_file_path) + "_pb2"
 
 
 def _proto2grpc_module_name(proto_file_path: str) -> str:
@@ -208,9 +210,18 @@ def _type_names(
     parents.pop()
 
 
+def _populate_config(request_parameter: str):
+    global _pb2_module_prefix
+    config = dict(item.split("=") for item in request_parameter.split(','))
+    if config.get(_PB2_MODULE_PREFIX_PARAMETER_KEY):
+        _pb2_module_prefix = config[_PB2_MODULE_PREFIX_PARAMETER_KEY]
+
+
 def main() -> None:
     with os.fdopen(sys.stdin.fileno(), 'rb') as inp:
         request = CodeGeneratorRequest.FromString(inp.read())
+
+    _populate_config(request.parameter)
 
     types_map: Dict[str, str] = {}
     for pf in request.proto_file:
