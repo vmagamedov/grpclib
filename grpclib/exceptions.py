@@ -1,6 +1,13 @@
-from typing import Optional, Any
+from typing import Optional, Any, Dict
+from dataclasses import dataclass, field
 
 from .const import Status
+
+
+@dataclass(frozen=True)
+class HTTPDetails:
+    status: str = field(default="")
+    headers: Dict[str, str] = field(default_factory=dict)
 
 
 class GRPCError(Exception):
@@ -26,11 +33,13 @@ class GRPCError(Exception):
         `(e.g. server returned unsupported` ``:content-type`` `header)`
 
     """
+
     def __init__(
-        self,
-        status: Status,
-        message: Optional[str] = None,
-        details: Any = None,
+            self,
+            status: Status,
+            message: Optional[str] = None,
+            details: Any = None,
+            http_details: HTTPDetails = None
     ) -> None:
         super().__init__(status, message, details)
         #: :py:class:`~grpclib.const.Status` of the error
@@ -39,6 +48,8 @@ class GRPCError(Exception):
         self.message = message
         #: Error details
         self.details = details
+        #: Http details
+        self.http_details = http_details
 
 
 class ProtocolError(Exception):
